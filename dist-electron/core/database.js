@@ -1,0 +1,262 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getDatabasePath = getDatabasePath;
+exports.initDatabase = initDatabase;
+exports.getDatabase = getDatabase;
+exports.closeDatabase = closeDatabase;
+exports.upsertNote = upsertNote;
+exports.getNoteByDate = getNoteByDate;
+exports.deleteNote = deleteNote;
+exports.getOrCreateTag = getOrCreateTag;
+exports.getTagByName = getTagByName;
+exports.getAllTags = getAllTags;
+exports.updateTagPrompt = updateTagPrompt;
+exports.deleteTag = deleteTag;
+exports.addTagOccurrence = addTagOccurrence;
+exports.deleteOccurrencesForNote = deleteOccurrencesForNote;
+exports.getOccurrencesForTag = getOccurrencesForTag;
+exports.getTagsWithCounts = getTagsWithCounts;
+exports.getCachedCode = getCachedCode;
+exports.setCachedCode = setCachedCode;
+exports.getSetting = getSetting;
+exports.setSetting = setSetting;
+exports.deleteSetting = deleteSetting;
+const better_sqlite3_1 = __importDefault(require("better-sqlite3"));
+const path_1 = __importDefault(require("path"));
+const file_manager_1 = require("./file-manager");
+const DB_NAME = 'chynotes.db';
+let db = null;
+/**
+ * Get the database file path
+ */
+function getDatabasePath() {
+    return path_1.default.join((0, file_manager_1.getChynotesDirectory)(), DB_NAME);
+}
+/**
+ * Initialize the database connection and create tables if needed
+ */
+function initDatabase() {
+    if (db)
+        return db;
+    const dbPath = getDatabasePath();
+    db = new better_sqlite3_1.default(dbPath);
+    // Enable WAL mode for better concurrent performance
+    db.pragma('journal_mode = WAL');
+    // Create tables
+    createTables(db);
+    return db;
+}
+/**
+ * Get the database instance (must call initDatabase first)
+ */
+function getDatabase() {
+    if (!db) {
+        throw new Error('Database not initialized. Call initDatabase() first.');
+    }
+    return db;
+}
+/**
+ * Close the database connection
+ */
+function closeDatabase() {
+    if (db) {
+        db.close();
+        db = null;
+    }
+}
+/**
+ * Create all required tables
+ */
+function createTables(database) {
+    database.exec(`
+    -- Notes metadata (content stays in markdown files)
+    CREATE TABLE IF NOT EXISTS notes (
+      id INTEGER PRIMARY KEY,
+      date TEXT NOT NULL UNIQUE,
+      file_hash TEXT,
+      updated_at INTEGER
+    );
+
+    -- Canonical tag names
+    CREATE TABLE IF NOT EXISTS tags (
+      id INTEGER PRIMARY KEY,
+      name TEXT UNIQUE NOT NULL,
+      prompt TEXT,
+      created_at INTEGER
+    );
+
+    -- Where tags appear in notes
+    CREATE TABLE IF NOT EXISTS tag_occurrences (
+      id INTEGER PRIMARY KEY,
+      tag_id INTEGER REFERENCES tags(id) ON DELETE CASCADE,
+      note_id INTEGER REFERENCES notes(id) ON DELETE CASCADE,
+      line INTEGER,
+      content TEXT,
+      UNIQUE(tag_id, note_id, line)
+    );
+
+    -- Generated code cache
+    CREATE TABLE IF NOT EXISTS cache (
+      id INTEGER PRIMARY KEY,
+      tag_id INTEGER REFERENCES tags(id) ON DELETE CASCADE,
+      content_hash TEXT,
+      generated_code TEXT,
+      created_at INTEGER
+    );
+
+    -- App settings
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+
+    -- Create indexes for faster queries
+    CREATE INDEX IF NOT EXISTS idx_notes_date ON notes(date);
+    CREATE INDEX IF NOT EXISTS idx_tag_name ON tags(name);
+    CREATE INDEX IF NOT EXISTS idx_occurrence_tag ON tag_occurrences(tag_id);
+    CREATE INDEX IF NOT EXISTS idx_occurrence_note ON tag_occurrences(note_id);
+    CREATE INDEX IF NOT EXISTS idx_cache_tag ON cache(tag_id);
+  `);
+}
+function upsertNote(date, fileHash) {
+    const db = getDatabase();
+    const now = Date.now();
+    const stmt = db.prepare(`
+    INSERT INTO notes (date, file_hash, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(date) DO UPDATE SET
+      file_hash = excluded.file_hash,
+      updated_at = excluded.updated_at
+    RETURNING *
+  `);
+    return stmt.get(date, fileHash, now);
+}
+function getNoteByDate(date) {
+    const db = getDatabase();
+    const stmt = db.prepare('SELECT * FROM notes WHERE date = ?');
+    return stmt.get(date);
+}
+function deleteNote(date) {
+    const db = getDatabase();
+    const stmt = db.prepare('DELETE FROM notes WHERE date = ?');
+    stmt.run(date);
+}
+function getOrCreateTag(name) {
+    const db = getDatabase();
+    const now = Date.now();
+    // Try to get existing tag
+    let tag = db.prepare('SELECT * FROM tags WHERE name = ?').get(name);
+    if (!tag) {
+        // Create new tag
+        const stmt = db.prepare(`
+      INSERT INTO tags (name, created_at)
+      VALUES (?, ?)
+      RETURNING *
+    `);
+        tag = stmt.get(name, now);
+    }
+    return tag;
+}
+function getTagByName(name) {
+    const db = getDatabase();
+    const stmt = db.prepare('SELECT * FROM tags WHERE name = ?');
+    return stmt.get(name);
+}
+function getAllTags() {
+    const db = getDatabase();
+    const stmt = db.prepare('SELECT * FROM tags ORDER BY name');
+    return stmt.all();
+}
+function updateTagPrompt(tagId, prompt) {
+    const db = getDatabase();
+    const stmt = db.prepare('UPDATE tags SET prompt = ? WHERE id = ?');
+    stmt.run(prompt, tagId);
+}
+function deleteTag(tagId) {
+    const db = getDatabase();
+    const stmt = db.prepare('DELETE FROM tags WHERE id = ?');
+    stmt.run(tagId);
+}
+function addTagOccurrence(tagId, noteId, line, content) {
+    const db = getDatabase();
+    const stmt = db.prepare(`
+    INSERT OR REPLACE INTO tag_occurrences (tag_id, note_id, line, content)
+    VALUES (?, ?, ?, ?)
+  `);
+    stmt.run(tagId, noteId, line, content);
+}
+function deleteOccurrencesForNote(noteId) {
+    const db = getDatabase();
+    const stmt = db.prepare('DELETE FROM tag_occurrences WHERE note_id = ?');
+    stmt.run(noteId);
+}
+function getOccurrencesForTag(tagName) {
+    const db = getDatabase();
+    const stmt = db.prepare(`
+    SELECT t.name as tag_name, n.date, o.line, o.content
+    FROM tag_occurrences o
+    JOIN tags t ON o.tag_id = t.id
+    JOIN notes n ON o.note_id = n.id
+    WHERE t.name = ?
+    ORDER BY n.date DESC, o.line ASC
+  `);
+    return stmt.all(tagName);
+}
+function getTagsWithCounts() {
+    const db = getDatabase();
+    const stmt = db.prepare(`
+    SELECT t.id, t.name, t.prompt, COUNT(o.id) as count
+    FROM tags t
+    LEFT JOIN tag_occurrences o ON t.id = o.tag_id
+    GROUP BY t.id
+    ORDER BY t.name
+  `);
+    return stmt.all();
+}
+function getCachedCode(tagId, contentHash) {
+    const db = getDatabase();
+    const stmt = db.prepare(`
+    SELECT generated_code FROM cache
+    WHERE tag_id = ? AND content_hash = ?
+  `);
+    const result = stmt.get(tagId, contentHash);
+    return result?.generated_code ?? null;
+}
+function setCachedCode(tagId, contentHash, code) {
+    const db = getDatabase();
+    const now = Date.now();
+    // Delete old cache entries for this tag
+    db.prepare('DELETE FROM cache WHERE tag_id = ?').run(tagId);
+    // Insert new cache entry
+    const stmt = db.prepare(`
+    INSERT INTO cache (tag_id, content_hash, generated_code, created_at)
+    VALUES (?, ?, ?, ?)
+  `);
+    stmt.run(tagId, contentHash, code, now);
+}
+// ============================================================================
+// Settings Table Operations
+// ============================================================================
+function getSetting(key) {
+    const db = getDatabase();
+    const stmt = db.prepare('SELECT value FROM settings WHERE key = ?');
+    const result = stmt.get(key);
+    return result?.value ?? null;
+}
+function setSetting(key, value) {
+    const db = getDatabase();
+    const stmt = db.prepare(`
+    INSERT INTO settings (key, value)
+    VALUES (?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value
+  `);
+    stmt.run(key, value);
+}
+function deleteSetting(key) {
+    const db = getDatabase();
+    const stmt = db.prepare('DELETE FROM settings WHERE key = ?');
+    stmt.run(key);
+}

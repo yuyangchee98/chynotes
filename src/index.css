@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+#root {
+  height: 100vh;
+  width: 100vw;
+}
+
+/* CodeMirror overrides for dark mode */
+@media (prefers-color-scheme: dark) {
+  .cm-editor {
+    background-color: transparent !important;
+  }
+
+  .cm-content {
+    caret-color: #60a5fa !important;
+  }
+
+  .cm-cursor {
+    border-left-color: #60a5fa !important;
+  }
+
+  .cm-activeLine {
+    background-color: rgba(96, 165, 250, 0.05) !important;
+  }
+
+  .cm-tag {
+    color: #60a5fa !important;
+    background-color: rgba(96, 165, 250, 0.15) !important;
+  }
+
+  .cm-wikilink {
+    color: #a78bfa !important;
+  }
+
+  .cm-line {
+    color: #e5e7eb !important;
+  }
+
+  .cm-placeholder {
+    color: #6b7280 !important;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-thumb {
+    background: #4b5563;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+  }
+}

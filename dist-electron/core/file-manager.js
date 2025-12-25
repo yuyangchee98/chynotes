@@ -1,0 +1,200 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getChynotesDirectory = getChynotesDirectory;
+exports.getNotesDirectory = getNotesDirectory;
+exports.ensureNotesDirectory = ensureNotesDirectory;
+exports.ensureNotesDirectorySync = ensureNotesDirectorySync;
+exports.formatDateForFileName = formatDateForFileName;
+exports.getDateFileName = getDateFileName;
+exports.getNotePath = getNotePath;
+exports.getTodayFileName = getTodayFileName;
+exports.parseDateFromFileName = parseDateFromFileName;
+exports.readNote = readNote;
+exports.writeNote = writeNote;
+exports.noteExists = noteExists;
+exports.listAllNotes = listAllNotes;
+exports.deleteNote = deleteNote;
+const fs = __importStar(require("fs/promises"));
+const path = __importStar(require("path"));
+const fs_1 = require("fs");
+const os_1 = require("os");
+const NOTES_DIR_NAME = '.chynotes';
+const NOTES_SUBDIR = 'notes';
+/**
+ * Get the base chynotes directory path
+ */
+function getChynotesDirectory() {
+    return path.join((0, os_1.homedir)(), NOTES_DIR_NAME);
+}
+/**
+ * Get the notes directory path where daily notes are stored
+ */
+function getNotesDirectory() {
+    return path.join(getChynotesDirectory(), NOTES_SUBDIR);
+}
+/**
+ * Ensure the notes directory exists, creating it if necessary
+ */
+async function ensureNotesDirectory() {
+    const notesDir = getNotesDirectory();
+    if (!(0, fs_1.existsSync)(notesDir)) {
+        await fs.mkdir(notesDir, { recursive: true });
+    }
+}
+/**
+ * Ensure the notes directory exists (sync version for initialization)
+ */
+function ensureNotesDirectorySync() {
+    const notesDir = getNotesDirectory();
+    if (!(0, fs_1.existsSync)(notesDir)) {
+        (0, fs_1.mkdirSync)(notesDir, { recursive: true });
+    }
+}
+/**
+ * Format a date as YYYY-MM-DD for file naming
+ */
+function formatDateForFileName(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+/**
+ * Get the file name for a specific date (e.g., "2025-01-16.md")
+ */
+function getDateFileName(date) {
+    return `${formatDateForFileName(date)}.md`;
+}
+/**
+ * Get the full file path for a specific date's note
+ */
+function getNotePath(date) {
+    return path.join(getNotesDirectory(), getDateFileName(date));
+}
+/**
+ * Get today's note file name
+ */
+function getTodayFileName() {
+    return getDateFileName(new Date());
+}
+/**
+ * Parse a date string from a file name (e.g., "2025-01-16.md" -> Date)
+ */
+function parseDateFromFileName(fileName) {
+    const match = fileName.match(/^(\d{4})-(\d{2})-(\d{2})\.md$/);
+    if (!match)
+        return null;
+    const [, year, month, day] = match;
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+}
+/**
+ * Read a note for a specific date
+ * @returns The note content, or null if the file doesn't exist
+ */
+async function readNote(date) {
+    const filePath = getNotePath(date);
+    try {
+        const content = await fs.readFile(filePath, 'utf-8');
+        return content;
+    }
+    catch (error) {
+        if (error.code === 'ENOENT') {
+            return null;
+        }
+        throw error;
+    }
+}
+/**
+ * Write (or overwrite) a note for a specific date
+ */
+async function writeNote(date, content) {
+    await ensureNotesDirectory();
+    const filePath = getNotePath(date);
+    await fs.writeFile(filePath, content, 'utf-8');
+}
+/**
+ * Check if a note exists for a specific date
+ */
+async function noteExists(date) {
+    const filePath = getNotePath(date);
+    try {
+        await fs.access(filePath);
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
+/**
+ * List all note dates in the notes directory
+ * @returns Array of Dates for which notes exist, sorted newest first
+ */
+async function listAllNotes() {
+    const notesDir = getNotesDirectory();
+    try {
+        const files = await fs.readdir(notesDir);
+        const dates = [];
+        for (const file of files) {
+            const date = parseDateFromFileName(file);
+            if (date) {
+                dates.push(date);
+            }
+        }
+        // Sort by date, newest first
+        dates.sort((a, b) => b.getTime() - a.getTime());
+        return dates;
+    }
+    catch (error) {
+        if (error.code === 'ENOENT') {
+            return [];
+        }
+        throw error;
+    }
+}
+/**
+ * Delete a note for a specific date
+ */
+async function deleteNote(date) {
+    const filePath = getNotePath(date);
+    try {
+        await fs.unlink(filePath);
+    }
+    catch (error) {
+        if (error.code !== 'ENOENT') {
+            throw error;
+        }
+    }
+}
