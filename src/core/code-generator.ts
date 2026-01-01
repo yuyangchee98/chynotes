@@ -100,7 +100,7 @@ async function callOllama(prompt: string): Promise<string> {
     throw new Error(`Ollama API error: ${response.status} - ${errorText}`)
   }
 
-  const data = await response.json()
+  const data = await response.json() as { response?: string }
   return data.response || ''
 }
 
@@ -189,8 +189,8 @@ export async function checkOllamaConnection(): Promise<{ ok: boolean; error?: st
       return { ok: false, error: `HTTP ${response.status}` }
     }
 
-    const data = await response.json()
-    const models = data.models?.map((m: { name: string }) => m.name) || []
+    const data = await response.json() as { models?: { name: string }[] }
+    const models = data.models?.map((m) => m.name) || []
 
     return { ok: true, models }
   } catch (err) {

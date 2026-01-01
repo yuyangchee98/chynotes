@@ -100,10 +100,10 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
 
   // Debounced save
   useEffect(() => {
-    if (!window.api || status === 'loading') return
+    if (!window.api) return
 
+    // Skip saving on initial load
     const timeoutId = setTimeout(async () => {
-      setStatus('saving')
       try {
         await window.api.writeNote(date.toISOString(), content)
         setStatus('saved')
@@ -113,7 +113,7 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
     }, 500)
 
     return () => clearTimeout(timeoutId)
-  }, [content, date, status])
+  }, [content, date])
 
   const handleChange = useCallback((value: string) => {
     setContent(value)

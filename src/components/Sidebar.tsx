@@ -6,6 +6,7 @@ interface SidebarProps {
   selectedTag: string | null
   isCollapsed: boolean
   onToggleCollapse: () => void
+  onSettingsClick: () => void
 }
 
 export function Sidebar({
@@ -14,6 +15,7 @@ export function Sidebar({
   selectedTag,
   isCollapsed,
   onToggleCollapse,
+  onSettingsClick,
 }: SidebarProps) {
   const [tags, setTags] = useState<TagTreeNode[]>([])
   const [recentDates, setRecentDates] = useState<string[]>([])
@@ -198,6 +200,7 @@ export function Sidebar({
       {/* Footer */}
       <div className="px-3 py-2 border-t border-gray-200 dark:border-gray-700">
         <button
+          onClick={onSettingsClick}
           className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 rounded-md transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
