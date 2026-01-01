@@ -160,7 +160,8 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
         className="flex-1 overflow-auto px-6 py-4"
         onClick={handleEditorClick}
       >
-        <CodeMirror
+        <div className="max-w-3xl mx-auto">
+          <CodeMirror
           value={content}
           onChange={handleChange}
           extensions={[
@@ -186,6 +187,7 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
           }}
           className="min-h-full"
         />
+        </div>
       </div>
     </div>
   )
