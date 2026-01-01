@@ -23,11 +23,33 @@ exports.getTagDisplayName = getTagDisplayName;
 const HASHTAG_PATTERN = /#([\w\-]+(?:\/[\w\-]+)*)/g;
 // Wiki-link: [[word]] or [[word/subword]]
 const WIKILINK_PATTERN = /\[\[([\w\-]+(?:\/[\w\-]+)*)\]\]/g;
+// Checkbox patterns for implicit todo/done
+const UNCHECKED_CHECKBOX = /^\s*-\s*\[ \]/;
+const CHECKED_CHECKBOX = /^\s*-\s*\[[xX]\]/;
 /**
  * Parse a single line of text for tags
  */
 function parseLineForTags(line, lineNumber) {
     const occurrences = [];
+    // Check for markdown checkboxes (implicit todo/done)
+    if (UNCHECKED_CHECKBOX.test(line)) {
+        occurrences.push({
+            tag: 'todo',
+            line: lineNumber,
+            column: 0,
+            raw: '- [ ]',
+            context: line,
+        });
+    }
+    else if (CHECKED_CHECKBOX.test(line)) {
+        occurrences.push({
+            tag: 'done',
+            line: lineNumber,
+            column: 0,
+            raw: '- [x]',
+            context: line,
+        });
+    }
     // Find hashtags
     let match;
     const hashtagRegex = new RegExp(HASHTAG_PATTERN.source, 'g');
