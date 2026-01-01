@@ -47,6 +47,9 @@ electron_1.contextBridge.exposeInMainWorld('api', {
     setTagPrompt: (tagName, prompt) => {
         return electron_1.ipcRenderer.invoke('set-tag-prompt', tagName, prompt);
     },
+    getCachedCode: (tagName) => {
+        return electron_1.ipcRenderer.invoke('get-cached-code', tagName);
+    },
     // Settings operations
     getSetting: (key) => {
         return electron_1.ipcRenderer.invoke('get-setting', key);

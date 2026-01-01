@@ -309,6 +309,19 @@ export function setCachedCode(tagId: number, contentHash: string, code: string):
   stmt.run(tagId, contentHash, code, now)
 }
 
+export function getCachedCodeByTagName(tagName: string): string | null {
+  const db = getDatabase()
+  const stmt = db.prepare(`
+    SELECT c.generated_code FROM cache c
+    JOIN tags t ON c.tag_id = t.id
+    WHERE t.name = ?
+    ORDER BY c.created_at DESC
+    LIMIT 1
+  `)
+  const result = stmt.get(tagName) as { generated_code: string } | undefined
+  return result?.generated_code ?? null
+}
+
 // ============================================================================
 // Settings Table Operations
 // ============================================================================

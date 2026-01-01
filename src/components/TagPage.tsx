@@ -15,21 +15,31 @@ export function TagPage({ tagName, onTagClick, onBack }: TagPageProps) {
   const [status, setStatus] = useState<GenerationStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const [prompt, setPrompt] = useState<string>('')
-  const [showPromptEditor, setShowPromptEditor] = useState(false)
+  const [editingPrompt, setEditingPrompt] = useState<string>('')
+  const [isEditingPrompt, setIsEditingPrompt] = useState(false)
+  const [promptExpanded, setPromptExpanded] = useState(false)
+  const [codeExpanded, setCodeExpanded] = useState(false)
 
-  // Load occurrences and prompt
+  // Load occurrences, prompt, and cached code
   useEffect(() => {
     const loadData = async () => {
       setStatus('loading')
       if (window.api) {
-        const [results, tagPrompt] = await Promise.all([
+        const [results, tagPrompt, cachedCode] = await Promise.all([
           window.api.getTagOccurrences(tagName),
           window.api.getTagPrompt(tagName),
+          window.api.getCachedCode(tagName),
         ])
         setOccurrences(results)
         setPrompt(tagPrompt)
+        setEditingPrompt(tagPrompt)
+        if (cachedCode) {
+          setGeneratedCode(cachedCode)
+          setStatus('success')
+        } else {
+          setStatus('idle')
+        }
       }
-      setStatus('idle')
     }
     loadData()
   }, [tagName])
@@ -58,8 +68,9 @@ export function TagPage({ tagName, onTagClick, onBack }: TagPageProps) {
   // Save updated prompt
   const handleSavePrompt = async () => {
     if (window.api) {
-      await window.api.setTagPrompt(tagName, prompt)
-      setShowPromptEditor(false)
+      await window.api.setTagPrompt(tagName, editingPrompt)
+      setPrompt(editingPrompt)
+      setIsEditingPrompt(false)
       // Clear generated code so it regenerates with new prompt
       setGeneratedCode(null)
       setStatus('idle')
@@ -139,12 +150,6 @@ export function TagPage({ tagName, onTagClick, onBack }: TagPageProps) {
 
           <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
             <button
-              onClick={() => setShowPromptEditor(!showPromptEditor)}
-              className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md"
-            >
-              Edit Prompt
-            </button>
-            <button
               onClick={handleGenerate}
               disabled={status === 'generating'}
               className="px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white rounded-md flex items-center gap-2"
@@ -157,6 +162,8 @@ export function TagPage({ tagName, onTagClick, onBack }: TagPageProps) {
                   </svg>
                   Generating...
                 </>
+              ) : generatedCode ? (
+                <>Regenerate</>
               ) : (
                 <>Generate View</>
               )}
@@ -168,35 +175,6 @@ export function TagPage({ tagName, onTagClick, onBack }: TagPageProps) {
           {occurrences.length} occurrence{occurrences.length !== 1 ? 's' : ''}
         </p>
       </div>
-
-      {/* Prompt Editor */}
-      {showPromptEditor && (
-        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Prompt for this tag
-          </label>
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            className="w-full h-32 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Describe how this tag page should look and behave..."
-          />
-          <div className="flex justify-end gap-2 mt-2">
-            <button
-              onClick={() => setShowPromptEditor(false)}
-              className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSavePrompt}
-              className="px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-md"
-            >
-              Save Prompt
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Error message */}
       {error && (
@@ -258,6 +236,95 @@ export function TagPage({ tagName, onTagClick, onBack }: TagPageProps) {
             ))}
           </div>
         )}
+
+        {/* Bottom sections - Prompt and Generated Code */}
+        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 space-y-4">
+          {/* Prompt Section */}
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <button
+              onClick={() => setPromptExpanded(!promptExpanded)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Prompt</span>
+              <svg
+                className={`w-4 h-4 text-gray-500 transition-transform ${promptExpanded ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {promptExpanded && (
+              <div className="px-4 py-3 bg-white dark:bg-gray-950">
+                {isEditingPrompt ? (
+                  <div>
+                    <textarea
+                      value={editingPrompt}
+                      onChange={(e) => setEditingPrompt(e.target.value)}
+                      className="w-full h-32 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Describe how this tag page should look and behave..."
+                    />
+                    <div className="flex justify-end gap-2 mt-2">
+                      <button
+                        onClick={() => {
+                          setEditingPrompt(prompt)
+                          setIsEditingPrompt(false)
+                        }}
+                        className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSavePrompt}
+                        className="px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-md"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{prompt}</p>
+                    <button
+                      onClick={() => setIsEditingPrompt(true)}
+                      className="mt-2 text-sm text-blue-500 hover:text-blue-600"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Generated Code Section */}
+          {generatedCode && (
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setCodeExpanded(!codeExpanded)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Generated Code</span>
+                <svg
+                  className={`w-4 h-4 text-gray-500 transition-transform ${codeExpanded ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {codeExpanded && (
+                <div className="px-4 py-3 bg-white dark:bg-gray-950">
+                  <pre className="text-xs text-gray-600 dark:text-gray-400 overflow-x-auto whitespace-pre-wrap font-mono bg-gray-50 dark:bg-gray-900 p-3 rounded">
+                    {generatedCode}
+                  </pre>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

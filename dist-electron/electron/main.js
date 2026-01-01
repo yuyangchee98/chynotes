@@ -91,6 +91,9 @@ electron_1.ipcMain.handle('get-tag-prompt', (_event, tagName) => {
 electron_1.ipcMain.handle('set-tag-prompt', (_event, tagName, prompt) => {
     (0, prompt_manager_1.setPromptForTag)(tagName, prompt);
 });
+electron_1.ipcMain.handle('get-cached-code', (_event, tagName) => {
+    return (0, database_2.getCachedCodeByTagName)(tagName.toLowerCase());
+});
 // Settings IPC handlers
 electron_1.ipcMain.handle('get-setting', (_event, key) => {
     return (0, database_2.getSetting)(key);

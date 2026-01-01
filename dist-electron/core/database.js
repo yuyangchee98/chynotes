@@ -21,6 +21,7 @@ exports.getOccurrencesForTag = getOccurrencesForTag;
 exports.getTagsWithCounts = getTagsWithCounts;
 exports.getCachedCode = getCachedCode;
 exports.setCachedCode = setCachedCode;
+exports.getCachedCodeByTagName = getCachedCodeByTagName;
 exports.getSetting = getSetting;
 exports.setSetting = setSetting;
 exports.deleteSetting = deleteSetting;
@@ -237,6 +238,18 @@ function setCachedCode(tagId, contentHash, code) {
     VALUES (?, ?, ?, ?)
   `);
     stmt.run(tagId, contentHash, code, now);
+}
+function getCachedCodeByTagName(tagName) {
+    const db = getDatabase();
+    const stmt = db.prepare(`
+    SELECT c.generated_code FROM cache c
+    JOIN tags t ON c.tag_id = t.id
+    WHERE t.name = ?
+    ORDER BY c.created_at DESC
+    LIMIT 1
+  `);
+    const result = stmt.get(tagName);
+    return result?.generated_code ?? null;
 }
 // ============================================================================
 // Settings Table Operations

@@ -22,7 +22,7 @@ import {
   listOllamaModels,
 } from '../core/code-generator'
 import { getPromptForTag, setPromptForTag } from '../core/prompt-manager'
-import { setSetting, getSetting } from '../core/database'
+import { setSetting, getSetting, getCachedCodeByTagName } from '../core/database'
 
 // Ensure notes directory exists on startup
 ensureNotesDirectorySync()
@@ -121,6 +121,10 @@ ipcMain.handle('get-tag-prompt', (_event, tagName: string) => {
 
 ipcMain.handle('set-tag-prompt', (_event, tagName: string, prompt: string) => {
   setPromptForTag(tagName, prompt)
+})
+
+ipcMain.handle('get-cached-code', (_event, tagName: string) => {
+  return getCachedCodeByTagName(tagName.toLowerCase())
 })
 
 // Settings IPC handlers

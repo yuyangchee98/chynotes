@@ -83,6 +83,10 @@ contextBridge.exposeInMainWorld('api', {
     return ipcRenderer.invoke('set-tag-prompt', tagName, prompt)
   },
 
+  getCachedCode: (tagName: string): Promise<string | null> => {
+    return ipcRenderer.invoke('get-cached-code', tagName)
+  },
+
   // Settings operations
   getSetting: (key: string): Promise<string | null> => {
     return ipcRenderer.invoke('get-setting', key)
