@@ -69,12 +69,19 @@ function App() {
     setTheme(newTheme)
   }, [])
 
+  const handleDateSelect = useCallback((date: Date) => {
+    setSelectedTag(null)
+    setView('daily')
+    setCurrentDate(date)
+  }, [])
+
   return (
     <div className="h-screen flex bg-white dark:bg-gray-950">
       {/* Sidebar */}
       <Sidebar
         onTagSelect={handleTagSelect}
         onDailyNotesSelect={handleDailyNotesSelect}
+        onDateSelect={handleDateSelect}
         selectedTag={selectedTag}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}

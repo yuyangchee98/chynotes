@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 interface SidebarProps {
   onTagSelect: (tag: string) => void
   onDailyNotesSelect: () => void
+  onDateSelect: (date: Date) => void
   selectedTag: string | null
   isCollapsed: boolean
   onToggleCollapse: () => void
@@ -12,6 +13,7 @@ interface SidebarProps {
 export function Sidebar({
   onTagSelect,
   onDailyNotesSelect,
+  onDateSelect,
   selectedTag,
   isCollapsed,
   onToggleCollapse,
@@ -184,18 +186,20 @@ export function Sidebar({
               Recent
             </h3>
             <div className="space-y-0.5">
-              {recentDates.map(date => (
-                <button
-                  key={date}
-                  onClick={() => {
-                    // TODO: Navigate to this date
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 rounded-md transition-colors"
-                >
-                  <span className="text-gray-400">•</span>
-                  <span>{formatDate(date)}</span>
-                </button>
-              ))}
+              {recentDates.map(dateStr => {
+                const [year, month, day] = dateStr.split('-').map(Number)
+                const date = new Date(year, month - 1, day)
+                return (
+                  <button
+                    key={dateStr}
+                    onClick={() => onDateSelect(date)}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 rounded-md transition-colors"
+                  >
+                    <span className="text-gray-400">•</span>
+                    <span>{formatDate(dateStr)}</span>
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
