@@ -109,7 +109,7 @@ export function Sidebar({
 
   if (isCollapsed) {
     return (
-      <div className="w-12 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center py-4">
+      <div className="w-12 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center pt-10 pb-4">
         <button
           onClick={onToggleCollapse}
           className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
@@ -125,12 +125,16 @@ export function Sidebar({
 
   return (
     <div className="w-64 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+      {/* Header - draggable region for window, padded for traffic lights */}
+      <div
+        className="px-4 pt-10 pb-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between"
+        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+      >
         <span className="font-semibold text-gray-800 dark:text-gray-200">chynotes</span>
         <button
           onClick={onToggleCollapse}
           className="p-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           title="Collapse sidebar"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

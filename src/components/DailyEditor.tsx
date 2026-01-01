@@ -140,8 +140,11 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      {/* Header - draggable region, padded for traffic lights */}
+      <div
+        className="px-6 pt-10 pb-4 border-b border-gray-200 dark:border-gray-700"
+        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+      >
         <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
           {dateString}
         </h1>

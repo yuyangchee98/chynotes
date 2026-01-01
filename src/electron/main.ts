@@ -41,6 +41,8 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 15, y: 15 },
   })
 
   // In development, load from Vite dev server
