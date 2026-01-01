@@ -18,22 +18,6 @@ const DEFAULT_PROMPTS = {
     done: `Show completed items in reverse chronological order.
 - Group by date
 - Show a summary count at the top`,
-    idea: `Group ideas by theme or topic.
-- Look for connections between related ideas
-- Show as cards or a mind-map style layout
-- Highlight recurring themes`,
-    meeting: `Create a timeline of meetings.
-- Show key points and decisions from each meeting
-- Highlight action items
-- Group by project or person if applicable`,
-    expense: `Show spending breakdown.
-- Chart expenses by category if categories are mentioned
-- List recent items with amounts
-- Show running total`,
-    goal: `Create a progress tracker.
-- Show milestones and progress
-- List related tasks
-- Highlight blockers or next steps`,
 };
 /**
  * Fallback prompt for tags without a custom prompt
@@ -53,24 +37,10 @@ function getPromptForTag(tagName) {
     if (tag?.prompt) {
         return tag.prompt;
     }
-    // Check for default prompt (check base tag name for hierarchical tags)
-    const baseName = tagName.split('/')[0].toLowerCase();
-    if (DEFAULT_PROMPTS[baseName]) {
-        return DEFAULT_PROMPTS[baseName];
-    }
-    // Check if it's a person tag
-    if (tagName.toLowerCase().startsWith('person/')) {
-        return `Show all interactions with this person chronologically.
-- Highlight commitments and action items
-- Show context for each mention
-- Summarize the relationship`;
-    }
-    // Check if it's a project tag
-    if (tagName.toLowerCase().startsWith('project/')) {
-        return `Create a project dashboard.
-- Show timeline of activity
-- List open items and blockers
-- Summarize recent progress`;
+    // Check for default prompt
+    const lowerName = tagName.toLowerCase();
+    if (DEFAULT_PROMPTS[lowerName]) {
+        return DEFAULT_PROMPTS[lowerName];
     }
     return FALLBACK_PROMPT;
 }
@@ -94,8 +64,7 @@ function hasCustomPrompt(tagName) {
  * Get the default prompt for a tag type (for showing in UI)
  */
 function getDefaultPrompt(tagName) {
-    const baseName = tagName.split('/')[0].toLowerCase();
-    return DEFAULT_PROMPTS[baseName] || null;
+    return DEFAULT_PROMPTS[tagName.toLowerCase()] || null;
 }
 /**
  * List all available default prompt templates

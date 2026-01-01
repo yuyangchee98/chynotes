@@ -50,6 +50,9 @@ electron_1.contextBridge.exposeInMainWorld('api', {
     getCachedCode: (tagName) => {
         return electron_1.ipcRenderer.invoke('get-cached-code', tagName);
     },
+    updateNoteLine: (dateStr, lineNumber, newContent) => {
+        return electron_1.ipcRenderer.invoke('update-note-line', dateStr, lineNumber, newContent);
+    },
     // Settings operations
     getSetting: (key) => {
         return electron_1.ipcRenderer.invoke('get-setting', key);

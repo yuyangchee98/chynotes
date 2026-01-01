@@ -53,16 +53,21 @@ const SYSTEM_PROMPT = `You are a code generator for a notes app called chynotes.
 
 IMPORTANT RULES:
 1. Output ONLY the React component code - no markdown, no explanations, no code fences
-2. The component must be a default export: export default function TagView({ notes }) { ... }
+2. The component must be a default export: export default function TagView({ notes, onUpdateLine }) { ... }
 3. Use only inline Tailwind CSS classes for styling
-4. The component receives a "notes" prop which is an array of objects with: { date: string, line: number, content: string }
+4. The component receives:
+   - "notes" prop: array of objects with { date: string, line: number, content: string }
+   - "onUpdateLine" prop: function(date, line, newContent) to update a line in the note
 5. Make the component interactive where appropriate (checkboxes, expandable sections, etc.)
 6. Use React hooks (useState, useMemo) if needed - they are available
 7. Keep it simple and focused on the user's request
 8. Use clean, modern UI patterns similar to Notion or Obsidian
 
+The onUpdateLine callback allows you to modify the source note. For example, to toggle a checkbox:
+  onUpdateLine(note.date, note.line, note.content.replace('[ ]', '[x]'))
+
 Example component structure:
-export default function TagView({ notes }) {
+export default function TagView({ notes, onUpdateLine }) {
   const [state, setState] = useState(initialValue);
 
   return (

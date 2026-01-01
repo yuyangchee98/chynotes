@@ -94,6 +94,13 @@ electron_1.ipcMain.handle('set-tag-prompt', (_event, tagName, prompt) => {
 electron_1.ipcMain.handle('get-cached-code', (_event, tagName) => {
     return (0, database_2.getCachedCodeByTagName)(tagName.toLowerCase());
 });
+electron_1.ipcMain.handle('update-note-line', async (_event, dateStr, lineNumber, newContent) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    await (0, file_manager_1.updateNoteLine)(date, lineNumber, newContent);
+    // Re-index the note after updating
+    await (0, index_manager_1.indexNote)(date);
+});
 // Settings IPC handlers
 electron_1.ipcMain.handle('get-setting', (_event, key) => {
     return (0, database_2.getSetting)(key);

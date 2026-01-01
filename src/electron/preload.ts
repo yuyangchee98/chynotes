@@ -87,6 +87,10 @@ contextBridge.exposeInMainWorld('api', {
     return ipcRenderer.invoke('get-cached-code', tagName)
   },
 
+  updateNoteLine: (dateStr: string, lineNumber: number, newContent: string): Promise<void> => {
+    return ipcRenderer.invoke('update-note-line', dateStr, lineNumber, newContent)
+  },
+
   // Settings operations
   getSetting: (key: string): Promise<string | null> => {
     return ipcRenderer.invoke('get-setting', key)

@@ -164,3 +164,24 @@ export async function deleteNote(date: Date): Promise<void> {
     }
   }
 }
+
+/**
+ * Update a specific line in a note
+ * @param date The date of the note
+ * @param lineNumber 1-based line number
+ * @param newContent The new content for that line
+ */
+export async function updateNoteLine(date: Date, lineNumber: number, newContent: string): Promise<void> {
+  const content = await readNote(date)
+  if (content === null) {
+    throw new Error(`Note for ${formatDateForFileName(date)} does not exist`)
+  }
+
+  const lines = content.split('\n')
+  if (lineNumber < 1 || lineNumber > lines.length) {
+    throw new Error(`Line ${lineNumber} is out of range (1-${lines.length})`)
+  }
+
+  lines[lineNumber - 1] = newContent
+  await writeNote(date, lines.join('\n'))
+}

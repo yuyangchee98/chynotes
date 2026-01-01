@@ -5,7 +5,8 @@ import {
   writeNote,
   listAllNotes,
   ensureNotesDirectorySync,
-  formatDateForFileName
+  formatDateForFileName,
+  updateNoteLine
 } from '../core/file-manager'
 import { initDatabase, closeDatabase } from '../core/database'
 import {
@@ -125,6 +126,14 @@ ipcMain.handle('set-tag-prompt', (_event, tagName: string, prompt: string) => {
 
 ipcMain.handle('get-cached-code', (_event, tagName: string) => {
   return getCachedCodeByTagName(tagName.toLowerCase())
+})
+
+ipcMain.handle('update-note-line', async (_event, dateStr: string, lineNumber: number, newContent: string) => {
+  const [year, month, day] = dateStr.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
+  await updateNoteLine(date, lineNumber, newContent)
+  // Re-index the note after updating
+  await indexNote(date)
 })
 
 // Settings IPC handlers
