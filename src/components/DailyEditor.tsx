@@ -17,6 +17,9 @@ const editorTheme = EditorView.theme({
     fontSize: '15px',
     backgroundColor: 'transparent',
   },
+  '&.cm-focused': {
+    outline: 'none',
+  },
   '.cm-content': {
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
     padding: '0',
@@ -175,7 +178,7 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
           basicSetup={{
             lineNumbers: false,
             foldGutter: false,
-            highlightActiveLine: true,
+            highlightActiveLine: false,
             highlightSelectionMatches: true,
             bracketMatching: true,
             closeBrackets: true,
