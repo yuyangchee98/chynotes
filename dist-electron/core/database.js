@@ -212,6 +212,7 @@ function getTagsWithCounts() {
     FROM tags t
     LEFT JOIN tag_occurrences o ON t.id = o.tag_id
     GROUP BY t.id
+    HAVING COUNT(o.id) > 0
     ORDER BY t.name
   `);
     return stmt.all();
