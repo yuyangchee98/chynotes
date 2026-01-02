@@ -35,6 +35,11 @@ const editorTheme = EditorView.theme({
     borderLeftColor: 'var(--accent)',
     borderLeftWidth: '2px',
   },
+  '.cm-placeholder': {
+    color: 'var(--text-muted)',
+    fontStyle: 'italic',
+    letterSpacing: '0.2em',
+  },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
     backgroundColor: 'var(--accent-subtle)',
   },
@@ -230,7 +235,7 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
             outliner(),
             EditorView.lineWrapping,
           ]}
-          placeholder="Start typing to create your first bullet..."
+          placeholder="..."
           basicSetup={{
             lineNumbers: false,
             foldGutter: false,
