@@ -4,6 +4,32 @@
 
 :root {
   color-scheme: light dark;
+
+  /* Ink & Paper palette - Light */
+  --bg-primary: #faf9f7;
+  --bg-secondary: #f5f4f1;
+  --bg-tertiary: #eeedea;
+  --text-primary: #2c2825;
+  --text-secondary: #5c5856;
+  --text-muted: #8a8580;
+  --accent: #5c6bc0;
+  --accent-hover: #4a58a8;
+  --accent-subtle: rgba(92, 107, 192, 0.1);
+  --border: #e5e3df;
+}
+
+.dark {
+  /* Ink & Paper palette - Dark */
+  --bg-primary: #1a1915;
+  --bg-secondary: #23211c;
+  --bg-tertiary: #2c2a24;
+  --text-primary: #e8e6e3;
+  --text-secondary: #b5b3af;
+  --text-muted: #7a7772;
+  --accent: #8b9ad8;
+  --accent-hover: #a0aee3;
+  --accent-subtle: rgba(139, 154, 216, 0.15);
+  --border: #3d3a33;
 }
 
 body {
@@ -21,40 +47,41 @@ body {
   width: 100vw;
 }
 
+/* CodeMirror overrides - force transparent background */
+.cm-editor,
+.cm-theme-light,
+.cm-theme-light .cm-editor {
+  background-color: transparent !important;
+}
+
 /* CodeMirror overrides for dark mode */
-@media (prefers-color-scheme: dark) {
-  .cm-editor {
-    background-color: transparent !important;
-  }
+.dark .cm-editor {
+  background-color: transparent !important;
+}
 
-  .cm-content {
-    caret-color: #60a5fa !important;
-  }
+.dark .cm-content {
+  caret-color: var(--accent) !important;
+}
 
-  .cm-cursor {
-    border-left-color: #60a5fa !important;
-  }
+.dark .cm-cursor {
+  border-left-color: var(--accent) !important;
+}
 
-  .cm-activeLine {
-    background-color: rgba(96, 165, 250, 0.05) !important;
-  }
+.dark .cm-tag {
+  color: var(--accent) !important;
+  background-color: var(--accent-subtle) !important;
+}
 
-  .cm-tag {
-    color: #60a5fa !important;
-    background-color: rgba(96, 165, 250, 0.15) !important;
-  }
+.dark .cm-wikilink {
+  color: #a78bfa !important;
+}
 
-  .cm-wikilink {
-    color: #a78bfa !important;
-  }
+.dark .cm-line {
+  color: var(--text-primary) !important;
+}
 
-  .cm-line {
-    color: #e5e7eb !important;
-  }
-
-  .cm-placeholder {
-    color: #6b7280 !important;
-  }
+.dark .cm-placeholder {
+  color: var(--text-muted) !important;
 }
 
 /* Scrollbar styling */
@@ -68,20 +95,10 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: var(--border);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
-}
-
-@media (prefers-color-scheme: dark) {
-  ::-webkit-scrollbar-thumb {
-    background: #4b5563;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: #6b7280;
-  }
+  background: var(--text-muted);
 }

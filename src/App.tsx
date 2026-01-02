@@ -76,7 +76,7 @@ function App() {
   }, [])
 
   return (
-    <div className="h-screen flex bg-white dark:bg-gray-950">
+    <div className="h-screen flex" style={{ backgroundColor: 'var(--bg-primary)' }}>
       {/* Sidebar */}
       <Sidebar
         onTagSelect={handleTagSelect}

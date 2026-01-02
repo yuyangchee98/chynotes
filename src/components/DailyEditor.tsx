@@ -14,7 +14,7 @@ interface DailyEditorProps {
 // Custom theme for Logseq/Obsidian-like appearance
 const editorTheme = EditorView.theme({
   '&': {
-    fontSize: '15px',
+    fontSize: '16px',
     backgroundColor: 'transparent',
   },
   '&.cm-focused': {
@@ -23,58 +23,57 @@ const editorTheme = EditorView.theme({
   '.cm-content': {
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
     padding: '0',
-    caretColor: '#3b82f6',
+    caretColor: 'var(--accent)',
+    lineHeight: '1.7',
   },
   '.cm-line': {
-    padding: '2px 0',
+    padding: '4px 0',
   },
   '.cm-cursor': {
-    borderLeftColor: '#3b82f6',
+    borderLeftColor: 'var(--accent)',
     borderLeftWidth: '2px',
   },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
-    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-  },
-  '.cm-activeLine': {
-    backgroundColor: 'rgba(59, 130, 246, 0.05)',
+    backgroundColor: 'var(--accent-subtle)',
   },
   '.cm-gutters': {
     display: 'none',
   },
   // Tag styling
   '.cm-tag': {
-    color: '#3b82f6',
+    color: 'var(--accent)',
     fontWeight: '500',
     cursor: 'pointer',
     borderRadius: '3px',
     padding: '0 2px',
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    backgroundColor: 'var(--accent-subtle)',
   },
   '.cm-tag:hover': {
-    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+    backgroundColor: 'var(--accent-subtle)',
+    filter: 'brightness(0.95)',
   },
   '.cm-wikilink': {
-    color: '#8b5cf6',
+    color: '#8b7ec8',
     fontWeight: '500',
     cursor: 'pointer',
   },
   // Bullet point styling
   '.cm-bullet': {
-    color: '#9ca3af',
+    color: 'var(--text-muted)',
   },
 })
 
 // Syntax highlighting colors
 const highlightStyle = HighlightStyle.define([
-  { tag: t.heading1, fontWeight: 'bold', fontSize: '1.5em' },
-  { tag: t.heading2, fontWeight: 'bold', fontSize: '1.3em' },
-  { tag: t.heading3, fontWeight: 'bold', fontSize: '1.1em' },
-  { tag: t.strong, fontWeight: 'bold' },
+  { tag: t.heading1, fontWeight: '600', fontSize: '1.5em', color: 'var(--text-primary)' },
+  { tag: t.heading2, fontWeight: '600', fontSize: '1.3em', color: 'var(--text-primary)' },
+  { tag: t.heading3, fontWeight: '600', fontSize: '1.15em', color: 'var(--text-secondary)' },
+  { tag: t.strong, fontWeight: '600' },
   { tag: t.emphasis, fontStyle: 'italic' },
-  { tag: t.strikethrough, textDecoration: 'line-through' },
-  { tag: t.link, color: '#3b82f6', textDecoration: 'underline' },
-  { tag: t.url, color: '#6b7280' },
-  { tag: t.monospace, fontFamily: 'monospace', backgroundColor: 'rgba(0,0,0,0.05)', padding: '2px 4px', borderRadius: '3px' },
+  { tag: t.strikethrough, textDecoration: 'line-through', color: 'var(--text-muted)' },
+  { tag: t.link, color: 'var(--accent)', textDecoration: 'underline' },
+  { tag: t.url, color: 'var(--text-muted)' },
+  { tag: t.monospace, fontFamily: 'ui-monospace, monospace', backgroundColor: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.9em' },
 ])
 
 export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
@@ -145,13 +144,23 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
     <div className="flex-1 flex flex-col h-full">
       {/* Header - draggable region, padded for traffic lights */}
       <div
-        className="px-6 pt-10 pb-4 border-b border-gray-200 dark:border-gray-700"
-        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+        className="px-6 pt-10 pb-4"
+        style={{
+          WebkitAppRegion: 'drag',
+          backgroundColor: 'var(--bg-primary)',
+          borderBottom: '1px solid var(--border)'
+        } as React.CSSProperties}
       >
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+        <h1
+          className="text-xl font-semibold"
+          style={{ color: 'var(--text-primary)' }}
+        >
           {dateString}
         </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+        <p
+          className="text-sm mt-1"
+          style={{ color: 'var(--text-muted)' }}
+        >
           {status === 'saved' && 'All changes saved'}
           {status === 'saving' && 'Saving...'}
           {status === 'loading' && 'Loading...'}
@@ -161,6 +170,7 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
       {/* Editor */}
       <div
         className="flex-1 overflow-auto px-6 py-4"
+        style={{ backgroundColor: 'var(--bg-primary)' }}
         onClick={handleEditorClick}
       >
         <div className="max-w-3xl mx-auto">

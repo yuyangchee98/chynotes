@@ -84,21 +84,21 @@ export function Sidebar({
             }
             onTagSelect(node.name)
           }}
-          className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${
-            isSelected
-              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
-              : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
-          }`}
-          style={{ paddingLeft: `${12 + depth * 16}px` }}
+          className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors"
+          style={{
+            paddingLeft: `${12 + depth * 16}px`,
+            backgroundColor: isSelected ? 'var(--accent-subtle)' : 'transparent',
+            color: isSelected ? 'var(--accent)' : 'var(--text-secondary)',
+          }}
         >
           {hasChildren && (
-            <span className="text-gray-400 text-xs">
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
               {isExpanded ? '▼' : '▶'}
             </span>
           )}
-          <span className="text-blue-500 dark:text-blue-400">#</span>
+          <span style={{ color: 'var(--accent)' }}>#</span>
           <span className="flex-1 text-left truncate">{node.displayName}</span>
-          <span className="text-gray-400 text-xs">{node.count}</span>
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{node.count}</span>
         </button>
         {hasChildren && isExpanded && (
           <div>
@@ -111,10 +111,14 @@ export function Sidebar({
 
   if (isCollapsed) {
     return (
-      <div className="w-12 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center pt-10 pb-4">
+      <div
+        className="w-12 flex flex-col items-center pt-10 pb-4"
+        style={{ backgroundColor: 'var(--bg-secondary)', borderRight: '1px solid var(--border)' }}
+      >
         <button
           onClick={onToggleCollapse}
-          className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+          className="p-2 transition-colors"
+          style={{ color: 'var(--text-muted)' }}
           title="Expand sidebar"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -126,17 +130,20 @@ export function Sidebar({
   }
 
   return (
-    <div className="w-64 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
+    <div
+      className="w-64 flex flex-col h-full"
+      style={{ backgroundColor: 'var(--bg-secondary)', borderRight: '1px solid var(--border)' }}
+    >
       {/* Header - draggable region for window, padded for traffic lights */}
       <div
-        className="px-4 pt-10 pb-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between"
-        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+        className="px-4 pt-10 pb-3 flex items-center justify-between"
+        style={{ WebkitAppRegion: 'drag', borderBottom: '1px solid var(--border)' } as React.CSSProperties}
       >
-        <span className="font-semibold text-gray-800 dark:text-gray-200">chynotes</span>
+        <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>chynotes</span>
         <button
           onClick={onToggleCollapse}
-          className="p-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+          className="p-1 transition-colors"
+          style={{ WebkitAppRegion: 'no-drag', color: 'var(--text-muted)' } as React.CSSProperties}
           title="Collapse sidebar"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -151,11 +158,11 @@ export function Sidebar({
         <div className="px-3 pt-3 pb-2">
           <button
             onClick={onDailyNotesSelect}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 text-base font-medium rounded-lg transition-colors ${
-              selectedTag === null
-                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
-                : 'text-gray-800 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800'
-            }`}
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-base font-medium rounded-lg transition-colors"
+            style={{
+              backgroundColor: selectedTag === null ? 'var(--accent-subtle)' : 'transparent',
+              color: selectedTag === null ? 'var(--accent)' : 'var(--text-primary)',
+            }}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -167,7 +174,10 @@ export function Sidebar({
         {/* Tags */}
         {tags.length > 0 && (
           <div className="px-3 py-2">
-            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+            <h3
+              className="text-xs font-semibold uppercase tracking-wider mb-2"
+              style={{ color: 'var(--text-muted)' }}
+            >
               Tags
             </h3>
             <div className="space-y-0.5">
@@ -179,7 +189,10 @@ export function Sidebar({
         {/* History */}
         {recentDates.length > 0 && (
           <div className="px-3 py-2">
-            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+            <h3
+              className="text-xs font-semibold uppercase tracking-wider mb-2"
+              style={{ color: 'var(--text-muted)' }}
+            >
               History
             </h3>
             <div className="space-y-0.5">
@@ -190,9 +203,10 @@ export function Sidebar({
                   <button
                     key={dateStr}
                     onClick={() => onDateSelect(date)}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 rounded-md transition-colors"
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors hover:opacity-80"
+                    style={{ color: 'var(--text-secondary)' }}
                   >
-                    <span className="text-gray-400">•</span>
+                    <span style={{ color: 'var(--text-muted)' }}>•</span>
                     <span>{formatDate(dateStr)}</span>
                   </button>
                 )
@@ -203,10 +217,11 @@ export function Sidebar({
       </div>
 
       {/* Footer */}
-      <div className="px-3 py-2 border-t border-gray-200 dark:border-gray-700">
+      <div className="px-3 py-2" style={{ borderTop: '1px solid var(--border)' }}>
         <button
           onClick={onSettingsClick}
-          className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 rounded-md transition-colors"
+          className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors hover:opacity-80"
+          style={{ color: 'var(--text-secondary)' }}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
