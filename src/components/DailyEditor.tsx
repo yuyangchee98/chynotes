@@ -5,6 +5,7 @@ import { EditorView } from '@codemirror/view'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
 import { tagHighlighter } from '../extensions/tag-highlighter'
+import { outliner } from '../extensions/outliner'
 
 interface DailyEditorProps {
   date: Date
@@ -57,9 +58,52 @@ const editorTheme = EditorView.theme({
     fontWeight: '500',
     cursor: 'pointer',
   },
-  // Bullet point styling
+  // Hide markdown's default bullet styling since we handle it
   '.cm-bullet': {
-    color: 'var(--text-muted)',
+    display: 'none',
+  },
+  // Outliner bullet widget - replaces "- " with styled dot
+  // Width matches approximately 2 characters ("- ") for proper cursor flow
+  '.cm-bullet-widget': {
+    display: 'inline-block',
+    width: '1.5ch',
+    textAlign: 'center',
+    verticalAlign: 'baseline',
+    userSelect: 'none',
+    position: 'relative',
+  },
+  // The dot itself via ::before pseudo-element
+  '.cm-bullet-widget::before': {
+    content: '""',
+    display: 'inline-block',
+    width: '0.35em',
+    height: '0.35em',
+    backgroundColor: 'var(--accent)',
+    borderRadius: '50%',
+    verticalAlign: 'middle',
+    position: 'relative',
+    top: '-0.1em',
+    transition: 'transform 0.15s ease, background-color 0.15s ease',
+  },
+  '.cm-line:hover .cm-bullet-widget::before': {
+    transform: 'scale(1.15)',
+    backgroundColor: 'var(--accent-hover)',
+  },
+  // Nested bullet styling - progressively smaller/lighter
+  '.cm-bullet-widget[data-indent="1"]::before': {
+    width: '0.3em',
+    height: '0.3em',
+    opacity: '0.8',
+  },
+  '.cm-bullet-widget[data-indent="2"]::before': {
+    width: '0.25em',
+    height: '0.25em',
+    opacity: '0.65',
+  },
+  '.cm-bullet-widget[data-indent="3"]::before': {
+    width: '0.25em',
+    height: '0.25em',
+    opacity: '0.5',
   },
 })
 
@@ -182,9 +226,10 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
             editorTheme,
             syntaxHighlighting(highlightStyle),
             tagHighlighter(),
+            outliner(),
             EditorView.lineWrapping,
           ]}
-          placeholder="Start writing... Use #tags or [[tags]] to organize your thoughts."
+          placeholder="Start typing to create your first bullet..."
           basicSetup={{
             lineNumbers: false,
             foldGutter: false,
