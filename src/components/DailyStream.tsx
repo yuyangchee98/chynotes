@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
-import CodeMirror from '@uiw/react-codemirror'
+import CodeMirror, { ReactCodeMirrorRef } from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import { EditorView } from '@codemirror/view'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
@@ -47,6 +47,10 @@ const editorTheme = EditorView.theme({
   },
   '.cm-gutters': {
     display: 'none',
+  },
+  '.cm-placeholder': {
+    color: 'var(--text-muted)',
+    fontStyle: 'italic',
   },
   '.cm-tag': {
     color: 'var(--accent)',
@@ -148,6 +152,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
   const todayEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const saveTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map())
+  const todayEditorRef = useRef<ReactCodeMirrorRef>(null)
 
   // Load initial days
   useEffect(() => {
@@ -287,6 +292,19 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
     }
   }, [onTagClick])
 
+  // Handle click on the centered placeholder - insert bullet and focus
+  const handlePlaceholderClick = useCallback(() => {
+    const view = todayEditorRef.current?.view
+    if (!view) return
+
+    // Insert "- " and position cursor after it
+    view.dispatch({
+      changes: { from: 0, insert: '- ' },
+      selection: { anchor: 2 },
+    })
+    view.focus()
+  }, [])
+
   const isToday = (date: Date) => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -320,6 +338,13 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
           >
             Today
           </span>
+          {/* Saving indicator - subtle dot */}
+          {days.some(d => d.status === 'saving') && (
+            <span
+              className="w-2 h-2 rounded-full animate-pulse"
+              style={{ backgroundColor: 'var(--accent)' }}
+            />
+          )}
         </h1>
       </div>
 
@@ -330,21 +355,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
         style={{ backgroundColor: 'var(--bg-primary)' }}
         onClick={handleEditorClick}
       >
-        {/* Centered placeholder when today is empty */}
-        {days[0] && days[0].content.trim().length === 0 && (
-          <div
-            className="absolute inset-0 flex items-center justify-center pointer-events-none"
-            style={{ zIndex: 1, opacity: todayLabelOpacity }}
-          >
-            <span
-              className="italic"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              Start writing...
-            </span>
-          </div>
-        )}
-        <div className="max-w-3xl mx-auto">
+          <div className="max-w-3xl mx-auto">
           {days.map((day, index) => {
             const isTodayEntry = isToday(day.date)
             const hasContent = day.content.trim().length > 0
@@ -354,14 +365,18 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
               const isEmpty = day.content.trim().length === 0
               return (
                 <div key={day.dateString} className="flex flex-col relative" style={{ minHeight: 'calc(100vh - 100px)' }}>
-                  {/* Saving indicator */}
-                  {day.status === 'saving' && (
-                    <div className="flex justify-end mb-2">
+                  {/* Centered placeholder when today is empty - clickable */}
+                  {isEmpty && (
+                    <div
+                      className="absolute inset-0 flex items-center justify-center cursor-text"
+                      style={{ zIndex: 10, opacity: todayLabelOpacity }}
+                      onClick={handlePlaceholderClick}
+                    >
                       <span
-                        className="text-xs"
+                        className="italic"
                         style={{ color: 'var(--text-muted)' }}
                       >
-                        Saving...
+                        Start writing...
                       </span>
                     </div>
                   )}
@@ -369,6 +384,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                   {/* Today's editor - prominent, fills space */}
                   <div className="flex-1">
                     <CodeMirror
+                      ref={todayEditorRef}
                       value={day.content}
                       onChange={(value) => handleContentChange(index, value)}
                       extensions={[
@@ -481,14 +497,6 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                       }}
                     >
                       {formatted.label}
-                    </span>
-                  )}
-                  {day.status === 'saving' && (
-                    <span
-                      className="text-xs"
-                      style={{ color: 'var(--text-muted)' }}
-                    >
-                      Saving...
                     </span>
                   )}
                 </div>
