@@ -50,7 +50,7 @@ function buildBulletDecorations(view: EditorView): DecorationSet {
       const bulletStart = line.from + indentLength
       const bulletEnd = bulletStart + 2 // "- " is 2 chars
 
-      const indentLevel = Math.floor(indentLength / 2)
+      const indentLevel = Math.floor(indentLength / 4)
 
       const decoration = Decoration.replace({
         widget: new BulletWidget(indentLevel),
@@ -164,8 +164,8 @@ function handleShiftEnter(view: EditorView): boolean {
   }
 
   const indent = bulletMatch[1]
-  // Add newline with indentation matching content position (indent + 2 for "- ")
-  const contentIndent = indent + '  '
+  // Add newline with indentation matching content position (indent + 4 for "- ")
+  const contentIndent = indent + '    '
 
   view.dispatch({
     changes: { from, to, insert: '\n' + contentIndent },
@@ -187,10 +187,10 @@ function handleTab(view: EditorView): boolean {
     return false
   }
 
-  // Add 2 spaces at start of line
+  // Add 4 spaces at start of line
   view.dispatch({
-    changes: { from: line.from, insert: '  ' },
-    selection: { anchor: from + 2 },
+    changes: { from: line.from, insert: '    ' },
+    selection: { anchor: from + 4 },
   })
 
   return true
@@ -209,14 +209,14 @@ function handleShiftTab(view: EditorView): boolean {
   }
 
   const currentIndent = bulletMatch[1]
-  if (currentIndent.length < 2) {
+  if (currentIndent.length < 4) {
     return true // Already at minimum indent, do nothing but consume the key
   }
 
-  // Remove 2 spaces from start of line
+  // Remove 4 spaces from start of line
   view.dispatch({
-    changes: { from: line.from, to: line.from + 2, insert: '' },
-    selection: { anchor: Math.max(line.from, from - 2) },
+    changes: { from: line.from, to: line.from + 4, insert: '' },
+    selection: { anchor: Math.max(line.from, from - 4) },
   })
 
   return true

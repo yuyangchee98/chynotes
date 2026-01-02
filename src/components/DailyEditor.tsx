@@ -15,20 +15,21 @@ interface DailyEditorProps {
 // Custom theme for Logseq/Obsidian-like appearance
 const editorTheme = EditorView.theme({
   '&': {
-    fontSize: '16px',
+    fontSize: '17px',
     backgroundColor: 'transparent',
   },
   '&.cm-focused': {
     outline: 'none',
   },
   '.cm-content': {
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     padding: '0',
     caretColor: 'var(--accent)',
-    lineHeight: '1.7',
+    lineHeight: '1.5',
+    letterSpacing: '-0.015em',
   },
   '.cm-line': {
-    padding: '4px 0',
+    padding: '3px 0',
   },
   '.cm-cursor': {
     borderLeftColor: 'var(--accent)',
