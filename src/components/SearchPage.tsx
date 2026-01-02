@@ -1,10 +1,19 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Fuse from 'fuse.js'
 
 interface NoteEntry {
   date: string
   line: number
   content: string
+}
+
+interface GroupedResult {
+  date: string
+  matches: Array<{
+    line: number
+    content: string
+    fuseMatches: readonly Fuse.FuseResultMatch[] | undefined
+  }>
 }
 
 interface SearchPageProps {
@@ -36,10 +45,32 @@ function formatDate(dateStr: string): string {
 export function SearchPage({ onDateSelect }: SearchPageProps) {
   const [query, setQuery] = useState('')
   const [allEntries, setAllEntries] = useState<NoteEntry[]>([])
-  const [results, setResults] = useState<Fuse.FuseResult<NoteEntry>[]>([])
+  const [rawResults, setRawResults] = useState<Fuse.FuseResult<NoteEntry>[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
   const fuseRef = useRef<Fuse<NoteEntry> | null>(null)
+
+  // Group results by date
+  const groupedResults = useMemo((): GroupedResult[] => {
+    const groups = new Map<string, GroupedResult>()
+
+    for (const result of rawResults) {
+      const { date, line, content } = result.item
+
+      if (!groups.has(date)) {
+        groups.set(date, { date, matches: [] })
+      }
+
+      groups.get(date)!.matches.push({
+        line,
+        content,
+        fuseMatches: result.matches
+      })
+    }
+
+    // Convert to array and sort by date (newest first)
+    return Array.from(groups.values()).sort((a, b) => b.date.localeCompare(a.date))
+  }, [rawResults])
 
   // Auto-focus input on mount
   useEffect(() => {
@@ -95,12 +126,12 @@ export function SearchPage({ onDateSelect }: SearchPageProps) {
   // Search when query changes
   useEffect(() => {
     if (!query.trim() || !fuseRef.current) {
-      setResults([])
+      setRawResults([])
       return
     }
 
-    const searchResults = fuseRef.current.search(query, { limit: 50 })
-    setResults(searchResults)
+    const searchResults = fuseRef.current.search(query, { limit: 100 })
+    setRawResults(searchResults)
   }, [query, allEntries])
 
   const handleResultClick = useCallback((dateStr: string) => {
@@ -221,17 +252,20 @@ export function SearchPage({ onDateSelect }: SearchPageProps) {
           )}
 
           {!isLoading && !query && (
-            <div className="text-center py-12">
-              <p style={{ color: 'var(--text-muted)' }}>
-                Start typing to search your notes
-              </p>
-              <p className="text-sm mt-2" style={{ color: 'var(--text-muted)', opacity: 0.7 }}>
-                {allEntries.length} lines indexed
-              </p>
+            <div className="text-center py-16">
+              <svg
+                className="w-12 h-12 mx-auto"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                style={{ color: 'var(--border)', opacity: 0.5 }}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
             </div>
           )}
 
-          {!isLoading && query && results.length === 0 && (
+          {!isLoading && query && groupedResults.length === 0 && (
             <div className="text-center py-12">
               <p style={{ color: 'var(--text-muted)' }}>
                 No results found for "{query}"
@@ -239,35 +273,60 @@ export function SearchPage({ onDateSelect }: SearchPageProps) {
             </div>
           )}
 
-          {!isLoading && query && results.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-                {results.length} result{results.length !== 1 ? 's' : ''}
+          {!isLoading && query && groupedResults.length > 0 && (
+            <div className="space-y-4">
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                {rawResults.length} result{rawResults.length !== 1 ? 's' : ''} in {groupedResults.length} day{groupedResults.length !== 1 ? 's' : ''}
               </p>
 
-              {results.map((result, idx) => (
-                <button
-                  key={`${result.item.date}-${result.item.line}-${idx}`}
-                  onClick={() => handleResultClick(result.item.date)}
-                  className="w-full text-left p-4 rounded-lg transition-all hover:scale-[1.01]"
+              {groupedResults.map((group) => (
+                <div
+                  key={group.date}
+                  className="rounded-lg overflow-hidden"
                   style={{
                     backgroundColor: 'var(--bg-secondary)',
                     border: '1px solid var(--border)'
                   }}
                 >
-                  <div
-                    className="text-sm font-medium mb-2"
-                    style={{ color: 'var(--text-secondary)' }}
+                  {/* Date header */}
+                  <button
+                    onClick={() => handleResultClick(group.date)}
+                    className="w-full text-left px-4 py-3 flex items-center justify-between hover:opacity-80 transition-opacity"
+                    style={{ borderBottom: '1px solid var(--border)' }}
                   >
-                    {formatDate(result.item.date)}
+                    <span
+                      className="font-medium"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      {formatDate(group.date)}
+                    </span>
+                    <span
+                      className="text-sm"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
+                      {group.matches.length} match{group.matches.length !== 1 ? 'es' : ''}
+                    </span>
+                  </button>
+
+                  {/* Matching lines */}
+                  <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
+                    {group.matches.map((match, idx) => (
+                      <button
+                        key={`${group.date}-${match.line}-${idx}`}
+                        onClick={() => handleResultClick(group.date)}
+                        className="w-full text-left px-4 py-2.5 hover:opacity-70 transition-opacity"
+                        style={{ backgroundColor: 'var(--bg-primary)' }}
+                      >
+                        <div
+                          className="text-sm leading-relaxed"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          {highlightMatch(match.content, match.fuseMatches)}
+                        </div>
+                      </button>
+                    ))}
                   </div>
-                  <div
-                    className="text-base leading-relaxed"
-                    style={{ color: 'var(--text-primary)' }}
-                  >
-                    {highlightMatch(result.item.content, result.matches)}
-                  </div>
-                </button>
+                </div>
               ))}
             </div>
           )}
