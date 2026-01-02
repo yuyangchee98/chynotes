@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { formatDateCompact } from '../../utils/format-date'
+import { formatDate } from '../../utils/format-date'
 
 export interface TagViewProps {
   notes: { date: string; line: number; content: string }[]
@@ -108,7 +108,7 @@ export function TodoView({ notes, onUpdateLine }: TagViewProps) {
           {item.text.replace(/#\w+/g, '').trim()}
         </span>
         <span className="text-xs text-gray-400 dark:text-gray-500">
-          {formatDateCompact(item.date)}
+          {formatDate(item.date)}
         </span>
       </div>
     </label>

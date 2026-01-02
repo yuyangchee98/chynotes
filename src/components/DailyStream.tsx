@@ -323,7 +323,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
               fontWeight: 400
             }}
           >
-            — Today
+            Today
           </span>
         </h1>
       </div>
@@ -430,7 +430,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                     className="text-sm italic"
                     style={{ color: 'var(--text-muted)' }}
                   >
-                    — no notes
+                    no notes
                   </span>
                 </div>
               )

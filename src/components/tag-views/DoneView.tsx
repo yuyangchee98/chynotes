@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { TagViewProps } from './TodoView'
-import { formatDateCompact } from '../../utils/format-date'
+import { formatDate } from '../../utils/format-date'
 
 interface DoneItem {
   date: string
@@ -66,7 +66,7 @@ export function DoneView({ notes }: TagViewProps) {
       {groupedByDate.map(([date, items]) => (
         <div key={date}>
           <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-            {formatDateCompact(date)}
+            {formatDate(date)}
           </h2>
           <div className="space-y-1">
             {items.map((item) => (

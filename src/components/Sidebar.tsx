@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { formatDateCompact } from '../utils/format-date'
+import { formatDate } from '../utils/format-date'
 
 interface SidebarProps {
   onTagSelect: (tag: string) => void
@@ -213,7 +213,7 @@ export function Sidebar({
                     style={{ color: 'var(--text-secondary)' }}
                   >
                     <span style={{ color: 'var(--text-muted)' }}>•</span>
-                    <span>{formatDateCompact(dateStr)}</span>
+                    <span>{formatDate(dateStr)}</span>
                   </button>
                 )
               })}
