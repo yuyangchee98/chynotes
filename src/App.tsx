@@ -1,14 +1,15 @@
 import { useState, useCallback, useEffect } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { DailyEditor } from './components/DailyEditor'
+import { DailyStream } from './components/DailyStream'
 import { TagPage } from './components/TagPage'
 import { SettingsModal } from './components/SettingsModal'
 
-type View = 'daily' | 'tag'
+type View = 'stream' | 'single-day' | 'tag'
 type Theme = 'light' | 'dark' | 'system'
 
 function App() {
-  const [view, setView] = useState<View>('daily')
+  const [view, setView] = useState<View>('stream')
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -56,8 +57,7 @@ function App() {
 
   const handleDailyNotesSelect = useCallback(() => {
     setSelectedTag(null)
-    setView('daily')
-    setCurrentDate(new Date())
+    setView('stream')
   }, [])
 
   const handleTagClick = useCallback((tag: string) => {
@@ -71,7 +71,7 @@ function App() {
 
   const handleDateSelect = useCallback((date: Date) => {
     setSelectedTag(null)
-    setView('daily')
+    setView('single-day')
     setCurrentDate(date)
   }, [])
 
@@ -90,12 +90,16 @@ function App() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {view === 'daily' ? (
+        {view === 'stream' && (
+          <DailyStream onTagClick={handleTagClick} />
+        )}
+        {view === 'single-day' && (
           <DailyEditor
             date={currentDate}
             onTagClick={handleTagClick}
           />
-        ) : (
+        )}
+        {view === 'tag' && (
           <TagPage
             tagName={selectedTag!}
             onTagClick={handleTagClick}
