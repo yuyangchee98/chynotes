@@ -42,11 +42,6 @@ const editorTheme = EditorView.theme({
     borderLeftColor: 'var(--accent)',
     borderLeftWidth: '2px',
   },
-  '.cm-placeholder': {
-    color: 'var(--text-muted)',
-    fontStyle: 'italic',
-    letterSpacing: '0.2em',
-  },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
     backgroundColor: 'var(--accent-subtle)',
   },
@@ -331,10 +326,24 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
       {/* Scrollable stream */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-auto px-6 py-4"
+        className="flex-1 overflow-auto px-6 py-4 relative"
         style={{ backgroundColor: 'var(--bg-primary)' }}
         onClick={handleEditorClick}
       >
+        {/* Centered placeholder when today is empty */}
+        {days[0] && days[0].content.trim().length === 0 && (
+          <div
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            style={{ zIndex: 1, opacity: todayLabelOpacity }}
+          >
+            <span
+              className="italic"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              Start writing...
+            </span>
+          </div>
+        )}
         <div className="max-w-3xl mx-auto">
           {days.map((day, index) => {
             const isTodayEntry = isToday(day.date)
@@ -342,8 +351,9 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
 
             // Today: always show full editor, fills the entire viewport
             if (isTodayEntry) {
+              const isEmpty = day.content.trim().length === 0
               return (
-                <div key={day.dateString} className="flex flex-col" style={{ minHeight: 'calc(100vh - 100px)' }}>
+                <div key={day.dateString} className="flex flex-col relative" style={{ minHeight: 'calc(100vh - 100px)' }}>
                   {/* Saving indicator */}
                   {day.status === 'saving' && (
                     <div className="flex justify-end mb-2">
@@ -369,7 +379,6 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                         outliner(),
                         EditorView.lineWrapping,
                       ]}
-                      placeholder="..."
                       basicSetup={{
                         lineNumbers: false,
                         foldGutter: false,
@@ -496,7 +505,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                     outliner(),
                     EditorView.lineWrapping,
                   ]}
-                  placeholder="..."
+                  placeholder="Start writing..."
                   basicSetup={{
                     lineNumbers: false,
                     foldGutter: false,
