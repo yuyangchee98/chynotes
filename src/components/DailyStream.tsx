@@ -6,6 +6,7 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
 import { tagHighlighter } from '../extensions/tag-highlighter'
 import { outliner } from '../extensions/outliner'
+import { formatDateFromDate } from '../utils/format-date'
 
 interface DailyStreamProps {
   onTagClick?: (tag: string) => void
@@ -142,28 +143,6 @@ function generateDates(count: number, startOffset = 0): Date[] {
   return dates
 }
 
-function formatDateHeader(date: Date): string {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
-
-  const dateOnly = new Date(date)
-  dateOnly.setHours(0, 0, 0, 0)
-
-  if (dateOnly.getTime() === today.getTime()) {
-    return 'Today'
-  } else if (dateOnly.getTime() === yesterday.getTime()) {
-    return 'Yesterday'
-  } else {
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-      year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
-    })
-  }
-}
 
 export function DailyStream({ onTagClick }: DailyStreamProps) {
   const [days, setDays] = useState<DayBlock[]>([])
@@ -445,7 +424,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                     className="text-sm font-medium"
                     style={{ color: 'var(--text-secondary)' }}
                   >
-                    {formatDateHeader(day.date)}
+                    {formatDateFromDate(day.date)}
                   </span>
                   <span
                     className="text-sm italic"
@@ -469,7 +448,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                     className="text-lg font-semibold"
                     style={{ color: 'var(--text-primary)' }}
                   >
-                    {formatDateHeader(day.date)}
+                    {formatDateFromDate(day.date)}
                   </h2>
                   {day.status === 'saving' && (
                     <span

@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import React from 'react'
 import { getHardcodedView, hasHardcodedView } from './tag-views'
+import { formatDate } from '../utils/format-date'
 
 interface TagPageProps {
   tagName: string
@@ -120,17 +121,6 @@ export function TagPage({ tagName, onTagClick, onBack }: TagPageProps) {
     }
   }, [generatedCode, occurrences, isHardcoded, handleUpdateLine])
 
-  // Format date for display
-  const formatDate = (dateStr: string) => {
-    const [year, month, day] = dateStr.split('-').map(Number)
-    const date = new Date(year, month - 1, day)
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
-  }
 
   // Group occurrences by date for fallback view
   const groupedByDate = occurrences.reduce((acc, occ) => {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { formatDateCompact } from '../utils/format-date'
 
 interface SidebarProps {
   onTagSelect: (tag: string) => void
@@ -58,21 +59,6 @@ export function Sidebar({
     })
   }
 
-  const formatDate = (dateStr: string) => {
-    const [year, month, day] = dateStr.split('-').map(Number)
-    const date = new Date(year, month - 1, day)
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-
-    if (date.toDateString() === today.toDateString()) {
-      return 'Today'
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday'
-    } else {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    }
-  }
 
   const renderTagNode = (node: TagTreeNode, depth = 0) => {
     const hasChildren = node.children.length > 0
@@ -227,7 +213,7 @@ export function Sidebar({
                     style={{ color: 'var(--text-secondary)' }}
                   >
                     <span style={{ color: 'var(--text-muted)' }}>•</span>
-                    <span>{formatDate(dateStr)}</span>
+                    <span>{formatDateCompact(dateStr)}</span>
                   </button>
                 )
               })}

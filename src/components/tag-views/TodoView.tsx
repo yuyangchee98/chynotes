@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { formatDateCompact } from '../../utils/format-date'
 
 export interface TagViewProps {
   notes: { date: string; line: number; content: string }[]
@@ -77,21 +78,6 @@ export function TodoView({ notes, onUpdateLine }: TagViewProps) {
     onUpdateLine(item.date, item.line, newContent)
   }
 
-  const formatDate = (dateStr: string) => {
-    const [year, month, day] = dateStr.split('-').map(Number)
-    const date = new Date(year, month - 1, day)
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-
-    if (date.toDateString() === today.toDateString()) {
-      return 'Today'
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday'
-    } else {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    }
-  }
 
   // Group by date
   const groupByDate = (items: TodoItem[]) => {
@@ -122,7 +108,7 @@ export function TodoView({ notes, onUpdateLine }: TagViewProps) {
           {item.text.replace(/#\w+/g, '').trim()}
         </span>
         <span className="text-xs text-gray-400 dark:text-gray-500">
-          {formatDate(item.date)}
+          {formatDateCompact(item.date)}
         </span>
       </div>
     </label>

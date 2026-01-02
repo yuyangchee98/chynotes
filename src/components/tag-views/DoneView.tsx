@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { TagViewProps } from './TodoView'
+import { formatDateCompact } from '../../utils/format-date'
 
 interface DoneItem {
   date: string
@@ -42,21 +43,6 @@ export function DoneView({ notes }: TagViewProps) {
     return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]))
   }, [notes])
 
-  const formatDate = (dateStr: string) => {
-    const [year, month, day] = dateStr.split('-').map(Number)
-    const date = new Date(year, month - 1, day)
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-
-    if (date.toDateString() === today.toDateString()) {
-      return 'Today'
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday'
-    } else {
-      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-    }
-  }
 
   if (notes.length === 0) {
     return (
@@ -80,7 +66,7 @@ export function DoneView({ notes }: TagViewProps) {
       {groupedByDate.map(([date, items]) => (
         <div key={date}>
           <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-            {formatDate(date)}
+            {formatDateCompact(date)}
           </h2>
           <div className="space-y-1">
             {items.map((item) => (

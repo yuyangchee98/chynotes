@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Fuse from 'fuse.js'
+import { formatDate } from '../utils/format-date'
 
 interface NoteEntry {
   date: string
@@ -21,26 +22,6 @@ interface SearchPageProps {
   onTagClick: (tag: string) => void
 }
 
-function formatDate(dateStr: string): string {
-  const [year, month, day] = dateStr.split('-').map(Number)
-  const date = new Date(year, month - 1, day)
-  const today = new Date()
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
-
-  if (date.toDateString() === today.toDateString()) {
-    return 'Today'
-  } else if (date.toDateString() === yesterday.toDateString()) {
-    return 'Yesterday'
-  } else {
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
-    })
-  }
-}
 
 export function SearchPage({ onDateSelect }: SearchPageProps) {
   const [query, setQuery] = useState('')
