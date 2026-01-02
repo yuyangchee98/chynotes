@@ -1,10 +1,16 @@
 /**
  * Smart date formatting
- * Format: "January 2, 2025 Today" or "December 31, 2024 Tuesday"
- * Always shows full date with year, plus relative label when relevant
+ * Returns { date, label } for aligned display with optional pill
+ * Date format: "Jan 02, 2025" (short month, padded day, always year)
+ * Label: "Today", "Yesterday", or weekday for recent dates
  */
 
-export function formatDate(dateStr: string): string {
+export interface FormattedDate {
+  date: string
+  label?: string
+}
+
+export function formatDate(dateStr: string): FormattedDate {
   const [year, month, day] = dateStr.split('-').map(Number)
   const date = new Date(year, month - 1, day)
   date.setHours(0, 0, 0, 0)
@@ -14,15 +20,13 @@ export function formatDate(dateStr: string): string {
 
   const diffDays = Math.floor((today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
 
-  // Format the date part (always with year)
-  const dateFormatted = date.toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric'
-  })
+  // Format: "Jan 02, 2025" (aligned format)
+  const monthStr = date.toLocaleDateString('en-US', { month: 'short' })
+  const dayStr = String(day).padStart(2, '0')
+  const dateFormatted = `${monthStr} ${dayStr}, ${year}`
 
-  // Single-word relative label (only for recent dates)
-  let label = ''
+  // Label for recent dates
+  let label: string | undefined
   if (diffDays === 0) {
     label = 'Today'
   } else if (diffDays === 1) {
@@ -31,17 +35,13 @@ export function formatDate(dateStr: string): string {
     label = date.toLocaleDateString('en-US', { weekday: 'long' })
   }
 
-  // Combine: "January 2, 2025 Today" or just "January 2, 2025"
-  if (label) {
-    return `${dateFormatted} ${label}`
-  }
-  return dateFormatted
+  return { date: dateFormatted, label }
 }
 
 /**
  * Format a Date object
  */
-export function formatDateFromDate(date: Date): string {
+export function formatDateFromDate(date: Date): FormattedDate {
   const dateStr = date.toISOString().split('T')[0]
   return formatDate(dateStr)
 }

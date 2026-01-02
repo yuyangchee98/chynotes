@@ -414,6 +414,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
 
             // Past day with no content: collapsed row
             if (!hasContent) {
+              const formatted = formatDateFromDate(day.date)
               return (
                 <div
                   key={day.dateString}
@@ -424,8 +425,19 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                     className="text-sm font-medium"
                     style={{ color: 'var(--text-secondary)' }}
                   >
-                    {formatDateFromDate(day.date)}
+                    {formatted.date}
                   </span>
+                  {formatted.label && (
+                    <span
+                      className="text-xs px-1.5 py-0.5 rounded"
+                      style={{
+                        backgroundColor: 'var(--bg-tertiary)',
+                        color: 'var(--text-muted)'
+                      }}
+                    >
+                      {formatted.label}
+                    </span>
+                  )}
                   <span
                     className="text-sm italic"
                     style={{ color: 'var(--text-muted)' }}
@@ -437,6 +449,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
             }
 
             // Past day with content: show editor
+            const formatted = formatDateFromDate(day.date)
             return (
               <div key={day.dateString} className="mb-8">
                 {/* Day header */}
@@ -448,8 +461,19 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                     className="text-lg font-semibold"
                     style={{ color: 'var(--text-primary)' }}
                   >
-                    {formatDateFromDate(day.date)}
+                    {formatted.date}
                   </h2>
+                  {formatted.label && (
+                    <span
+                      className="text-xs px-1.5 py-0.5 rounded"
+                      style={{
+                        backgroundColor: 'var(--bg-tertiary)',
+                        color: 'var(--text-muted)'
+                      }}
+                    >
+                      {formatted.label}
+                    </span>
+                  )}
                   {day.status === 'saving' && (
                     <span
                       className="text-xs"

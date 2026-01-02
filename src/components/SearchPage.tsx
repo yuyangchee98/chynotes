@@ -272,17 +272,28 @@ export function SearchPage({ onDateSelect }: SearchPageProps) {
                   {/* Date header */}
                   <button
                     onClick={() => handleResultClick(group.date)}
-                    className="w-full text-left px-4 py-3 flex items-center justify-between hover:opacity-80 transition-opacity"
+                    className="w-full text-left px-4 py-3 flex items-center gap-3 hover:opacity-80 transition-opacity"
                     style={{ borderBottom: '1px solid var(--border)' }}
                   >
                     <span
                       className="font-medium"
                       style={{ color: 'var(--text-primary)' }}
                     >
-                      {formatDate(group.date)}
+                      {formatDate(group.date).date}
                     </span>
+                    {formatDate(group.date).label && (
+                      <span
+                        className="text-xs px-1.5 py-0.5 rounded"
+                        style={{
+                          backgroundColor: 'var(--bg-tertiary)',
+                          color: 'var(--text-muted)'
+                        }}
+                      >
+                        {formatDate(group.date).label}
+                      </span>
+                    )}
                     <span
-                      className="text-sm"
+                      className="text-sm ml-auto"
                       style={{ color: 'var(--text-muted)' }}
                     >
                       {group.matches.length} match{group.matches.length !== 1 ? 'es' : ''}

@@ -205,6 +205,7 @@ export function Sidebar({
               {recentDates.map(dateStr => {
                 const [year, month, day] = dateStr.split('-').map(Number)
                 const date = new Date(year, month - 1, day)
+                const formatted = formatDate(dateStr)
                 return (
                   <button
                     key={dateStr}
@@ -213,7 +214,18 @@ export function Sidebar({
                     style={{ color: 'var(--text-secondary)' }}
                   >
                     <span style={{ color: 'var(--text-muted)' }}>•</span>
-                    <span>{formatDate(dateStr)}</span>
+                    <span>{formatted.date}</span>
+                    {formatted.label && (
+                      <span
+                        className="text-xs px-1.5 py-0.5 rounded"
+                        style={{
+                          backgroundColor: 'var(--bg-tertiary)',
+                          color: 'var(--text-muted)'
+                        }}
+                      >
+                        {formatted.label}
+                      </span>
+                    )}
                   </button>
                 )
               })}

@@ -107,8 +107,19 @@ export function TodoView({ notes, onUpdateLine }: TagViewProps) {
         <span className={`block ${item.isChecked ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-200'}`}>
           {item.text.replace(/#\w+/g, '').trim()}
         </span>
-        <span className="text-xs text-gray-400 dark:text-gray-500">
-          {formatDate(item.date)}
+        <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
+          <span>{formatDate(item.date).date}</span>
+          {formatDate(item.date).label && (
+            <span
+              className="px-1 py-0.5 rounded"
+              style={{
+                backgroundColor: 'var(--bg-tertiary)',
+                color: 'var(--text-muted)'
+              }}
+            >
+              {formatDate(item.date).label}
+            </span>
+          )}
         </span>
       </div>
     </label>

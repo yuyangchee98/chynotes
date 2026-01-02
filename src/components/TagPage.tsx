@@ -232,10 +232,23 @@ export function TagPage({ tagName, onTagClick, onBack }: TagPageProps) {
               </p>
             </div>
 
-            {Object.entries(groupedByDate).map(([date, items]) => (
+            {Object.entries(groupedByDate).map(([date, items]) => {
+              const formatted = formatDate(date)
+              return (
               <div key={date}>
-                <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                  {formatDate(date)}
+                <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-2">
+                  <span>{formatted.date}</span>
+                  {formatted.label && (
+                    <span
+                      className="text-xs px-1.5 py-0.5 rounded"
+                      style={{
+                        backgroundColor: 'var(--bg-tertiary)',
+                        color: 'var(--text-muted)'
+                      }}
+                    >
+                      {formatted.label}
+                    </span>
+                  )}
                 </h2>
                 <div className="space-y-2">
                   {items.map((item, idx) => (
@@ -248,7 +261,8 @@ export function TagPage({ tagName, onTagClick, onBack }: TagPageProps) {
                   ))}
                 </div>
               </div>
-            ))}
+            )})}
+
           </div>
         )}
 
