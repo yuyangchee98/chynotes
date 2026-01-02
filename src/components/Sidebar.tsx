@@ -4,7 +4,9 @@ interface SidebarProps {
   onTagSelect: (tag: string) => void
   onDailyNotesSelect: () => void
   onDateSelect: (date: Date) => void
+  onSearchSelect: () => void
   selectedTag: string | null
+  isSearchView: boolean
   isCollapsed: boolean
   onToggleCollapse: () => void
   onSettingsClick: () => void
@@ -14,7 +16,9 @@ export function Sidebar({
   onTagSelect,
   onDailyNotesSelect,
   onDateSelect,
+  onSearchSelect,
   selectedTag,
+  isSearchView,
   isCollapsed,
   onToggleCollapse,
   onSettingsClick,
@@ -154,20 +158,36 @@ export function Sidebar({
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto py-2">
-        {/* Daily Notes - Primary view */}
-        <div className="px-3 pt-3 pb-2">
+        {/* Primary navigation */}
+        <div className="px-3 pt-3 pb-2 space-y-1">
+          {/* Daily Notes */}
           <button
             onClick={onDailyNotesSelect}
             className="w-full flex items-center gap-3 px-3 py-2.5 text-base font-medium rounded-lg transition-colors"
             style={{
-              backgroundColor: selectedTag === null ? 'var(--accent-subtle)' : 'transparent',
-              color: selectedTag === null ? 'var(--accent)' : 'var(--text-primary)',
+              backgroundColor: selectedTag === null && !isSearchView ? 'var(--accent-subtle)' : 'transparent',
+              color: selectedTag === null && !isSearchView ? 'var(--accent)' : 'var(--text-primary)',
             }}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             <span>Daily Notes</span>
+          </button>
+
+          {/* Search */}
+          <button
+            onClick={onSearchSelect}
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-base font-medium rounded-lg transition-colors"
+            style={{
+              backgroundColor: isSearchView ? 'var(--accent-subtle)' : 'transparent',
+              color: isSearchView ? 'var(--accent)' : 'var(--text-primary)',
+            }}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <span>Search</span>
           </button>
         </div>
 

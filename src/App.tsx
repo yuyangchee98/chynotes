@@ -3,9 +3,10 @@ import { Sidebar } from './components/Sidebar'
 import { DailyEditor } from './components/DailyEditor'
 import { DailyStream } from './components/DailyStream'
 import { TagPage } from './components/TagPage'
+import { SearchPage } from './components/SearchPage'
 import { SettingsModal } from './components/SettingsModal'
 
-type View = 'stream' | 'single-day' | 'tag'
+type View = 'stream' | 'single-day' | 'tag' | 'search'
 type Theme = 'light' | 'dark' | 'system'
 
 function App() {
@@ -75,6 +76,11 @@ function App() {
     setCurrentDate(date)
   }, [])
 
+  const handleSearchSelect = useCallback(() => {
+    setSelectedTag(null)
+    setView('search')
+  }, [])
+
   return (
     <div className="h-screen flex" style={{ backgroundColor: 'var(--bg-primary)' }}>
       {/* Sidebar */}
@@ -82,7 +88,9 @@ function App() {
         onTagSelect={handleTagSelect}
         onDailyNotesSelect={handleDailyNotesSelect}
         onDateSelect={handleDateSelect}
+        onSearchSelect={handleSearchSelect}
         selectedTag={selectedTag}
+        isSearchView={view === 'search'}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         onSettingsClick={() => setSettingsOpen(true)}
@@ -104,6 +112,12 @@ function App() {
             tagName={selectedTag!}
             onTagClick={handleTagClick}
             onBack={handleDailyNotesSelect}
+          />
+        )}
+        {view === 'search' && (
+          <SearchPage
+            onDateSelect={handleDateSelect}
+            onTagClick={handleTagClick}
           />
         )}
       </div>
