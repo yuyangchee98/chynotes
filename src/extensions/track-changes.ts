@@ -280,10 +280,12 @@ const ghostCursorGuard = EditorView.updateListener.of((update) => {
 
   const marker = findMarkerAt(main.from, markers)
   if (marker && marker.type === 'deletion') {
-    // Move cursor to end of marker
-    update.view.dispatch({
-      selection: EditorSelection.cursor(marker.to),
-    })
+    // Only push if cursor is truly inside (not at boundary)
+    if (main.from > marker.from) {
+      update.view.dispatch({
+        selection: EditorSelection.cursor(marker.to),
+      })
+    }
   }
 })
 
@@ -380,9 +382,33 @@ function handleBackspace(view: EditorView): boolean {
   const markerBefore = findMarkerEndingAt(from, markers)
   if (markerBefore && markerBefore.type === 'deletion') {
     if (config.trackChangesEnabled) {
-      // Skip back over the marker
+      const charBeforeMarker = markerBefore.from - 1
+
+      // Nothing to delete (ghost at start of doc)
+      if (charBeforeMarker < 0) {
+        return true
+      }
+
+      // Check if we'd be deleting part of bullet prefix "- " or "  - " etc.
+      const line = view.state.doc.lineAt(markerBefore.from)
+      const bulletMatch = line.text.match(/^(\s*)- /)
+      if (bulletMatch) {
+        const bulletEnd = line.from + bulletMatch[0].length
+        if (charBeforeMarker < bulletEnd) {
+          // Would delete bullet prefix - do nothing
+          return true
+        }
+      }
+
+      // Delete the char before the ghost marker
+      const deletedChar = view.state.doc.sliceString(charBeforeMarker, markerBefore.from)
+      const timestamp = new Date().toISOString().slice(0, 19)
+      const encodedChar = deletedChar === '\n' ? '\\n' : deletedChar
+      const newMarker = `<!--@d:${timestamp}|${encodedChar}-->`
+
       view.dispatch({
-        selection: EditorSelection.cursor(markerBefore.from),
+        changes: { from: charBeforeMarker, to: markerBefore.from, insert: newMarker },
+        selection: EditorSelection.cursor(charBeforeMarker + newMarker.length),
       })
       return true
     }
@@ -392,7 +418,8 @@ function handleBackspace(view: EditorView): boolean {
   if (config.trackChangesEnabled) {
     const deletedChar = view.state.doc.sliceString(charBefore, from)
     const timestamp = new Date().toISOString().slice(0, 19)
-    const marker = `<!--@d:${timestamp}|${deletedChar}-->`
+    const encodedChar = deletedChar === '\n' ? '\\n' : deletedChar
+    const marker = `<!--@d:${timestamp}|${encodedChar}-->`
 
     view.dispatch({
       changes: { from: charBefore, to: from, insert: marker },
@@ -439,7 +466,8 @@ function handleDelete(view: EditorView): boolean {
   if (config.trackChangesEnabled) {
     const deletedChar = view.state.doc.sliceString(from, from + 1)
     const timestamp = new Date().toISOString().slice(0, 19)
-    const marker = `<!--@d:${timestamp}|${deletedChar}-->`
+    const encodedChar = deletedChar === '\n' ? '\\n' : deletedChar
+    const marker = `<!--@d:${timestamp}|${encodedChar}-->`
 
     view.dispatch({
       changes: { from, to: from + 1, insert: marker },
