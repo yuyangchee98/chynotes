@@ -11,6 +11,10 @@ interface SidebarProps {
   isCollapsed: boolean
   onToggleCollapse: () => void
   onSettingsClick: () => void
+  trackChangesEnabled: boolean
+  showGhostText: boolean
+  onTrackChangesToggle: (enabled: boolean) => void
+  onShowGhostToggle: (enabled: boolean) => void
 }
 
 export function Sidebar({
@@ -23,6 +27,10 @@ export function Sidebar({
   isCollapsed,
   onToggleCollapse,
   onSettingsClick,
+  trackChangesEnabled,
+  showGhostText,
+  onTrackChangesToggle,
+  onShowGhostToggle,
 }: SidebarProps) {
   const [tags, setTags] = useState<TagTreeNode[]>([])
   const [recentDates, setRecentDates] = useState<string[]>([])
@@ -175,6 +183,54 @@ export function Sidebar({
             </svg>
             <span>Search</span>
           </button>
+        </div>
+
+        {/* Track Changes */}
+        <div className="px-3 py-2">
+          <h3
+            className="text-xs font-semibold uppercase tracking-wider mb-2"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            Track Changes
+          </h3>
+          <div className="space-y-1">
+            <button
+              onClick={() => onTrackChangesToggle(!trackChangesEnabled)}
+              className="w-full flex items-center justify-between px-3 py-1.5 text-sm rounded-md transition-colors"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              <span>Track Changes</span>
+              <div
+                className="w-8 h-4 rounded-full transition-colors relative"
+                style={{
+                  backgroundColor: trackChangesEnabled ? 'var(--accent)' : 'var(--border)'
+                }}
+              >
+                <div
+                  className="absolute w-3 h-3 rounded-full bg-white top-0.5 transition-transform"
+                  style={{ transform: trackChangesEnabled ? 'translateX(17px)' : 'translateX(2px)' }}
+                />
+              </div>
+            </button>
+            <button
+              onClick={() => onShowGhostToggle(!showGhostText)}
+              className="w-full flex items-center justify-between px-3 py-1.5 text-sm rounded-md transition-colors"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              <span>Show Deleted</span>
+              <div
+                className="w-8 h-4 rounded-full transition-colors relative"
+                style={{
+                  backgroundColor: showGhostText ? 'var(--accent)' : 'var(--border)'
+                }}
+              >
+                <div
+                  className="absolute w-3 h-3 rounded-full bg-white top-0.5 transition-transform"
+                  style={{ transform: showGhostText ? 'translateX(17px)' : 'translateX(2px)' }}
+                />
+              </div>
+            </button>
+          </div>
         </div>
 
         {/* Tags */}

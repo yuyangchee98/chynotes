@@ -16,6 +16,8 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>('system')
+  const [trackChangesEnabled, setTrackChangesEnabled] = useState(true)
+  const [showGhostText, setShowGhostText] = useState(true)
 
   // Load and apply theme
   useEffect(() => {
@@ -24,6 +26,23 @@ function App() {
       setTheme(savedTheme)
     }
   }, [])
+
+  // Load track changes settings
+  useEffect(() => {
+    const savedTrackChanges = localStorage.getItem('trackChangesEnabled')
+    const savedShowGhost = localStorage.getItem('showGhostText')
+    if (savedTrackChanges !== null) setTrackChangesEnabled(savedTrackChanges === 'true')
+    if (savedShowGhost !== null) setShowGhostText(savedShowGhost === 'true')
+  }, [])
+
+  // Persist track changes settings
+  useEffect(() => {
+    localStorage.setItem('trackChangesEnabled', String(trackChangesEnabled))
+  }, [trackChangesEnabled])
+
+  useEffect(() => {
+    localStorage.setItem('showGhostText', String(showGhostText))
+  }, [showGhostText])
 
   useEffect(() => {
     const root = document.documentElement
@@ -94,17 +113,27 @@ function App() {
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         onSettingsClick={() => setSettingsOpen(true)}
+        trackChangesEnabled={trackChangesEnabled}
+        showGhostText={showGhostText}
+        onTrackChangesToggle={setTrackChangesEnabled}
+        onShowGhostToggle={setShowGhostText}
       />
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {view === 'stream' && (
-          <DailyStream onTagClick={handleTagClick} />
+          <DailyStream
+            onTagClick={handleTagClick}
+            trackChangesEnabled={trackChangesEnabled}
+            showGhostText={showGhostText}
+          />
         )}
         {view === 'single-day' && (
           <DailyEditor
             date={currentDate}
             onTagClick={handleTagClick}
+            trackChangesEnabled={trackChangesEnabled}
+            showGhostText={showGhostText}
           />
         )}
         {view === 'tag' && (

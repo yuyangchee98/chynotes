@@ -102,3 +102,75 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+/* Track Changes - Ghost Text */
+.cm-ghost-text {
+  display: inline;
+  position: relative;
+}
+
+.cm-ghost-content {
+  text-decoration: line-through;
+  color: var(--text-muted);
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.cm-ghost-timestamp {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: -1.4em;
+  font-size: 0.7em;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+  z-index: 10;
+  font-style: normal;
+  text-decoration: none;
+  opacity: 1;
+}
+
+.cm-ghost-text:hover .cm-ghost-timestamp {
+  display: block;
+}
+
+/* Track Changes - Addition Marker */
+.cm-addition-marker {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  position: relative;
+}
+
+.cm-addition-marker::after {
+  content: attr(data-timestamp);
+  display: none;
+  position: absolute;
+  left: 0;
+  top: -1.4em;
+  font-size: 0.7em;
+  color: var(--accent);
+  opacity: 0.7;
+  background: var(--bg-tertiary);
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+.cm-line:hover .cm-addition-marker::after {
+  display: block;
+}
+
+/* Dark mode adjustments for ghost text */
+.dark .cm-ghost-content {
+  color: var(--text-muted);
+}
+
+.dark .cm-ghost-timestamp {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+}
