@@ -85,7 +85,7 @@ const bulletDecorator = ViewPlugin.fromClass(
 
 // --- Key Handlers ---
 
-// Enter: Create new bullet
+// Enter: Create new bullet (Logseq-style: always forces bullets)
 function handleEnter(view: EditorView): boolean {
   const { state } = view
   const { from, to } = state.selection.main
@@ -97,15 +97,28 @@ function handleEnter(view: EditorView): boolean {
   const bulletMatch = lineText.match(/^(\s*)- (.*)$/)
 
   if (!bulletMatch) {
-    // Not a bullet line - if doc is empty or line is empty, start a bullet
-    if (state.doc.length === 0 || lineText === '') {
+    // Not a bullet line - force it to become one
+    if (lineText === '') {
+      // Empty line: just insert bullet
       view.dispatch({
         changes: { from: line.from, to: line.to, insert: '- ' },
         selection: { anchor: line.from + 2 },
       })
-      return true
+    } else {
+      // Line has content: prepend bullet to current line, create new bullet below
+      const cursorPosInLine = from - line.from
+      const contentBeforeCursor = lineText.slice(0, cursorPosInLine)
+      const contentAfterCursor = lineText.slice(cursorPosInLine)
+
+      // Replace line with: "- contentBefore" + newline + "- " + contentAfter
+      const newText = '- ' + contentBeforeCursor + '\n- ' + contentAfterCursor
+
+      view.dispatch({
+        changes: { from: line.from, to: line.to, insert: newText },
+        selection: { anchor: line.from + 2 + contentBeforeCursor.length + 3 }, // after "- content\n- "
+      })
     }
-    return false
+    return true
   }
 
   const [, indent, content] = bulletMatch
@@ -130,9 +143,6 @@ function handleEnter(view: EditorView): boolean {
     return true
   }
 
-  // Calculate what's after cursor in the line
-  const contentAfterCursor = lineText.slice(cursorPosInLine)
-
   // Insert new line with same indentation + bullet
   const newLinePrefix = '\n' + indent + '- '
 
@@ -144,9 +154,6 @@ function handleEnter(view: EditorView): boolean {
     },
     selection: { anchor: from + newLinePrefix.length },
   })
-
-  // If there was content after cursor, it stays on current line
-  // and we just moved cursor to new bullet
 
   return true
 }
@@ -312,6 +319,7 @@ const autoInsertBullet = EditorView.updateListener.of((update) => {
   }
 })
 
+
 // --- Paste handler ---
 const pasteHandler = EditorView.domEventHandlers({
   paste(event, view) {
@@ -347,5 +355,10 @@ const pasteHandler = EditorView.domEventHandlers({
 
 // Export the combined extension
 export function outliner() {
-  return [bulletDecorator, outlinerKeymap, autoInsertBullet, pasteHandler]
+  return [
+    bulletDecorator,
+    outlinerKeymap,
+    autoInsertBullet,
+    pasteHandler,
+  ]
 }

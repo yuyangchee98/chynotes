@@ -137,7 +137,7 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
     const loadNote = async () => {
       if (window.api) {
         const note = await window.api.readNote(toLocalDateString(date))
-        setContent(note || '')
+        setContent(note || '- ')
       }
     }
     loadNote()
@@ -150,7 +150,9 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
     // Skip saving on initial load
     const timeoutId = setTimeout(async () => {
       try {
-        await window.api.writeNote(toLocalDateString(date), content)
+        // Detect empty bullets - save empty string to trigger file deletion
+        const isEmpty = /^(\s*-\s*)*$/.test(content)
+        await window.api.writeNote(toLocalDateString(date), isEmpty ? '' : content)
       } catch (err) {
         console.error('Failed to save note:', err)
       }

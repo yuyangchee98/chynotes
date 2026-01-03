@@ -6,6 +6,18 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const electron_1 = require("electron");
 const path_1 = __importDefault(require("path"));
 const file_manager_1 = require("../core/file-manager");
+/**
+ * Parse YYYY-MM-DD string as local date
+ */
+function parseLocalDate(dateStr) {
+    const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+        const [, year, month, day] = match;
+        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+    // Fallback for ISO strings (though we shouldn't receive these anymore)
+    return new Date(dateStr);
+}
 const database_1 = require("../core/database");
 const index_manager_1 = require("../core/index-manager");
 const code_generator_1 = require("../core/code-generator");
@@ -42,12 +54,12 @@ function createWindow() {
     });
 }
 // IPC handlers for file operations
-electron_1.ipcMain.handle('read-note', async (_event, dateISO) => {
-    const date = new Date(dateISO);
+electron_1.ipcMain.handle('read-note', async (_event, dateStr) => {
+    const date = parseLocalDate(dateStr);
     return await (0, file_manager_1.readNote)(date);
 });
-electron_1.ipcMain.handle('write-note', async (_event, dateISO, content) => {
-    const date = new Date(dateISO);
+electron_1.ipcMain.handle('write-note', async (_event, dateStr, content) => {
+    const date = parseLocalDate(dateStr);
     await (0, file_manager_1.writeNote)(date, content);
     // Re-index this note after writing
     await (0, index_manager_1.indexNote)(date);
@@ -95,8 +107,7 @@ electron_1.ipcMain.handle('get-cached-code', (_event, tagName) => {
     return (0, database_2.getCachedCodeByTagName)(tagName.toLowerCase());
 });
 electron_1.ipcMain.handle('update-note-line', async (_event, dateStr, lineNumber, newContent) => {
-    const [year, month, day] = dateStr.split('-').map(Number);
-    const date = new Date(year, month - 1, day);
+    const date = parseLocalDate(dateStr);
     await (0, file_manager_1.updateNoteLine)(date, lineNumber, newContent);
     // Re-index the note after updating
     await (0, index_manager_1.indexNote)(date);

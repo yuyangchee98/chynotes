@@ -163,7 +163,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
 
       for (const date of dates) {
         const dateString = toLocalDateString(date)
-        const content = await window.api.readNote(dateString) || ''
+        const content = await window.api.readNote(dateString) || '- '
         loadedDays.push({
           date,
           dateString,
@@ -222,7 +222,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
 
     for (const date of newDates) {
       const dateString = toLocalDateString(date)
-      const content = await window.api.readNote(dateString) || ''
+      const content = await window.api.readNote(dateString) || '- '
       newDays.push({
         date,
         dateString,
@@ -260,7 +260,9 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
     const timeout = setTimeout(async () => {
       if (!window.api) return
       try {
-        await window.api.writeNote(day.dateString, value)
+        // Detect empty bullets - save empty string to trigger file deletion
+        const isEmpty = /^(\s*-\s*)*$/.test(value)
+        await window.api.writeNote(day.dateString, isEmpty ? '' : value)
         setDays(prev => {
           const updated = [...prev]
           if (updated[index]) {
@@ -347,7 +349,8 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
           <div className="max-w-3xl mx-auto">
           {days.map((day, index) => {
             const isTodayEntry = isToday(day.date)
-            const hasContent = day.content.trim().length > 0
+            // Check for real content (not just empty bullets)
+            const hasContent = !/^(\s*-\s*)*$/.test(day.content)
 
             // Today: always show full editor, fills the entire viewport
             if (isTodayEntry) {

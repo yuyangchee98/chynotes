@@ -140,8 +140,13 @@ async function readNote(date) {
 }
 /**
  * Write (or overwrite) a note for a specific date
+ * If content is empty, deletes the file instead
  */
 async function writeNote(date, content) {
+    if (content === '') {
+        await deleteNote(date);
+        return;
+    }
     await ensureNotesDirectory();
     const filePath = getNotePath(date);
     await fs.writeFile(filePath, content, 'utf-8');

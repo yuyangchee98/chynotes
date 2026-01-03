@@ -102,8 +102,13 @@ export async function readNote(date: Date): Promise<string | null> {
 
 /**
  * Write (or overwrite) a note for a specific date
+ * If content is empty, deletes the file instead
  */
 export async function writeNote(date: Date, content: string): Promise<void> {
+  if (content === '') {
+    await deleteNote(date)
+    return
+  }
   await ensureNotesDirectory()
   const filePath = getNotePath(date)
   await fs.writeFile(filePath, content, 'utf-8')
