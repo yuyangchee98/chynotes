@@ -447,7 +447,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
             // Past day with content: show editor
             const formatted = formatDateFromDate(day.date)
             return (
-              <div key={day.dateString} className="mb-8">
+              <div key={day.dateString} className="mt-6 mb-6">
                 {/* Day header */}
                 <div
                   className="flex items-center gap-3 mb-3 pb-2"
@@ -497,7 +497,6 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                     dropCursor: true,
                     indentOnInput: true,
                   }}
-                  className="min-h-[100px]"
                 />
               </div>
             )
