@@ -643,53 +643,87 @@ const clipboardHandlers = EditorView.domEventHandlers({
 
 // --- Addition Marker Debouncing ---
 
-let additionTimer: ReturnType<typeof setTimeout> | null = null
-let lastInsertPos: number | null = null
+// Track ongoing addition: position to insert marker, and timer
+let additionState: {
+  insertPos: number
+  timer: ReturnType<typeof setTimeout>
+} | null = null
 
 const additionDebouncer = EditorView.updateListener.of((update) => {
+  const config = update.state.facet(trackChangesConfig)
+
+  // If tracking disabled, clear any pending addition
+  if (!config.trackChangesEnabled) {
+    if (additionState) {
+      clearTimeout(additionState.timer)
+      additionState = null
+    }
+    return
+  }
+
   if (!update.docChanged) return
 
-  const config = update.state.facet(trackChangesConfig)
-  if (!config.trackChangesEnabled) return
-
-  // Check if this was an insertion (not our own marker insertion)
-  let hasInsertion = false
-  let insertPos = 0
+  // Check if this was a user insertion (not our own marker)
+  let hasUserInsertion = false
+  let firstInsertPos = -1
 
   update.changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
     const insertedText = inserted.toString()
-    // Skip if this is a marker we're inserting
+    // Skip our own markers
     if (insertedText.startsWith('<!--@')) return
 
+    // Check if this is an insertion (text added, nothing deleted)
     if (inserted.length > 0 && fromA === toA) {
-      // Pure insertion
-      hasInsertion = true
-      insertPos = fromB
+      hasUserInsertion = true
+      if (firstInsertPos === -1) {
+        firstInsertPos = fromB // Position in NEW doc where insertion starts
+      }
     }
   })
 
-  if (hasInsertion) {
-    // Clear existing timer
-    if (additionTimer) {
-      clearTimeout(additionTimer)
-    }
+  if (hasUserInsertion) {
+    if (additionState) {
+      // Already tracking - map the stored position through these changes
+      additionState.insertPos = update.changes.mapPos(additionState.insertPos, -1)
 
-    lastInsertPos = insertPos
+      // Reset the timer (debounce)
+      clearTimeout(additionState.timer)
+      additionState.timer = setTimeout(() => {
+        if (additionState) {
+          const pos = additionState.insertPos
+          const timestamp = new Date().toISOString().slice(0, 19)
+          const marker = `<!--@a:${timestamp}-->`
 
-    // Set new timer
-    additionTimer = setTimeout(() => {
-      if (lastInsertPos !== null) {
-        const timestamp = new Date().toISOString().slice(0, 19)
-        const marker = `<!--@a:${timestamp}-->`
+          // Validate position is still in bounds
+          if (pos >= 0 && pos <= update.view.state.doc.length) {
+            update.view.dispatch({
+              changes: { from: pos, insert: marker },
+            })
+          }
+          additionState = null
+        }
+      }, 1000)
+    } else {
+      // Start tracking new addition
+      additionState = {
+        insertPos: firstInsertPos,
+        timer: setTimeout(() => {
+          if (additionState) {
+            const pos = additionState.insertPos
+            const timestamp = new Date().toISOString().slice(0, 19)
+            const marker = `<!--@a:${timestamp}-->`
 
-        // We need to dispatch to the current view
-        // This is tricky because the view might have changed
-        // For now, we skip addition markers as they add complexity
-        // and focus on deletion tracking which is the core feature
+            // Validate position is still in bounds
+            if (pos >= 0 && pos <= update.view.state.doc.length) {
+              update.view.dispatch({
+                changes: { from: pos, insert: marker },
+              })
+            }
+            additionState = null
+          }
+        }, 1000),
       }
-      additionTimer = null
-      lastInsertPos = null
-    }, 1000)
+    }
   }
 })
 
@@ -704,6 +738,6 @@ export function trackChanges(config: TrackChangesConfig) {
     ghostNavigationKeymap,
     trackChangesKeymap,
     clipboardHandlers,
-    // additionDebouncer, // Disabled for now - deletion tracking is the priority
+    additionDebouncer,
   ]
 }
