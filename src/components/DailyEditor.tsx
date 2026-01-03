@@ -123,7 +123,6 @@ const highlightStyle = HighlightStyle.define([
 
 export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
   const [content, setContent] = useState('')
-  const [status, setStatus] = useState<'saved' | 'saving' | 'loading'>('loading')
 
   const dateString = date.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -135,12 +134,10 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
   // Load note on mount or date change
   useEffect(() => {
     const loadNote = async () => {
-      setStatus('loading')
       if (window.api) {
         const note = await window.api.readNote(date.toISOString())
         setContent(note || '')
       }
-      setStatus('saved')
     }
     loadNote()
   }, [date])
@@ -153,7 +150,6 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
     const timeoutId = setTimeout(async () => {
       try {
         await window.api.writeNote(date.toISOString(), content)
-        setStatus('saved')
       } catch (err) {
         console.error('Failed to save note:', err)
       }
@@ -164,7 +160,6 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
 
   const handleChange = useCallback((value: string) => {
     setContent(value)
-    setStatus('saving')
   }, [])
 
   // Handle click events on tags
@@ -202,14 +197,6 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
         >
           {dateString}
         </h1>
-        <p
-          className="text-sm mt-1"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          {status === 'saved' && 'All changes saved'}
-          {status === 'saving' && 'Saving...'}
-          {status === 'loading' && 'Loading...'}
-        </p>
       </div>
 
       {/* Editor */}
