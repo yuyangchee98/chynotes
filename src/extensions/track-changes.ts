@@ -110,6 +110,7 @@ class GhostTextWidget extends WidgetType {
   toDOM() {
     const wrapper = document.createElement('span')
     wrapper.className = 'cm-ghost-text'
+    wrapper.setAttribute('data-time', this.formatTime(this.timestamp))
 
     // Ghost content with strikethrough
     const textSpan = document.createElement('span')
@@ -118,18 +119,12 @@ class GhostTextWidget extends WidgetType {
     textSpan.textContent = this.content.replace(/\\n/g, '\u21b5')
     wrapper.appendChild(textSpan)
 
-    // Timestamp tooltip
-    const timeSpan = document.createElement('span')
-    timeSpan.className = 'cm-ghost-timestamp'
-    timeSpan.textContent = this.formatTime(this.timestamp)
-    wrapper.appendChild(timeSpan)
-
     return wrapper
   }
 
   formatTime(iso: string): string {
-    const match = iso.match(/T(\d{2}:\d{2}:\d{2})/)
-    return match ? match[1] : ''
+    const match = iso.match(/T(\d{2}):(\d{2})/)
+    return match ? `${match[1]}:${match[2]}` : ''
   }
 
   eq(other: GhostTextWidget) {
@@ -149,17 +144,42 @@ class AdditionMarkerWidget extends WidgetType {
   toDOM() {
     const span = document.createElement('span')
     span.className = 'cm-addition-marker'
-    span.setAttribute('data-timestamp', this.formatTime(this.timestamp))
+    span.setAttribute('data-time', this.formatTime(this.timestamp))
     return span
   }
 
   formatTime(iso: string): string {
-    const match = iso.match(/T(\d{2}:\d{2}:\d{2})/)
-    return match ? match[1] : ''
+    const match = iso.match(/T(\d{2}):(\d{2})/)
+    return match ? `${match[1]}:${match[2]}` : ''
   }
 
   eq(other: AdditionMarkerWidget) {
     return other.timestamp === this.timestamp
+  }
+
+  ignoreEvent() {
+    return true
+  }
+}
+
+// --- Line Timestamp Widget ---
+
+class LineTimestampWidget extends WidgetType {
+  constructor(readonly times: string[]) {
+    super()
+  }
+
+  toDOM() {
+    const span = document.createElement('span')
+    span.className = 'cm-line-timestamp'
+    // Show unique times, most recent first
+    const uniqueTimes = [...new Set(this.times)].slice(0, 3)
+    span.textContent = uniqueTimes.join(', ')
+    return span
+  }
+
+  eq(other: LineTimestampWidget) {
+    return other.times.join() === this.times.join()
   }
 
   ignoreEvent() {
@@ -193,35 +213,76 @@ const ghostDecorator = ViewPlugin.fromClass(
     buildDecorations(view: EditorView): DecorationSet {
       const config = view.state.facet(trackChangesConfig)
       const markers = view.state.field(markerCache)
-      const builder = new RangeSetBuilder<Decoration>()
+
+      // Collect decorations with positions for sorting
+      const decorations: Array<{ from: number; to: number; decoration: Decoration }> = []
+
+      // Group timestamps by line for line-end widgets
+      const lineTimestamps = new Map<number, string[]>()
+
+      const formatTime = (iso: string): string => {
+        const match = iso.match(/T(\d{2}):(\d{2})/)
+        return match ? `${match[1]}:${match[2]}` : ''
+      }
 
       for (const marker of markers) {
+        const lineNum = view.state.doc.lineAt(marker.from).number
+
         if (marker.type === 'deletion') {
           if (config.showGhostText) {
-            builder.add(
-              marker.from,
-              marker.to,
-              Decoration.replace({
+            decorations.push({
+              from: marker.from,
+              to: marker.to,
+              decoration: Decoration.replace({
                 widget: new GhostTextWidget(marker.content, marker.timestamp),
               })
-            )
+            })
+            // Add timestamp for this line
+            const times = lineTimestamps.get(lineNum) || []
+            times.push(formatTime(marker.timestamp))
+            lineTimestamps.set(lineNum, times)
           } else {
             // Hide entirely
-            builder.add(
-              marker.from,
-              marker.to,
-              Decoration.replace({})
-            )
+            decorations.push({
+              from: marker.from,
+              to: marker.to,
+              decoration: Decoration.replace({})
+            })
           }
         } else if (marker.type === 'addition') {
-          builder.add(
-            marker.from,
-            marker.to,
-            Decoration.replace({
+          decorations.push({
+            from: marker.from,
+            to: marker.to,
+            decoration: Decoration.replace({
               widget: new AdditionMarkerWidget(marker.timestamp),
             })
-          )
+          })
+          // Add timestamp for this line
+          const times = lineTimestamps.get(lineNum) || []
+          times.push(formatTime(marker.timestamp))
+          lineTimestamps.set(lineNum, times)
         }
+      }
+
+      // Add line timestamp widgets at end of each line with tracked changes
+      for (const [lineNum, times] of lineTimestamps) {
+        const line = view.state.doc.line(lineNum)
+        decorations.push({
+          from: line.to,
+          to: line.to,
+          decoration: Decoration.widget({
+            widget: new LineTimestampWidget(times),
+            side: 1, // After the position
+          })
+        })
+      }
+
+      // Sort by position and build
+      decorations.sort((a, b) => a.from - b.from || a.to - b.to)
+
+      const builder = new RangeSetBuilder<Decoration>()
+      for (const { from, to, decoration } of decorations) {
+        builder.add(from, to, decoration)
       }
 
       return builder.finish()
