@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
-import CodeMirror, { ReactCodeMirrorRef } from '@uiw/react-codemirror'
+import CodeMirror from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import { EditorView } from '@codemirror/view'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
@@ -152,7 +152,6 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
   const todayEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const saveTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map())
-  const todayEditorRef = useRef<ReactCodeMirrorRef>(null)
 
   // Load initial days
   useEffect(() => {
@@ -292,18 +291,6 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
     }
   }, [onTagClick])
 
-  // Handle click on the centered placeholder - insert bullet and focus
-  const handlePlaceholderClick = useCallback(() => {
-    const view = todayEditorRef.current?.view
-    if (!view) return
-
-    // Insert "- " and position cursor after it
-    view.dispatch({
-      changes: { from: 0, insert: '- ' },
-      selection: { anchor: 2 },
-    })
-    view.focus()
-  }, [])
 
   const isToday = (date: Date) => {
     const today = new Date()
@@ -362,29 +349,11 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
 
             // Today: always show full editor, fills the entire viewport
             if (isTodayEntry) {
-              const isEmpty = day.content.trim().length === 0
               return (
                 <div key={day.dateString} className="flex flex-col relative" style={{ minHeight: 'calc(100vh - 100px)' }}>
-                  {/* Centered placeholder when today is empty - clickable */}
-                  {isEmpty && (
-                    <div
-                      className="absolute inset-0 flex items-center justify-center cursor-text"
-                      style={{ zIndex: 10, opacity: todayLabelOpacity }}
-                      onClick={handlePlaceholderClick}
-                    >
-                      <span
-                        className="italic"
-                        style={{ color: 'var(--text-muted)' }}
-                      >
-                        Start writing...
-                      </span>
-                    </div>
-                  )}
-
                   {/* Today's editor - prominent, fills space */}
                   <div className="flex-1">
                     <CodeMirror
-                      ref={todayEditorRef}
                       value={day.content}
                       onChange={(value) => handleContentChange(index, value)}
                       extensions={[
@@ -513,7 +482,6 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                     outliner(),
                     EditorView.lineWrapping,
                   ]}
-                  placeholder="Start writing..."
                   basicSetup={{
                     lineNumbers: false,
                     foldGutter: false,
