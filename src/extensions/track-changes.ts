@@ -18,6 +18,21 @@ import {
   ChangeSpec,
 } from '@codemirror/state'
 
+// --- Time Helpers ---
+
+/** Local timestamp in ISO-like format: 2026-01-03T14:32:05 */
+function localTimestamp(): string {
+  const d = new Date()
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
+/** Extract HH:MM from timestamp for display */
+function formatTime(ts: string): string {
+  const m = ts.match(/T(\d{2}):(\d{2})/)
+  return m ? `${m[1]}:${m[2]}` : ''
+}
+
 // --- Configuration ---
 
 export interface TrackChangesConfig {
@@ -110,21 +125,14 @@ class GhostTextWidget extends WidgetType {
   toDOM() {
     const wrapper = document.createElement('span')
     wrapper.className = 'cm-ghost-text'
-    wrapper.setAttribute('data-time', this.formatTime(this.timestamp))
+    wrapper.setAttribute('data-time', formatTime(this.timestamp))
 
-    // Ghost content with strikethrough
     const textSpan = document.createElement('span')
     textSpan.className = 'cm-ghost-content'
-    // Decode escaped newlines for display
     textSpan.textContent = this.content.replace(/\\n/g, '\u21b5')
     wrapper.appendChild(textSpan)
 
     return wrapper
-  }
-
-  formatTime(iso: string): string {
-    const match = iso.match(/T(\d{2}):(\d{2})/)
-    return match ? `${match[1]}:${match[2]}` : ''
   }
 
   eq(other: GhostTextWidget) {
@@ -144,13 +152,8 @@ class AdditionMarkerWidget extends WidgetType {
   toDOM() {
     const span = document.createElement('span')
     span.className = 'cm-addition-marker'
-    span.setAttribute('data-time', this.formatTime(this.timestamp))
+    span.setAttribute('data-time', formatTime(this.timestamp))
     return span
-  }
-
-  formatTime(iso: string): string {
-    const match = iso.match(/T(\d{2}):(\d{2})/)
-    return match ? `${match[1]}:${match[2]}` : ''
   }
 
   eq(other: AdditionMarkerWidget) {
@@ -219,11 +222,6 @@ const ghostDecorator = ViewPlugin.fromClass(
 
       // Group timestamps by line for line-end widgets
       const lineTimestamps = new Map<number, string[]>()
-
-      const formatTime = (iso: string): string => {
-        const match = iso.match(/T(\d{2}):(\d{2})/)
-        return match ? `${match[1]}:${match[2]}` : ''
-      }
 
       for (const marker of markers) {
         const lineNum = view.state.doc.lineAt(marker.from).number
@@ -463,7 +461,7 @@ function handleBackspace(view: EditorView): boolean {
 
       // Delete the char before the ghost marker
       const deletedChar = view.state.doc.sliceString(charBeforeMarker, markerBefore.from)
-      const timestamp = new Date().toISOString().slice(0, 19)
+      const timestamp = localTimestamp()
       const encodedChar = deletedChar === '\n' ? '\\n' : deletedChar
       const newMarker = `<!--@d:${timestamp}|${encodedChar}-->`
 
@@ -478,7 +476,7 @@ function handleBackspace(view: EditorView): boolean {
   // Normal deletion - if tracking enabled, create ghost marker
   if (config.trackChangesEnabled) {
     const deletedChar = view.state.doc.sliceString(charBefore, from)
-    const timestamp = new Date().toISOString().slice(0, 19)
+    const timestamp = localTimestamp()
     const encodedChar = deletedChar === '\n' ? '\\n' : deletedChar
     const marker = `<!--@d:${timestamp}|${encodedChar}-->`
 
@@ -526,7 +524,7 @@ function handleDelete(view: EditorView): boolean {
   // Normal deletion
   if (config.trackChangesEnabled) {
     const deletedChar = view.state.doc.sliceString(from, from + 1)
-    const timestamp = new Date().toISOString().slice(0, 19)
+    const timestamp = localTimestamp()
     const encodedChar = deletedChar === '\n' ? '\\n' : deletedChar
     const marker = `<!--@d:${timestamp}|${encodedChar}-->`
 
@@ -562,7 +560,7 @@ function handleSelectionDelete(
   }
 
   // Create ghost markers for normal text portions
-  const timestamp = new Date().toISOString().slice(0, 19)
+  const timestamp = localTimestamp()
   const changes: ChangeSpec[] = []
 
   // Process in reverse order to avoid position shifts
@@ -763,7 +761,7 @@ const additionDebouncer = EditorView.updateListener.of((update) => {
       additionState.timer = setTimeout(() => {
         if (additionState) {
           const pos = additionState.insertPos
-          const timestamp = new Date().toISOString().slice(0, 19)
+          const timestamp = localTimestamp()
           const marker = `<!--@a:${timestamp}-->`
 
           // Validate position is still in bounds
@@ -782,7 +780,7 @@ const additionDebouncer = EditorView.updateListener.of((update) => {
         timer: setTimeout(() => {
           if (additionState) {
             const pos = additionState.insertPos
-            const timestamp = new Date().toISOString().slice(0, 19)
+            const timestamp = localTimestamp()
             const marker = `<!--@a:${timestamp}-->`
 
             // Validate position is still in bounds
