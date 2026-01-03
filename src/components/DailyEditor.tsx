@@ -6,6 +6,7 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
 import { tagHighlighter } from '../extensions/tag-highlighter'
 import { outliner } from '../extensions/outliner'
+import { toLocalDateString } from '../utils/format-date'
 
 interface DailyEditorProps {
   date: Date
@@ -135,7 +136,7 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
   useEffect(() => {
     const loadNote = async () => {
       if (window.api) {
-        const note = await window.api.readNote(date.toISOString())
+        const note = await window.api.readNote(toLocalDateString(date))
         setContent(note || '')
       }
     }
@@ -149,7 +150,7 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
     // Skip saving on initial load
     const timeoutId = setTimeout(async () => {
       try {
-        await window.api.writeNote(date.toISOString(), content)
+        await window.api.writeNote(toLocalDateString(date), content)
       } catch (err) {
         console.error('Failed to save note:', err)
       }

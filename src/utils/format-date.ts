@@ -1,4 +1,14 @@
 /**
+ * Convert Date to local YYYY-MM-DD string (timezone-safe)
+ */
+export function toLocalDateString(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/**
  * Smart date formatting
  * Returns { date, label } for aligned display with optional pill
  * Date format: "Jan 02, 2025" (short month, padded day, always year)
@@ -42,6 +52,5 @@ export function formatDate(dateStr: string): FormattedDate {
  * Format a Date object
  */
 export function formatDateFromDate(date: Date): FormattedDate {
-  const dateStr = date.toISOString().split('T')[0]
-  return formatDate(dateStr)
+  return formatDate(toLocalDateString(date))
 }

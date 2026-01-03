@@ -68,9 +68,7 @@ export function SearchPage({ onDateSelect }: SearchPageProps) {
       const dates = await window.api.listNotes()
 
       for (const dateStr of dates) {
-        const [year, month, day] = dateStr.split('-').map(Number)
-        const date = new Date(year, month - 1, day)
-        const content = await window.api.readNote(date.toISOString())
+        const content = await window.api.readNote(dateStr)
         if (!content) continue
 
         const lines = content.split('\n')

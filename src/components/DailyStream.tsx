@@ -6,7 +6,7 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
 import { tagHighlighter } from '../extensions/tag-highlighter'
 import { outliner } from '../extensions/outliner'
-import { formatDateFromDate } from '../utils/format-date'
+import { formatDateFromDate, toLocalDateString } from '../utils/format-date'
 
 interface DailyStreamProps {
   onTagClick?: (tag: string) => void
@@ -162,10 +162,11 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
       const loadedDays: DayBlock[] = []
 
       for (const date of dates) {
-        const content = await window.api.readNote(date.toISOString()) || ''
+        const dateString = toLocalDateString(date)
+        const content = await window.api.readNote(dateString) || ''
         loadedDays.push({
           date,
-          dateString: date.toISOString(),
+          dateString,
           content,
           status: 'saved'
         })
@@ -220,10 +221,11 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
     const newDays: DayBlock[] = []
 
     for (const date of newDates) {
-      const content = await window.api.readNote(date.toISOString()) || ''
+      const dateString = toLocalDateString(date)
+      const content = await window.api.readNote(dateString) || ''
       newDays.push({
         date,
-        dateString: date.toISOString(),
+        dateString,
         content,
         status: 'saved'
       })

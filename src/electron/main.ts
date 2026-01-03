@@ -8,6 +8,19 @@ import {
   formatDateForFileName,
   updateNoteLine
 } from '../core/file-manager'
+
+/**
+ * Parse YYYY-MM-DD string as local date
+ */
+function parseLocalDate(dateStr: string): Date {
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (match) {
+    const [, year, month, day] = match
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+  }
+  // Fallback for ISO strings (though we shouldn't receive these anymore)
+  return new Date(dateStr)
+}
 import { initDatabase, closeDatabase } from '../core/database'
 import {
   reindexAll,
@@ -61,13 +74,13 @@ function createWindow() {
 }
 
 // IPC handlers for file operations
-ipcMain.handle('read-note', async (_event, dateISO: string) => {
-  const date = new Date(dateISO)
+ipcMain.handle('read-note', async (_event, dateStr: string) => {
+  const date = parseLocalDate(dateStr)
   return await readNote(date)
 })
 
-ipcMain.handle('write-note', async (_event, dateISO: string, content: string) => {
-  const date = new Date(dateISO)
+ipcMain.handle('write-note', async (_event, dateStr: string, content: string) => {
+  const date = parseLocalDate(dateStr)
   await writeNote(date, content)
   // Re-index this note after writing
   await indexNote(date)
@@ -129,8 +142,7 @@ ipcMain.handle('get-cached-code', (_event, tagName: string) => {
 })
 
 ipcMain.handle('update-note-line', async (_event, dateStr: string, lineNumber: number, newContent: string) => {
-  const [year, month, day] = dateStr.split('-').map(Number)
-  const date = new Date(year, month - 1, day)
+  const date = parseLocalDate(dateStr)
   await updateNoteLine(date, lineNumber, newContent)
   // Re-index the note after updating
   await indexNote(date)
