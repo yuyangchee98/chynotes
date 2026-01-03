@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef, useMemo } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import { EditorView } from '@codemirror/view'
@@ -6,13 +6,10 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
 import { tagHighlighter } from '../extensions/tag-highlighter'
 import { outliner } from '../extensions/outliner'
-import { trackChanges } from '../extensions/track-changes'
 import { formatDateFromDate, toLocalDateString } from '../utils/format-date'
 
 interface DailyStreamProps {
   onTagClick?: (tag: string) => void
-  trackChangesEnabled: boolean
-  showGhostText: boolean
 }
 
 interface DayBlock {
@@ -146,7 +143,7 @@ function generateDates(count: number, startOffset = 0): Date[] {
 }
 
 
-export function DailyStream({ onTagClick, trackChangesEnabled, showGhostText }: DailyStreamProps) {
+export function DailyStream({ onTagClick }: DailyStreamProps) {
   const [days, setDays] = useState<DayBlock[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const isLoadingRef = useRef(false)
@@ -156,12 +153,6 @@ export function DailyStream({ onTagClick, trackChangesEnabled, showGhostText }: 
   const todayEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const saveTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map())
-
-  // Memoize track changes extension
-  const trackChangesExt = useMemo(
-    () => trackChanges({ trackChangesEnabled, showGhostText }),
-    [trackChangesEnabled, showGhostText]
-  )
 
   // Load initial days
   useEffect(() => {
@@ -378,7 +369,6 @@ export function DailyStream({ onTagClick, trackChangesEnabled, showGhostText }: 
                         syntaxHighlighting(highlightStyle),
                         tagHighlighter(),
                         outliner(),
-                        trackChangesExt,
                         EditorView.lineWrapping,
                       ]}
                       basicSetup={{
@@ -497,7 +487,6 @@ export function DailyStream({ onTagClick, trackChangesEnabled, showGhostText }: 
                     syntaxHighlighting(highlightStyle),
                     tagHighlighter(),
                     outliner(),
-                    trackChangesExt,
                     EditorView.lineWrapping,
                   ]}
                   basicSetup={{

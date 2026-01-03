@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useMemo } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import { EditorView } from '@codemirror/view'
@@ -6,14 +6,11 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
 import { tagHighlighter } from '../extensions/tag-highlighter'
 import { outliner } from '../extensions/outliner'
-import { trackChanges } from '../extensions/track-changes'
 import { toLocalDateString } from '../utils/format-date'
 
 interface DailyEditorProps {
   date: Date
   onTagClick?: (tag: string) => void
-  trackChangesEnabled: boolean
-  showGhostText: boolean
 }
 
 // Custom theme for Logseq/Obsidian-like appearance
@@ -125,14 +122,8 @@ const highlightStyle = HighlightStyle.define([
   { tag: t.monospace, fontFamily: 'ui-monospace, monospace', backgroundColor: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.9em' },
 ])
 
-export function DailyEditor({ date, onTagClick, trackChangesEnabled, showGhostText }: DailyEditorProps) {
+export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
   const [content, setContent] = useState('')
-
-  // Memoize track changes extension to avoid recreating on every render
-  const trackChangesExt = useMemo(
-    () => trackChanges({ trackChangesEnabled, showGhostText }),
-    [trackChangesEnabled, showGhostText]
-  )
 
   const dateString = date.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -227,7 +218,6 @@ export function DailyEditor({ date, onTagClick, trackChangesEnabled, showGhostTe
             syntaxHighlighting(highlightStyle),
             tagHighlighter(),
             outliner(),
-            trackChangesExt,
             EditorView.lineWrapping,
           ]}
           basicSetup={{
