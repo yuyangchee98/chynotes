@@ -727,6 +727,7 @@ const additionDebouncer = EditorView.updateListener.of((update) => {
   // Check if this was a user insertion (not our own marker)
   let hasUserInsertion = false
   let firstInsertPos = -1
+  let hasNonWhitespace = false
 
   update.changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
     const insertedText = inserted.toString()
@@ -735,12 +736,22 @@ const additionDebouncer = EditorView.updateListener.of((update) => {
 
     // Check if this is an insertion (text added, nothing deleted)
     if (inserted.length > 0 && fromA === toA) {
+      // Skip newlines and whitespace-only insertions
+      if (/^\s*$/.test(insertedText)) return
+
       hasUserInsertion = true
+      hasNonWhitespace = true
       if (firstInsertPos === -1) {
         firstInsertPos = fromB // Position in NEW doc where insertion starts
       }
     }
   })
+
+  // If whitespace-only change (Enter, spaces) but we have a pending addition,
+  // still map the position through the change so it stays correct
+  if (!hasUserInsertion && additionState && update.docChanged) {
+    additionState.insertPos = update.changes.mapPos(additionState.insertPos, -1)
+  }
 
   if (hasUserInsertion) {
     if (additionState) {

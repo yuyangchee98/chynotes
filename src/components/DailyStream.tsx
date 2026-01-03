@@ -149,6 +149,7 @@ function generateDates(count: number, startOffset = 0): Date[] {
 export function DailyStream({ onTagClick, trackChangesEnabled, showGhostText }: DailyStreamProps) {
   const [days, setDays] = useState<DayBlock[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const isLoadingRef = useRef(false)
   const [hasMore, setHasMore] = useState(true)
   const [todayLabelOpacity, setTodayLabelOpacity] = useState(1)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -187,9 +188,9 @@ export function DailyStream({ onTagClick, trackChangesEnabled, showGhostText }: 
     loadInitialDays()
   }, [])
 
-  // Infinite scroll observer
+  // Infinite scroll observer - only after initial load
   useEffect(() => {
-    if (!bottomRef.current || !hasMore) return
+    if (!bottomRef.current || !hasMore || days.length === 0) return
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -221,8 +222,8 @@ export function DailyStream({ onTagClick, trackChangesEnabled, showGhostText }: 
   }, [])
 
   const loadMoreDays = async () => {
-    if (!window.api || isLoading) return
-
+    if (!window.api || isLoadingRef.current) return
+    isLoadingRef.current = true
     setIsLoading(true)
 
     const startOffset = days.length
@@ -247,6 +248,7 @@ export function DailyStream({ onTagClick, trackChangesEnabled, showGhostText }: 
     }
 
     setDays(prev => [...prev, ...newDays])
+    isLoadingRef.current = false
     setIsLoading(false)
   }
 
