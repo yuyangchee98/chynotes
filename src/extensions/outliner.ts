@@ -7,7 +7,7 @@ import {
   WidgetType,
   keymap,
 } from '@codemirror/view'
-import { RangeSetBuilder, Prec } from '@codemirror/state'
+import { RangeSetBuilder, Prec, EditorSelection } from '@codemirror/state'
 
 // Bullet widget that replaces "- " with a styled dot
 class BulletWidget extends WidgetType {
@@ -82,6 +82,30 @@ const bulletDecorator = ViewPlugin.fromClass(
     decorations: (v) => v.decorations,
   }
 )
+
+// Prevent cursor from being placed before bullet content
+const cursorGuard = EditorView.updateListener.of((update) => {
+  if (!update.selectionSet) return
+
+  const { state } = update
+  const { main } = state.selection
+
+  // Only handle simple cursor (no selection range)
+  if (main.from !== main.to) return
+
+  const line = state.doc.lineAt(main.from)
+  const match = line.text.match(/^(\s*)- /)
+
+  if (match) {
+    const contentStart = line.from + match[0].length
+    if (main.from < contentStart) {
+      // Cursor is before content, move it after "- "
+      update.view.dispatch({
+        selection: EditorSelection.cursor(contentStart),
+      })
+    }
+  }
+})
 
 // --- Key Handlers ---
 
@@ -357,6 +381,7 @@ const pasteHandler = EditorView.domEventHandlers({
 export function outliner() {
   return [
     bulletDecorator,
+    cursorGuard,
     outlinerKeymap,
     autoInsertBullet,
     pasteHandler,
