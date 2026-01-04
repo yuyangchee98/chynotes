@@ -57,7 +57,7 @@ const editorTheme = EditorView.theme({
     color: 'var(--text-muted)',
     fontStyle: 'italic',
   },
-  '.cm-tag': {
+  '.cm-wikilink': {
     color: 'var(--accent)',
     fontWeight: '500',
     cursor: 'pointer',
@@ -65,14 +65,9 @@ const editorTheme = EditorView.theme({
     padding: '0 2px',
     backgroundColor: 'var(--accent-subtle)',
   },
-  '.cm-tag:hover': {
+  '.cm-wikilink:hover': {
     backgroundColor: 'var(--accent-subtle)',
     filter: 'brightness(0.95)',
-  },
-  '.cm-wikilink': {
-    color: '#8b7ec8',
-    fontWeight: '500',
-    cursor: 'pointer',
   },
   '.cm-bullet': {
     display: 'none',
@@ -381,13 +376,12 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
 
   const handleEditorClick = useCallback((event: React.MouseEvent) => {
     const target = event.target as HTMLElement
-    if (target.classList.contains('cm-tag') || target.classList.contains('cm-wikilink')) {
+    if (target.classList.contains('cm-wikilink')) {
       const tagText = target.textContent
       if (tagText && onTagClick) {
+        // Extract tag name from [[tag]]
         let tagName = tagText
-        if (tagName.startsWith('#')) {
-          tagName = tagName.slice(1)
-        } else if (tagName.startsWith('[[') && tagName.endsWith(']]')) {
+        if (tagName.startsWith('[[') && tagName.endsWith(']]')) {
           tagName = tagName.slice(2, -2)
         }
         onTagClick(tagName.toLowerCase())

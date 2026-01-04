@@ -1,11 +1,10 @@
 /**
  * Tag Parser
  *
- * Supports dual syntax for tags:
- * - Hashtags: #todo, #project/website, #person/sarah
- * - Wiki-links: [[todo]], [[project/website]], [[person/sarah]]
+ * Tags use wiki-link syntax only: [[todo]], [[project/website]], [[person/sarah]]
+ * Hashtags (#) are reserved for markdown headings.
  *
- * Both syntaxes are normalized to the same canonical form (without prefix).
+ * Tags are normalized to lowercase canonical form.
  */
 
 export interface TagOccurrence {
@@ -21,11 +20,7 @@ export interface ParsedNote {
   tags: Set<string>     // Unique tags found in the note
 }
 
-// Regex patterns for both syntaxes
-// Hashtag: #word or #word/subword (supports letters, numbers, underscores, hyphens, slashes)
-const HASHTAG_PATTERN = /#([\w\-]+(?:\/[\w\-]+)*)/g
-
-// Wiki-link: [[word]] or [[word/subword]]
+// Wiki-link pattern: [[word]] or [[word/subword]]
 const WIKILINK_PATTERN = /\[\[([\w\-]+(?:\/[\w\-]+)*)\]\]/g
 
 // Checkbox patterns for implicit todo/done
@@ -57,21 +52,8 @@ export function parseLineForTags(line: string, lineNumber: number): TagOccurrenc
     })
   }
 
-  // Find hashtags
-  let match: RegExpExecArray | null
-  const hashtagRegex = new RegExp(HASHTAG_PATTERN.source, 'g')
-
-  while ((match = hashtagRegex.exec(line)) !== null) {
-    occurrences.push({
-      tag: match[1].toLowerCase(),
-      line: lineNumber,
-      column: match.index,
-      raw: match[0],
-      context: line,
-    })
-  }
-
   // Find wiki-links
+  let match: RegExpExecArray | null
   const wikilinkRegex = new RegExp(WIKILINK_PATTERN.source, 'g')
 
   while ((match = wikilinkRegex.exec(line)) !== null) {

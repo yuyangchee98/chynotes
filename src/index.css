@@ -67,13 +67,9 @@ body {
   border-left-color: var(--accent) !important;
 }
 
-.dark .cm-tag {
+.dark .cm-wikilink {
   color: var(--accent) !important;
   background-color: var(--accent-subtle) !important;
-}
-
-.dark .cm-wikilink {
-  color: #a78bfa !important;
 }
 
 .dark .cm-line {

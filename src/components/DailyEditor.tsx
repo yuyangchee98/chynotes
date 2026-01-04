@@ -46,8 +46,8 @@ const editorTheme = EditorView.theme({
   '.cm-gutters': {
     display: 'none',
   },
-  // Tag styling
-  '.cm-tag': {
+  // Wiki-link styling
+  '.cm-wikilink': {
     color: 'var(--accent)',
     fontWeight: '500',
     cursor: 'pointer',
@@ -55,14 +55,9 @@ const editorTheme = EditorView.theme({
     padding: '0 2px',
     backgroundColor: 'var(--accent-subtle)',
   },
-  '.cm-tag:hover': {
+  '.cm-wikilink:hover': {
     backgroundColor: 'var(--accent-subtle)',
     filter: 'brightness(0.95)',
-  },
-  '.cm-wikilink': {
-    color: '#8b7ec8',
-    fontWeight: '500',
-    cursor: 'pointer',
   },
   // Hide markdown's default bullet styling since we handle it
   '.cm-bullet': {
@@ -202,17 +197,15 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
     setContent(value)
   }, [isViewingHistory, returnToLive])
 
-  // Handle click events on tags
+  // Handle click events on wiki-links
   const handleEditorClick = useCallback((event: React.MouseEvent) => {
     const target = event.target as HTMLElement
-    if (target.classList.contains('cm-tag') || target.classList.contains('cm-wikilink')) {
+    if (target.classList.contains('cm-wikilink')) {
       const tagText = target.textContent
       if (tagText && onTagClick) {
-        // Extract tag name from #tag or [[tag]]
+        // Extract tag name from [[tag]]
         let tagName = tagText
-        if (tagName.startsWith('#')) {
-          tagName = tagName.slice(1)
-        } else if (tagName.startsWith('[[') && tagName.endsWith(']]')) {
+        if (tagName.startsWith('[[') && tagName.endsWith(']]')) {
           tagName = tagName.slice(2, -2)
         }
         onTagClick(tagName.toLowerCase())
