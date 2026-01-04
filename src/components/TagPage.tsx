@@ -157,7 +157,7 @@ export function TagPage({ tagName, onTagClick, onBack }: TagPageProps) {
               </svg>
             </button>
             <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-              <span className="text-blue-500">#</span>{tagName}
+              <span className="text-blue-500 opacity-50">[[</span>{tagName}<span className="text-blue-500 opacity-50">]]</span>
             </h1>
           </div>
 

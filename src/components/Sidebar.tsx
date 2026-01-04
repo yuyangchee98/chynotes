@@ -82,8 +82,9 @@ export function Sidebar({
               {isExpanded ? '▼' : '▶'}
             </span>
           )}
-          <span style={{ color: 'var(--accent)' }}>#</span>
-          <span className="flex-1 text-left truncate">{node.displayName}</span>
+          <span className="flex-1 text-left truncate">
+            <span style={{ color: 'var(--accent)', opacity: 0.5 }}>[[</span>{node.displayName}<span style={{ color: 'var(--accent)', opacity: 0.5 }}>]]</span>
+          </span>
           <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{node.count}</span>
         </button>
         {hasChildren && isExpanded && (
