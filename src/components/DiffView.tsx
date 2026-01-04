@@ -6,6 +6,13 @@ interface DiffViewProps {
   newText: string  // The live content (current)
 }
 
+// Strip block IDs before diffing so they don't appear as content changes
+const BLOCK_ID_PATTERN = /\s*§[a-z0-9]+§\s*$/gm
+
+function stripBlockIds(text: string): string {
+  return text.replace(BLOCK_ID_PATTERN, '')
+}
+
 // Styled bullet dot matching the outliner extension
 function BulletDot({ indent = 0 }: { indent?: number }) {
   const sizes = ['0.35em', '0.3em', '0.25em', '0.25em']
@@ -69,7 +76,7 @@ function processLineWithBullets(text: string, className?: string, style?: React.
  */
 export function DiffView({ oldText, newText }: DiffViewProps) {
   const diffResult = useMemo(() => {
-    return diffWords(oldText, newText)
+    return diffWords(stripBlockIds(oldText), stripBlockIds(newText))
   }, [oldText, newText])
 
   // Process diff parts, handling bullets on line starts
