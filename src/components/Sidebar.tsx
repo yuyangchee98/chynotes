@@ -7,6 +7,8 @@ interface SidebarProps {
   onDateSelect: (date: Date) => void
   onSearchSelect: () => void
   selectedTag: string | null
+  selectedDate: string | null  // YYYY-MM-DD format when viewing single day
+  isStreamView: boolean
   isSearchView: boolean
   onSettingsClick: () => void
 }
@@ -17,6 +19,8 @@ export function Sidebar({
   onDateSelect,
   onSearchSelect,
   selectedTag,
+  selectedDate,
+  isStreamView,
   isSearchView,
   onSettingsClick,
 }: SidebarProps) {
@@ -118,8 +122,8 @@ export function Sidebar({
             onClick={onDailyNotesSelect}
             className="w-full flex items-center gap-3 px-3 py-2.5 text-base font-medium rounded-lg transition-colors"
             style={{
-              backgroundColor: selectedTag === null && !isSearchView ? 'var(--accent-subtle)' : 'transparent',
-              color: selectedTag === null && !isSearchView ? 'var(--accent)' : 'var(--text-primary)',
+              backgroundColor: isStreamView ? 'var(--accent-subtle)' : 'transparent',
+              color: isStreamView ? 'var(--accent)' : 'var(--text-primary)',
             }}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -173,12 +177,16 @@ export function Sidebar({
                 const [year, month, day] = dateStr.split('-').map(Number)
                 const date = new Date(year, month - 1, day)
                 const formatted = formatDate(dateStr)
+                const isSelected = selectedDate === dateStr
                 return (
                   <button
                     key={dateStr}
                     onClick={() => onDateSelect(date)}
                     className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors hover:opacity-80"
-                    style={{ color: 'var(--text-secondary)' }}
+                    style={{
+                      backgroundColor: isSelected ? 'var(--accent-subtle)' : 'transparent',
+                      color: isSelected ? 'var(--accent)' : 'var(--text-secondary)',
+                    }}
                   >
                     <span style={{ color: 'var(--text-muted)' }}>•</span>
                     <span>{formatted.date}</span>

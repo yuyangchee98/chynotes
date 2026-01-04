@@ -5,6 +5,7 @@ import { DailyStream } from './components/DailyStream'
 import { PageEditor } from './components/PageEditor'
 import { SearchPage } from './components/SearchPage'
 import { SettingsModal } from './components/SettingsModal'
+import { toLocalDateString } from './utils/format-date'
 
 type View = 'stream' | 'single-day' | 'tag' | 'search'
 type Theme = 'light' | 'dark' | 'system'
@@ -92,6 +93,8 @@ function App() {
         onDateSelect={handleDateSelect}
         onSearchSelect={handleSearchSelect}
         selectedTag={selectedTag}
+        selectedDate={view === 'single-day' ? toLocalDateString(currentDate) : null}
+        isStreamView={view === 'stream'}
         isSearchView={view === 'search'}
         onSettingsClick={() => setSettingsOpen(true)}
       />
