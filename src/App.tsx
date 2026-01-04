@@ -13,7 +13,6 @@ function App() {
   const [view, setView] = useState<View>('stream')
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>('system')
 
@@ -91,8 +90,6 @@ function App() {
         onSearchSelect={handleSearchSelect}
         selectedTag={selectedTag}
         isSearchView={view === 'search'}
-        isCollapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         onSettingsClick={() => setSettingsOpen(true)}
       />
 

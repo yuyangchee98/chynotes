@@ -8,8 +8,6 @@ interface SidebarProps {
   onSearchSelect: () => void
   selectedTag: string | null
   isSearchView: boolean
-  isCollapsed: boolean
-  onToggleCollapse: () => void
   onSettingsClick: () => void
 }
 
@@ -20,8 +18,6 @@ export function Sidebar({
   onSearchSelect,
   selectedTag,
   isSearchView,
-  isCollapsed,
-  onToggleCollapse,
   onSettingsClick,
 }: SidebarProps) {
   const [tags, setTags] = useState<TagTreeNode[]>([])
@@ -99,26 +95,6 @@ export function Sidebar({
     )
   }
 
-  if (isCollapsed) {
-    return (
-      <div
-        className="w-12 flex flex-col items-center pt-10 pb-4"
-        style={{ backgroundColor: 'var(--bg-secondary)', borderRight: '1px solid var(--border)' }}
-      >
-        <button
-          onClick={onToggleCollapse}
-          className="p-2 transition-colors"
-          style={{ color: 'var(--text-muted)' }}
-          title="Expand sidebar"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-          </svg>
-        </button>
-      </div>
-    )
-  }
-
   return (
     <div
       className="w-64 flex flex-col h-full"
@@ -126,20 +102,10 @@ export function Sidebar({
     >
       {/* Header - draggable region for window, padded for traffic lights */}
       <div
-        className="px-4 pt-10 pb-3 flex items-center justify-between"
+        className="px-4 pt-10 pb-3"
         style={{ WebkitAppRegion: 'drag', borderBottom: '1px solid var(--border)' } as React.CSSProperties}
       >
-        <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>chynotes</span>
-        <button
-          onClick={onToggleCollapse}
-          className="p-1 transition-colors"
-          style={{ WebkitAppRegion: 'no-drag', color: 'var(--text-muted)' } as React.CSSProperties}
-          title="Collapse sidebar"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-          </svg>
-        </button>
+        <span className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>chynotes</span>
       </div>
 
       {/* Scrollable content */}
