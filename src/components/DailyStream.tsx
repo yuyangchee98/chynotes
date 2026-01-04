@@ -165,6 +165,11 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
   // Snapshot debouncing for the active day
   const { lastSnapshotContent } = useSnapshotDebounce(activeDay?.dateString ?? '', activeDay?.content ?? '', !!activeDay)
 
+  // Check if current content differs from last snapshot
+  const hasUnsavedChanges = activeDay?.content !== null
+    && lastSnapshotContent !== null
+    && activeDay?.content !== lastSnapshotContent
+
   // Focus detection - which day block is currently in view
   const [focusedDayIndex, setFocusedDayIndex] = useState(0)
   const dayBlockRefs = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -446,6 +451,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
               onReturnToLive={returnToLive}
               isDiffMode={isDiffMode}
               onToggleDiffMode={toggleDiffMode}
+              hasUnsavedChanges={hasUnsavedChanges}
             />
           )}
         </div>

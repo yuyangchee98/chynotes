@@ -15,6 +15,7 @@ interface SnapshotSliderProps {
   onReturnToLive: () => void
   isDiffMode: boolean
   onToggleDiffMode: () => void
+  hasUnsavedChanges?: boolean
 }
 
 function formatTime(timestamp: number): string {
@@ -37,6 +38,7 @@ export function SnapshotSlider({
   onReturnToLive,
   isDiffMode,
   onToggleDiffMode,
+  hasUnsavedChanges = false,
 }: SnapshotSliderProps) {
   const trackRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -160,9 +162,10 @@ export function SnapshotSlider({
 
       {/* Right endpoint label */}
       <span
-        className="text-xs"
+        className={`text-xs ${hasUnsavedChanges ? 'animate-pulse' : ''}`}
         style={{
-          color: 'var(--text-muted)',
+          color: hasUnsavedChanges ? 'var(--accent)' : 'var(--text-muted)',
+          transition: 'color 0.3s ease',
         }}
       >
         live
