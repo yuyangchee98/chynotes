@@ -116,72 +116,76 @@ export function SnapshotSlider({
       className="flex items-center gap-3"
       style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
     >
-      {/* Time label */}
-      <span
-        className="text-xs min-w-[50px] text-right"
-        style={{ color: 'var(--text-muted)' }}
-      >
-        {currentTimeLabel}
-      </span>
+      {/* Timeline scrubber - pulses when unsaved changes */}
+      <div className={`flex items-center gap-2 ${hasUnsavedChanges ? 'animate-pulse' : ''}`}>
+        {/* Time label - only show when not at live */}
+        {!isLive && (
+          <span
+            className="text-xs min-w-[50px] text-right"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            {currentTimeLabel}
+          </span>
+        )}
 
-      {/* Scrubber track */}
-      <div
-        ref={trackRef}
-        className="relative w-24 h-6 flex items-center cursor-pointer"
-        onMouseDown={handleMouseDown}
-      >
-        {/* Track background */}
+        {/* Scrubber track */}
         <div
-          className="absolute inset-x-0 h-1 rounded-full"
-          style={{ backgroundColor: 'var(--border)' }}
-        />
+          ref={trackRef}
+          className="relative w-24 h-6 flex items-center cursor-pointer"
+          onMouseDown={handleMouseDown}
+        >
+          {/* Track background */}
+          <div
+            className="absolute inset-x-0 h-1 rounded-full"
+            style={{ backgroundColor: 'var(--border)' }}
+          />
 
-        {/* Filled portion */}
-        <div
-          className="absolute left-0 h-1 rounded-full transition-all"
-          style={{
-            width: `${thumbPercent}%`,
-            backgroundColor: 'var(--accent)',
-            opacity: 0.5,
-            transitionDuration: isDragging ? '0ms' : '150ms',
-          }}
-        />
+          {/* Filled portion */}
+          <div
+            className="absolute left-0 h-1 rounded-full transition-all"
+            style={{
+              width: `${thumbPercent}%`,
+              backgroundColor: 'var(--accent)',
+              opacity: 0.5,
+              transitionDuration: isDragging ? '0ms' : '150ms',
+            }}
+          />
 
-        {/* Thumb */}
-        <div
-          className="absolute w-3 h-3 rounded-full transition-all"
-          style={{
-            left: `${thumbPercent}%`,
-            transform: 'translateX(-50%)',
-            backgroundColor: 'var(--accent)',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-            transitionDuration: isDragging ? '0ms' : '150ms',
-          }}
-        />
+          {/* Thumb */}
+          <div
+            className="absolute w-3 h-3 rounded-full transition-all"
+            style={{
+              left: `${thumbPercent}%`,
+              transform: 'translateX(-50%)',
+              backgroundColor: 'var(--accent)',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+              transitionDuration: isDragging ? '0ms' : '150ms',
+            }}
+          />
+        </div>
+
+        {/* Right endpoint label */}
+        <span
+          className="text-xs"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          Live
+        </span>
       </div>
 
-      {/* Right endpoint label */}
-      <span
-        className={`text-xs ${hasUnsavedChanges ? 'animate-pulse' : ''}`}
-        style={{
-          color: hasUnsavedChanges ? 'var(--accent)' : 'var(--text-muted)',
-          transition: 'color 0.3s ease',
-        }}
-      >
-        live
-      </span>
-
-      {/* Diff toggle button */}
+      {/* Changes toggle button */}
       <button
         onClick={onToggleDiffMode}
-        className="ml-2 px-2 py-0.5 text-xs rounded transition-colors"
+        className="flex items-center gap-1.5 px-2 py-1 text-xs rounded transition-all hover:opacity-80"
         style={{
-          backgroundColor: isDiffMode ? 'var(--accent)' : 'var(--bg-tertiary)',
-          color: isDiffMode ? 'white' : 'var(--text-muted)',
+          backgroundColor: 'var(--bg-tertiary)',
+          color: 'var(--text-muted)',
+          opacity: isDiffMode ? 1 : 0.6,
         }}
         title={isDiffMode ? 'Hide changes' : 'Show changes'}
       >
-        diff
+        <span>{isDiffMode ? '●' : '○'}</span>
+        <span>Changes</span>
       </button>
     </div>
   )
