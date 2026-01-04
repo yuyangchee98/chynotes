@@ -52,6 +52,9 @@ const fs = __importStar(require("fs/promises"));
 const path = __importStar(require("path"));
 const fs_1 = require("fs");
 const os_1 = require("os");
+const block_parser_1 = require("./block-parser");
+const tag_parser_1 = require("./tag-parser");
+const database_1 = require("./database");
 const NOTES_DIR_NAME = '.chynotes';
 const NOTES_SUBDIR = 'notes';
 /**
@@ -141,15 +144,41 @@ async function readNote(date) {
 /**
  * Write (or overwrite) a note for a specific date
  * If content is empty, deletes the file instead
+ * Automatically adds block IDs to any blocks without them
  */
 async function writeNote(date, content) {
+    const noteDate = formatDateForFileName(date);
     if (content === '') {
         await deleteNote(date);
+        // Also clean up blocks in database
+        (0, database_1.deleteBlocksForNote)(noteDate);
         return;
     }
+    // Inject block IDs into any blocks that don't have them
+    const contentWithIds = (0, block_parser_1.serializeBlocks)(content);
     await ensureNotesDirectory();
     const filePath = getNotePath(date);
-    await fs.writeFile(filePath, content, 'utf-8');
+    await fs.writeFile(filePath, contentWithIds, 'utf-8');
+    // Index blocks in database
+    indexBlocks(noteDate, contentWithIds);
+}
+/**
+ * Index all blocks from content into the database
+ */
+function indexBlocks(noteDate, content) {
+    // Clear existing blocks for this note
+    (0, database_1.deleteBlocksForNote)(noteDate);
+    // Parse blocks
+    const { allBlocks } = (0, block_parser_1.parseBlocks)(content);
+    // Insert each block
+    for (const block of allBlocks) {
+        (0, database_1.upsertBlock)(block.id, noteDate, block.content, block.parent?.id || null, block.indentLevel, block.line);
+        // Parse tags from block content and index them
+        const { tags } = (0, tag_parser_1.parseNote)(block.content);
+        for (const tag of tags) {
+            (0, database_1.addBlockTag)(block.id, tag);
+        }
+    }
 }
 /**
  * Check if a note exists for a specific date

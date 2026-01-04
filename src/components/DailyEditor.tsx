@@ -6,6 +6,7 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
 import { tagHighlighter } from '../extensions/tag-highlighter'
 import { outliner } from '../extensions/outliner'
+import { blockIdHider } from '../extensions/block-id-hider'
 import { toLocalDateString } from '../utils/format-date'
 import { useSnapshotDebounce } from '../hooks/useSnapshotDebounce'
 import { useSnapshotViewer } from '../hooks/useSnapshotViewer'
@@ -280,6 +281,7 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
                   syntaxHighlighting(highlightStyle),
                   tagHighlighter(),
                   outliner(),
+                  blockIdHider(),
                   EditorView.lineWrapping,
                   ...(isViewingHistory ? [EditorView.editable.of(false)] : []),
                 ]}

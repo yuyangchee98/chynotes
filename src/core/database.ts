@@ -106,6 +106,27 @@ function createTables(database: Database.Database): void {
       content_hash TEXT NOT NULL
     );
 
+    -- Blocks table for block-based structure
+    CREATE TABLE IF NOT EXISTS blocks (
+      id TEXT PRIMARY KEY,
+      note_date TEXT NOT NULL,
+      content TEXT NOT NULL,
+      parent_id TEXT,
+      indent_level INTEGER DEFAULT 0,
+      line_number INTEGER,
+      updated_at INTEGER,
+      FOREIGN KEY (parent_id) REFERENCES blocks(id) ON DELETE SET NULL
+    );
+
+    -- Block tags (which tags appear in which blocks)
+    CREATE TABLE IF NOT EXISTS block_tags (
+      id INTEGER PRIMARY KEY,
+      block_id TEXT NOT NULL,
+      tag_name TEXT NOT NULL,
+      FOREIGN KEY (block_id) REFERENCES blocks(id) ON DELETE CASCADE,
+      UNIQUE(block_id, tag_name)
+    );
+
     -- Create indexes for faster queries
     CREATE INDEX IF NOT EXISTS idx_notes_date ON notes(date);
     CREATE INDEX IF NOT EXISTS idx_tag_name ON tags(name);
@@ -114,6 +135,10 @@ function createTables(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_cache_tag ON cache(tag_id);
     CREATE INDEX IF NOT EXISTS idx_snapshots_note_date ON snapshots(note_date);
     CREATE INDEX IF NOT EXISTS idx_snapshots_created_at ON snapshots(note_date, created_at);
+    CREATE INDEX IF NOT EXISTS idx_blocks_note_date ON blocks(note_date);
+    CREATE INDEX IF NOT EXISTS idx_blocks_parent ON blocks(parent_id);
+    CREATE INDEX IF NOT EXISTS idx_block_tags_block ON block_tags(block_id);
+    CREATE INDEX IF NOT EXISTS idx_block_tags_tag ON block_tags(tag_name);
   `)
 }
 
@@ -454,4 +479,108 @@ export function pruneSnapshots(noteDate: string, keepCount: number): void {
       LIMIT ?
     )
   `).run(noteDate, noteDate, keepCount)
+}
+
+// ============================================================================
+// Blocks Table Operations
+// ============================================================================
+
+export interface BlockRecord {
+  id: string
+  note_date: string
+  content: string
+  parent_id: string | null
+  indent_level: number
+  line_number: number
+  updated_at: number
+}
+
+/**
+ * Upsert a block (insert or update)
+ */
+export function upsertBlock(
+  id: string,
+  noteDate: string,
+  content: string,
+  parentId: string | null,
+  indentLevel: number,
+  lineNumber: number
+): void {
+  const db = getDatabase()
+  const now = Date.now()
+
+  db.prepare(`
+    INSERT INTO blocks (id, note_date, content, parent_id, indent_level, line_number, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      note_date = excluded.note_date,
+      content = excluded.content,
+      parent_id = excluded.parent_id,
+      indent_level = excluded.indent_level,
+      line_number = excluded.line_number,
+      updated_at = excluded.updated_at
+  `).run(id, noteDate, content, parentId, indentLevel, lineNumber, now)
+}
+
+/**
+ * Get a block by ID
+ */
+export function getBlockById(id: string): BlockRecord | null {
+  const db = getDatabase()
+  const stmt = db.prepare('SELECT * FROM blocks WHERE id = ?')
+  return (stmt.get(id) as BlockRecord) || null
+}
+
+/**
+ * Get all blocks for a note date
+ */
+export function getBlocksForNote(noteDate: string): BlockRecord[] {
+  const db = getDatabase()
+  const stmt = db.prepare(`
+    SELECT * FROM blocks
+    WHERE note_date = ?
+    ORDER BY line_number ASC
+  `)
+  return stmt.all(noteDate) as BlockRecord[]
+}
+
+/**
+ * Delete all blocks for a note
+ */
+export function deleteBlocksForNote(noteDate: string): void {
+  const db = getDatabase()
+  db.prepare('DELETE FROM blocks WHERE note_date = ?').run(noteDate)
+}
+
+/**
+ * Add a tag to a block
+ */
+export function addBlockTag(blockId: string, tagName: string): void {
+  const db = getDatabase()
+  db.prepare(`
+    INSERT OR IGNORE INTO block_tags (block_id, tag_name)
+    VALUES (?, ?)
+  `).run(blockId, tagName.toLowerCase())
+}
+
+/**
+ * Get all blocks containing a specific tag
+ */
+export function getBlocksWithTag(tagName: string): BlockRecord[] {
+  const db = getDatabase()
+  const stmt = db.prepare(`
+    SELECT b.* FROM blocks b
+    JOIN block_tags bt ON b.id = bt.block_id
+    WHERE bt.tag_name = ?
+    ORDER BY b.note_date DESC, b.line_number ASC
+  `)
+  return stmt.all(tagName.toLowerCase()) as BlockRecord[]
+}
+
+/**
+ * Delete all tags for a block
+ */
+export function deleteBlockTags(blockId: string): void {
+  const db = getDatabase()
+  db.prepare('DELETE FROM block_tags WHERE block_id = ?').run(blockId)
 }

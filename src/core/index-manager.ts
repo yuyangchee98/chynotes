@@ -14,8 +14,10 @@ import {
   deleteOccurrencesForNote,
   getTagsWithCounts,
   getOccurrencesForTag,
+  getBlocksWithTag,
   TagWithCount,
   TagOccurrenceWithDetails,
+  BlockRecord,
 } from './database'
 import { parseNote } from './tag-parser'
 import { listDefaultPrompts } from './prompt-manager'
@@ -117,11 +119,27 @@ export function getAllTagsWithCounts(): TagWithCount[] {
 }
 
 /**
- * Get all occurrences of a specific tag
+ * Block occurrence with details for display
  */
-export function getTagOccurrences(tagName: string): TagOccurrenceWithDetails[] {
+export interface BlockOccurrence {
+  block_id: string
+  date: string
+  line: number
+  content: string
+}
+
+/**
+ * Get all blocks containing a specific tag
+ */
+export function getTagOccurrences(tagName: string): BlockOccurrence[] {
   initDatabase()
-  return getOccurrencesForTag(tagName.toLowerCase())
+  const blocks = getBlocksWithTag(tagName.toLowerCase())
+  return blocks.map(block => ({
+    block_id: block.id,
+    date: block.note_date,
+    line: block.line_number,
+    content: block.content,
+  }))
 }
 
 /**

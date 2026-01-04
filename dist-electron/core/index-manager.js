@@ -123,11 +123,17 @@ function getAllTagsWithCounts() {
     return (0, database_1.getTagsWithCounts)();
 }
 /**
- * Get all occurrences of a specific tag
+ * Get all blocks containing a specific tag
  */
 function getTagOccurrences(tagName) {
     (0, database_1.initDatabase)();
-    return (0, database_1.getOccurrencesForTag)(tagName.toLowerCase());
+    const blocks = (0, database_1.getBlocksWithTag)(tagName.toLowerCase());
+    return blocks.map(block => ({
+        block_id: block.id,
+        date: block.note_date,
+        line: block.line_number,
+        content: block.content,
+    }));
 }
 /**
  * Search tags by prefix (for autocomplete)

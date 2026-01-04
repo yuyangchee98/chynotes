@@ -2,6 +2,14 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import { existsSync, mkdirSync } from 'fs'
 import { homedir } from 'os'
+import { serializeBlocks, parseBlocks } from './block-parser'
+import { parseNote } from './tag-parser'
+import {
+  upsertBlock,
+  deleteBlocksForNote,
+  addBlockTag,
+  deleteBlockTags
+} from './database'
 
 const NOTES_DIR_NAME = '.chynotes'
 const NOTES_SUBDIR = 'notes'
@@ -103,15 +111,56 @@ export async function readNote(date: Date): Promise<string | null> {
 /**
  * Write (or overwrite) a note for a specific date
  * If content is empty, deletes the file instead
+ * Automatically adds block IDs to any blocks without them
  */
 export async function writeNote(date: Date, content: string): Promise<void> {
+  const noteDate = formatDateForFileName(date)
+
   if (content === '') {
     await deleteNote(date)
+    // Also clean up blocks in database
+    deleteBlocksForNote(noteDate)
     return
   }
+
+  // Inject block IDs into any blocks that don't have them
+  const contentWithIds = serializeBlocks(content)
+
   await ensureNotesDirectory()
   const filePath = getNotePath(date)
-  await fs.writeFile(filePath, content, 'utf-8')
+  await fs.writeFile(filePath, contentWithIds, 'utf-8')
+
+  // Index blocks in database
+  indexBlocks(noteDate, contentWithIds)
+}
+
+/**
+ * Index all blocks from content into the database
+ */
+function indexBlocks(noteDate: string, content: string): void {
+  // Clear existing blocks for this note
+  deleteBlocksForNote(noteDate)
+
+  // Parse blocks
+  const { allBlocks } = parseBlocks(content)
+
+  // Insert each block
+  for (const block of allBlocks) {
+    upsertBlock(
+      block.id,
+      noteDate,
+      block.content,
+      block.parent?.id || null,
+      block.indentLevel,
+      block.line
+    )
+
+    // Parse tags from block content and index them
+    const { tags } = parseNote(block.content)
+    for (const tag of tags) {
+      addBlockTag(block.id, tag)
+    }
+  }
 }
 
 /**

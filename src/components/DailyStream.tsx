@@ -6,6 +6,7 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
 import { tagHighlighter } from '../extensions/tag-highlighter'
 import { outliner } from '../extensions/outliner'
+import { blockIdHider } from '../extensions/block-id-hider'
 import { unsavedHighlighter } from '../extensions/unsaved-highlighter'
 import { formatDateFromDate, toLocalDateString } from '../utils/format-date'
 import { useSnapshotDebounce } from '../hooks/useSnapshotDebounce'
@@ -506,6 +507,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                             syntaxHighlighting(highlightStyle),
                             tagHighlighter(),
                             outliner(),
+                            blockIdHider(),
                             unsavedHighlighter(lastSnapshotContent),
                             EditorView.lineWrapping,
                             ...(showingSnapshot ? [EditorView.editable.of(false)] : []),
@@ -654,6 +656,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                           syntaxHighlighting(highlightStyle),
                           tagHighlighter(),
                           outliner(),
+                          blockIdHider(),
                           EditorView.lineWrapping,
                           ...(showingSnapshot ? [EditorView.editable.of(false)] : []),
                         ]}

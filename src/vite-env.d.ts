@@ -8,7 +8,7 @@ interface TagWithCount {
 }
 
 interface TagOccurrence {
-  tag_name: string
+  block_id: string
   date: string
   line: number
   content: string
