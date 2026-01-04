@@ -24,12 +24,15 @@ interface TagTreeNode {
   children: TagTreeNode[]
 }
 
+type DocumentType = 'note' | 'page'
+
 interface SnapshotRecord {
   id: number
   note_date: string
   content: string
   created_at: number
   content_hash: string
+  document_type: DocumentType
 }
 
 interface Window {
@@ -39,6 +42,13 @@ interface Window {
     writeNote: (dateISO: string, content: string) => Promise<void>
     listNotes: () => Promise<string[]>
     ensureNotesDirectory: () => Promise<void>
+
+    // Page operations
+    readPage: (name: string) => Promise<string | null>
+    writePage: (name: string, content: string) => Promise<void>
+    pageExists: (name: string) => Promise<boolean>
+    createPage: (name: string) => Promise<boolean>
+    listPages: () => Promise<string[]>
 
     // Tag operations
     reindexAll: () => Promise<number>
@@ -61,8 +71,8 @@ interface Window {
     setSetting: (key: string, value: string) => Promise<void>
 
     // Snapshot operations
-    saveSnapshot: (noteDate: string, content: string) => Promise<SnapshotRecord | null>
-    getSnapshots: (noteDate: string) => Promise<SnapshotRecord[]>
+    saveSnapshot: (noteDate: string, content: string, documentType?: DocumentType) => Promise<SnapshotRecord | null>
+    getSnapshots: (noteDate: string, documentType?: DocumentType) => Promise<SnapshotRecord[]>
     getSnapshot: (id: number) => Promise<SnapshotRecord | null>
   }
 }

@@ -97,13 +97,24 @@ function createTables(database: Database.Database): void {
       value TEXT
     );
 
+    -- Pages metadata (tag pages stored as markdown files)
+    CREATE TABLE IF NOT EXISTS pages (
+      id INTEGER PRIMARY KEY,
+      name TEXT UNIQUE NOT NULL,
+      file_hash TEXT,
+      created_at INTEGER,
+      updated_at INTEGER
+    );
+
     -- Document snapshots for viewing evolution of thought
+    -- document_type: 'note' for daily notes, 'page' for tag pages
     CREATE TABLE IF NOT EXISTS snapshots (
       id INTEGER PRIMARY KEY,
       note_date TEXT NOT NULL,
       content TEXT NOT NULL,
       created_at INTEGER NOT NULL,
-      content_hash TEXT NOT NULL
+      content_hash TEXT NOT NULL,
+      document_type TEXT NOT NULL DEFAULT 'note'
     );
 
     -- Blocks table for block-based structure
@@ -133,8 +144,10 @@ function createTables(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_occurrence_tag ON tag_occurrences(tag_id);
     CREATE INDEX IF NOT EXISTS idx_occurrence_note ON tag_occurrences(note_id);
     CREATE INDEX IF NOT EXISTS idx_cache_tag ON cache(tag_id);
+    CREATE INDEX IF NOT EXISTS idx_pages_name ON pages(name);
     CREATE INDEX IF NOT EXISTS idx_snapshots_note_date ON snapshots(note_date);
     CREATE INDEX IF NOT EXISTS idx_snapshots_created_at ON snapshots(note_date, created_at);
+    CREATE INDEX IF NOT EXISTS idx_snapshots_document_type ON snapshots(document_type);
     CREATE INDEX IF NOT EXISTS idx_blocks_note_date ON blocks(note_date);
     CREATE INDEX IF NOT EXISTS idx_blocks_parent ON blocks(parent_id);
     CREATE INDEX IF NOT EXISTS idx_block_tags_block ON block_tags(block_id);
@@ -389,12 +402,15 @@ export function deleteSetting(key: string): void {
 // Snapshots Table Operations
 // ============================================================================
 
+export type DocumentType = 'note' | 'page'
+
 export interface SnapshotRecord {
   id: number
   note_date: string
   content: string
   created_at: number
   content_hash: string
+  document_type: DocumentType
 }
 
 /**
@@ -414,18 +430,22 @@ function hashContent(content: string): string {
  * Save a snapshot if content has changed since last snapshot
  * Returns the new snapshot record, or null if skipped (no change)
  */
-export function saveSnapshot(noteDate: string, content: string): SnapshotRecord | null {
+export function saveSnapshot(
+  noteDate: string,
+  content: string,
+  documentType: DocumentType = 'note'
+): SnapshotRecord | null {
   const db = getDatabase()
   const contentHash = hashContent(content)
   const now = Date.now()
 
-  // Check if last snapshot has same content
+  // Check if last snapshot has same content (for same document type)
   const lastSnapshot = db.prepare(`
     SELECT content_hash FROM snapshots
-    WHERE note_date = ?
+    WHERE note_date = ? AND document_type = ?
     ORDER BY created_at DESC
     LIMIT 1
-  `).get(noteDate) as { content_hash: string } | undefined
+  `).get(noteDate, documentType) as { content_hash: string } | undefined
 
   if (lastSnapshot?.content_hash === contentHash) {
     // Content unchanged, skip
@@ -434,25 +454,28 @@ export function saveSnapshot(noteDate: string, content: string): SnapshotRecord 
 
   // Insert new snapshot
   const stmt = db.prepare(`
-    INSERT INTO snapshots (note_date, content, created_at, content_hash)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO snapshots (note_date, content, created_at, content_hash, document_type)
+    VALUES (?, ?, ?, ?, ?)
     RETURNING *
   `)
 
-  return stmt.get(noteDate, content, now, contentHash) as SnapshotRecord
+  return stmt.get(noteDate, content, now, contentHash, documentType) as SnapshotRecord
 }
 
 /**
- * Get all snapshots for a note, ordered by creation time (newest first)
+ * Get all snapshots for a document, ordered by creation time (newest first)
  */
-export function getSnapshotsForNote(noteDate: string): SnapshotRecord[] {
+export function getSnapshotsForNote(
+  noteDate: string,
+  documentType: DocumentType = 'note'
+): SnapshotRecord[] {
   const db = getDatabase()
   const stmt = db.prepare(`
     SELECT * FROM snapshots
-    WHERE note_date = ?
+    WHERE note_date = ? AND document_type = ?
     ORDER BY created_at DESC
   `)
-  return stmt.all(noteDate) as SnapshotRecord[]
+  return stmt.all(noteDate, documentType) as SnapshotRecord[]
 }
 
 /**
@@ -467,18 +490,89 @@ export function getSnapshot(id: number): SnapshotRecord | null {
 /**
  * Delete old snapshots, keeping only the most recent N
  */
-export function pruneSnapshots(noteDate: string, keepCount: number): void {
+export function pruneSnapshots(
+  noteDate: string,
+  keepCount: number,
+  documentType: DocumentType = 'note'
+): void {
   const db = getDatabase()
   db.prepare(`
     DELETE FROM snapshots
-    WHERE note_date = ?
+    WHERE note_date = ? AND document_type = ?
     AND id NOT IN (
       SELECT id FROM snapshots
-      WHERE note_date = ?
+      WHERE note_date = ? AND document_type = ?
       ORDER BY created_at DESC
       LIMIT ?
     )
-  `).run(noteDate, noteDate, keepCount)
+  `).run(noteDate, documentType, noteDate, documentType, keepCount)
+}
+
+// ============================================================================
+// Pages Table Operations
+// ============================================================================
+
+export interface PageRecord {
+  id: number
+  name: string
+  file_hash: string | null
+  created_at: number
+  updated_at: number
+}
+
+/**
+ * Create or update a page record
+ */
+export function upsertPage(name: string, fileHash: string | null = null): PageRecord {
+  const db = getDatabase()
+  const now = Date.now()
+
+  const stmt = db.prepare(`
+    INSERT INTO pages (name, file_hash, created_at, updated_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(name) DO UPDATE SET
+      file_hash = excluded.file_hash,
+      updated_at = excluded.updated_at
+    RETURNING *
+  `)
+
+  return stmt.get(name, fileHash, now, now) as PageRecord
+}
+
+/**
+ * Get a page by name
+ */
+export function getPageByName(name: string): PageRecord | undefined {
+  const db = getDatabase()
+  const stmt = db.prepare('SELECT * FROM pages WHERE name = ?')
+  return stmt.get(name) as PageRecord | undefined
+}
+
+/**
+ * Get all pages
+ */
+export function getAllPages(): PageRecord[] {
+  const db = getDatabase()
+  const stmt = db.prepare('SELECT * FROM pages ORDER BY name')
+  return stmt.all() as PageRecord[]
+}
+
+/**
+ * Delete a page
+ */
+export function deletePage(name: string): void {
+  const db = getDatabase()
+  const stmt = db.prepare('DELETE FROM pages WHERE name = ?')
+  stmt.run(name)
+}
+
+/**
+ * Check if a page exists
+ */
+export function pageExists(name: string): boolean {
+  const db = getDatabase()
+  const stmt = db.prepare('SELECT 1 FROM pages WHERE name = ?')
+  return stmt.get(name) !== undefined
 }
 
 // ============================================================================

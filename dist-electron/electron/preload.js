@@ -15,6 +15,22 @@ electron_1.contextBridge.exposeInMainWorld('api', {
     ensureNotesDirectory: () => {
         return electron_1.ipcRenderer.invoke('ensure-notes-directory');
     },
+    // Page operations
+    readPage: (name) => {
+        return electron_1.ipcRenderer.invoke('read-page', name);
+    },
+    writePage: (name, content) => {
+        return electron_1.ipcRenderer.invoke('write-page', name, content);
+    },
+    pageExists: (name) => {
+        return electron_1.ipcRenderer.invoke('page-exists', name);
+    },
+    createPage: (name) => {
+        return electron_1.ipcRenderer.invoke('create-page', name);
+    },
+    listPages: () => {
+        return electron_1.ipcRenderer.invoke('list-pages');
+    },
     // Tag operations
     reindexAll: () => {
         return electron_1.ipcRenderer.invoke('reindex-all');
@@ -61,11 +77,11 @@ electron_1.contextBridge.exposeInMainWorld('api', {
         return electron_1.ipcRenderer.invoke('set-setting', key, value);
     },
     // Snapshot operations
-    saveSnapshot: (noteDate, content) => {
-        return electron_1.ipcRenderer.invoke('save-snapshot', noteDate, content);
+    saveSnapshot: (noteDate, content, documentType = 'note') => {
+        return electron_1.ipcRenderer.invoke('save-snapshot', noteDate, content, documentType);
     },
-    getSnapshots: (noteDate) => {
-        return electron_1.ipcRenderer.invoke('get-snapshots', noteDate);
+    getSnapshots: (noteDate, documentType = 'note') => {
+        return electron_1.ipcRenderer.invoke('get-snapshots', noteDate, documentType);
     },
     getSnapshot: (id) => {
         return electron_1.ipcRenderer.invoke('get-snapshot', id);

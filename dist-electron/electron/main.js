@@ -23,8 +23,9 @@ const index_manager_1 = require("../core/index-manager");
 const code_generator_1 = require("../core/code-generator");
 const prompt_manager_1 = require("../core/prompt-manager");
 const database_2 = require("../core/database");
-// Ensure notes directory exists on startup
+// Ensure notes and pages directories exist on startup
 (0, file_manager_1.ensureNotesDirectorySync)();
+(0, file_manager_1.ensurePagesDirectorySync)();
 // Initialize database
 (0, database_1.initDatabase)();
 let mainWindow = null;
@@ -70,6 +71,28 @@ electron_1.ipcMain.handle('list-notes', async () => {
 });
 electron_1.ipcMain.handle('ensure-notes-directory', async () => {
     (0, file_manager_1.ensureNotesDirectorySync)();
+});
+// Page-related IPC handlers
+electron_1.ipcMain.handle('read-page', async (_event, name) => {
+    return await (0, file_manager_1.readPage)(name);
+});
+electron_1.ipcMain.handle('write-page', async (_event, name, content) => {
+    await (0, file_manager_1.writePage)(name, content);
+    // Update page record in database
+    (0, database_2.upsertPage)(name);
+});
+electron_1.ipcMain.handle('page-exists', async (_event, name) => {
+    return await (0, file_manager_1.pageFileExists)(name);
+});
+electron_1.ipcMain.handle('create-page', async (_event, name) => {
+    const created = await (0, file_manager_1.createPageIfNotExists)(name);
+    if (created) {
+        (0, database_2.upsertPage)(name);
+    }
+    return created;
+});
+electron_1.ipcMain.handle('list-pages', async () => {
+    return await (0, file_manager_1.listAllPages)();
 });
 // Tag-related IPC handlers
 electron_1.ipcMain.handle('reindex-all', async () => {
@@ -120,11 +143,11 @@ electron_1.ipcMain.handle('set-setting', (_event, key, value) => {
     (0, database_2.setSetting)(key, value);
 });
 // Snapshot IPC handlers
-electron_1.ipcMain.handle('save-snapshot', (_event, noteDate, content) => {
-    return (0, database_2.saveSnapshot)(noteDate, content);
+electron_1.ipcMain.handle('save-snapshot', (_event, noteDate, content, documentType = 'note') => {
+    return (0, database_2.saveSnapshot)(noteDate, content, documentType);
 });
-electron_1.ipcMain.handle('get-snapshots', (_event, noteDate) => {
-    return (0, database_2.getSnapshotsForNote)(noteDate);
+electron_1.ipcMain.handle('get-snapshots', (_event, noteDate, documentType = 'note') => {
+    return (0, database_2.getSnapshotsForNote)(noteDate, documentType);
 });
 electron_1.ipcMain.handle('get-snapshot', (_event, id) => {
     return (0, database_2.getSnapshot)(id);

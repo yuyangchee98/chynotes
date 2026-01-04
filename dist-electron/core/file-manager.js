@@ -48,6 +48,16 @@ exports.noteExists = noteExists;
 exports.listAllNotes = listAllNotes;
 exports.deleteNote = deleteNote;
 exports.updateNoteLine = updateNoteLine;
+exports.getPagesDirectory = getPagesDirectory;
+exports.ensurePagesDirectory = ensurePagesDirectory;
+exports.ensurePagesDirectorySync = ensurePagesDirectorySync;
+exports.getPagePath = getPagePath;
+exports.readPage = readPage;
+exports.writePage = writePage;
+exports.pageFileExists = pageFileExists;
+exports.createPageIfNotExists = createPageIfNotExists;
+exports.listAllPages = listAllPages;
+exports.deletePageFile = deletePageFile;
 const fs = __importStar(require("fs/promises"));
 const path = __importStar(require("path"));
 const fs_1 = require("fs");
@@ -57,6 +67,7 @@ const tag_parser_1 = require("./tag-parser");
 const database_1 = require("./database");
 const NOTES_DIR_NAME = '.chynotes';
 const NOTES_SUBDIR = 'notes';
+const PAGES_SUBDIR = 'pages';
 /**
  * Get the base chynotes directory path
  */
@@ -250,4 +261,146 @@ async function updateNoteLine(date, lineNumber, newContent) {
     }
     lines[lineNumber - 1] = newContent;
     await writeNote(date, lines.join('\n'));
+}
+// ============================================================================
+// Pages (Tag Pages) File Operations
+// ============================================================================
+/**
+ * Get the pages directory path where tag pages are stored
+ */
+function getPagesDirectory() {
+    return path.join(getChynotesDirectory(), PAGES_SUBDIR);
+}
+/**
+ * Ensure the pages directory exists
+ */
+async function ensurePagesDirectory() {
+    const pagesDir = getPagesDirectory();
+    if (!(0, fs_1.existsSync)(pagesDir)) {
+        await fs.mkdir(pagesDir, { recursive: true });
+    }
+}
+/**
+ * Ensure the pages directory exists (sync version)
+ */
+function ensurePagesDirectorySync() {
+    const pagesDir = getPagesDirectory();
+    if (!(0, fs_1.existsSync)(pagesDir)) {
+        (0, fs_1.mkdirSync)(pagesDir, { recursive: true });
+    }
+}
+/**
+ * Get the file path for a page
+ * Handles hierarchical pages like "project/website" -> "pages/project/website.md"
+ */
+function getPagePath(name) {
+    // Normalize the name (lowercase, no leading/trailing slashes)
+    const normalizedName = name.toLowerCase().replace(/^\/+|\/+$/g, '');
+    return path.join(getPagesDirectory(), `${normalizedName}.md`);
+}
+/**
+ * Read a page's content
+ * @returns The page content, or null if the file doesn't exist
+ */
+async function readPage(name) {
+    const filePath = getPagePath(name);
+    try {
+        const content = await fs.readFile(filePath, 'utf-8');
+        return content;
+    }
+    catch (error) {
+        if (error.code === 'ENOENT') {
+            return null;
+        }
+        throw error;
+    }
+}
+/**
+ * Write (or overwrite) a page
+ * Creates parent directories if needed for hierarchical pages
+ */
+async function writePage(name, content) {
+    await ensurePagesDirectory();
+    const filePath = getPagePath(name);
+    // Ensure parent directory exists for hierarchical pages
+    const dir = path.dirname(filePath);
+    if (!(0, fs_1.existsSync)(dir)) {
+        await fs.mkdir(dir, { recursive: true });
+    }
+    await fs.writeFile(filePath, content, 'utf-8');
+}
+/**
+ * Check if a page file exists
+ */
+async function pageFileExists(name) {
+    const filePath = getPagePath(name);
+    try {
+        await fs.access(filePath);
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
+/**
+ * Create an empty page if it doesn't exist
+ * Returns true if created, false if already exists
+ */
+async function createPageIfNotExists(name) {
+    const exists = await pageFileExists(name);
+    if (exists) {
+        return false;
+    }
+    // Create empty page with just a header
+    const initialContent = `# ${name}\n\n`;
+    await writePage(name, initialContent);
+    return true;
+}
+/**
+ * List all pages in the pages directory
+ * @returns Array of page names (without .md extension)
+ */
+async function listAllPages() {
+    const pagesDir = getPagesDirectory();
+    try {
+        const pages = [];
+        async function scanDir(dir, prefix = '') {
+            const entries = await fs.readdir(dir, { withFileTypes: true });
+            for (const entry of entries) {
+                const fullPath = path.join(dir, entry.name);
+                if (entry.isDirectory()) {
+                    // Recursively scan subdirectories for hierarchical pages
+                    await scanDir(fullPath, prefix ? `${prefix}/${entry.name}` : entry.name);
+                }
+                else if (entry.isFile() && entry.name.endsWith('.md')) {
+                    // Extract page name without .md extension
+                    const pageName = entry.name.slice(0, -3);
+                    pages.push(prefix ? `${prefix}/${pageName}` : pageName);
+                }
+            }
+        }
+        await scanDir(pagesDir);
+        pages.sort();
+        return pages;
+    }
+    catch (error) {
+        if (error.code === 'ENOENT') {
+            return [];
+        }
+        throw error;
+    }
+}
+/**
+ * Delete a page file
+ */
+async function deletePageFile(name) {
+    const filePath = getPagePath(name);
+    try {
+        await fs.unlink(filePath);
+    }
+    catch (error) {
+        if (error.code !== 'ENOENT') {
+            throw error;
+        }
+    }
 }

@@ -1,11 +1,14 @@
 import { useState, useCallback } from 'react'
 
+type DocumentType = 'note' | 'page'
+
 interface SnapshotRecord {
   id: number
   note_date: string
   content: string
   created_at: number
   content_hash: string
+  document_type: DocumentType
 }
 
 interface UseSnapshotViewerReturn {
@@ -17,7 +20,7 @@ interface UseSnapshotViewerReturn {
   isDiffMode: boolean
 
   // Actions
-  loadSnapshots: (noteDate: string) => Promise<void>
+  loadSnapshots: (noteDate: string, documentType?: DocumentType) => Promise<void>
   viewSnapshot: (snapshotId: number) => void
   returnToLive: () => void
   toggleDiffMode: () => void
@@ -33,14 +36,14 @@ export function useSnapshotViewer(): UseSnapshotViewerReturn {
   const [snapshots, setSnapshots] = useState<SnapshotRecord[]>([])
   const [isDiffMode, setIsDiffMode] = useState(false)
 
-  const loadSnapshots = useCallback(async (noteDate: string) => {
+  const loadSnapshots = useCallback(async (noteDate: string, documentType: DocumentType = 'note') => {
     if (!window.api || !noteDate) {
       setSnapshots([])
       return
     }
 
     try {
-      const data = await window.api.getSnapshots(noteDate)
+      const data = await window.api.getSnapshots(noteDate, documentType)
       setSnapshots(data)
     } catch (err) {
       console.error('Failed to load snapshots:', err)

@@ -13,16 +13,11 @@ import {
   addTagOccurrence,
   deleteOccurrencesForNote,
   getTagsWithCounts,
-  getOccurrencesForTag,
-  getBlocksWithTag,
   getBlocksWithTagAndChildren,
   TagWithCount,
-  TagOccurrenceWithDetails,
-  BlockRecord,
   BlockWithChildren,
 } from './database'
 import { parseNote } from './tag-parser'
-import { listDefaultPrompts } from './prompt-manager'
 
 /**
  * Compute a hash of content for change detection
@@ -182,21 +177,6 @@ export function buildTagTree(): TagTreeNode[] {
   const tags = getAllTagsWithCounts()
   const rootNodes: TagTreeNode[] = []
   const nodeMap = new Map<string, TagTreeNode>()
-
-  // Get predefined tags and add them with 0 count if not already present
-  const defaultPrompts = listDefaultPrompts()
-  const existingTagNames = new Set(tags.map(t => t.name))
-
-  for (const tagName of Object.keys(defaultPrompts)) {
-    if (!existingTagNames.has(tagName)) {
-      tags.push({
-        id: -1, // placeholder
-        name: tagName,
-        prompt: defaultPrompts[tagName],
-        count: 0,
-      })
-    }
-  }
 
   // Sort tags so parents come before children
   tags.sort((a, b) => a.name.localeCompare(b.name))

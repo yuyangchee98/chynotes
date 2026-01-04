@@ -25,12 +25,15 @@ interface TagTreeNode {
   children: TagTreeNode[]
 }
 
+type DocumentType = 'note' | 'page'
+
 interface SnapshotRecord {
   id: number
   note_date: string
   content: string
   created_at: number
   content_hash: string
+  document_type: DocumentType
 }
 
 contextBridge.exposeInMainWorld('api', {
@@ -49,6 +52,27 @@ contextBridge.exposeInMainWorld('api', {
 
   ensureNotesDirectory: (): Promise<void> => {
     return ipcRenderer.invoke('ensure-notes-directory')
+  },
+
+  // Page operations
+  readPage: (name: string): Promise<string | null> => {
+    return ipcRenderer.invoke('read-page', name)
+  },
+
+  writePage: (name: string, content: string): Promise<void> => {
+    return ipcRenderer.invoke('write-page', name, content)
+  },
+
+  pageExists: (name: string): Promise<boolean> => {
+    return ipcRenderer.invoke('page-exists', name)
+  },
+
+  createPage: (name: string): Promise<boolean> => {
+    return ipcRenderer.invoke('create-page', name)
+  },
+
+  listPages: (): Promise<string[]> => {
+    return ipcRenderer.invoke('list-pages')
   },
 
   // Tag operations
@@ -111,12 +135,12 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   // Snapshot operations
-  saveSnapshot: (noteDate: string, content: string): Promise<SnapshotRecord | null> => {
-    return ipcRenderer.invoke('save-snapshot', noteDate, content)
+  saveSnapshot: (noteDate: string, content: string, documentType: DocumentType = 'note'): Promise<SnapshotRecord | null> => {
+    return ipcRenderer.invoke('save-snapshot', noteDate, content, documentType)
   },
 
-  getSnapshots: (noteDate: string): Promise<SnapshotRecord[]> => {
-    return ipcRenderer.invoke('get-snapshots', noteDate)
+  getSnapshots: (noteDate: string, documentType: DocumentType = 'note'): Promise<SnapshotRecord[]> => {
+    return ipcRenderer.invoke('get-snapshots', noteDate, documentType)
   },
 
   getSnapshot: (id: number): Promise<SnapshotRecord | null> => {

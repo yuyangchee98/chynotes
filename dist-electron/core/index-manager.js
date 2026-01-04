@@ -44,7 +44,6 @@ const crypto = __importStar(require("crypto"));
 const file_manager_1 = require("./file-manager");
 const database_1 = require("./database");
 const tag_parser_1 = require("./tag-parser");
-const prompt_manager_1 = require("./prompt-manager");
 /**
  * Compute a hash of content for change detection
  */
@@ -155,19 +154,6 @@ function buildTagTree() {
     const tags = getAllTagsWithCounts();
     const rootNodes = [];
     const nodeMap = new Map();
-    // Get predefined tags and add them with 0 count if not already present
-    const defaultPrompts = (0, prompt_manager_1.listDefaultPrompts)();
-    const existingTagNames = new Set(tags.map(t => t.name));
-    for (const tagName of Object.keys(defaultPrompts)) {
-        if (!existingTagNames.has(tagName)) {
-            tags.push({
-                id: -1, // placeholder
-                name: tagName,
-                prompt: defaultPrompts[tagName],
-                count: 0,
-            });
-        }
-    }
     // Sort tags so parents come before children
     tags.sort((a, b) => a.name.localeCompare(b.name));
     for (const tag of tags) {

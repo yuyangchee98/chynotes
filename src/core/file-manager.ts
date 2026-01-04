@@ -13,6 +13,7 @@ import {
 
 const NOTES_DIR_NAME = '.chynotes'
 const NOTES_SUBDIR = 'notes'
+const PAGES_SUBDIR = 'pages'
 
 /**
  * Get the base chynotes directory path
@@ -238,4 +239,161 @@ export async function updateNoteLine(date: Date, lineNumber: number, newContent:
 
   lines[lineNumber - 1] = newContent
   await writeNote(date, lines.join('\n'))
+}
+
+// ============================================================================
+// Pages (Tag Pages) File Operations
+// ============================================================================
+
+/**
+ * Get the pages directory path where tag pages are stored
+ */
+export function getPagesDirectory(): string {
+  return path.join(getChynotesDirectory(), PAGES_SUBDIR)
+}
+
+/**
+ * Ensure the pages directory exists
+ */
+export async function ensurePagesDirectory(): Promise<void> {
+  const pagesDir = getPagesDirectory()
+  if (!existsSync(pagesDir)) {
+    await fs.mkdir(pagesDir, { recursive: true })
+  }
+}
+
+/**
+ * Ensure the pages directory exists (sync version)
+ */
+export function ensurePagesDirectorySync(): void {
+  const pagesDir = getPagesDirectory()
+  if (!existsSync(pagesDir)) {
+    mkdirSync(pagesDir, { recursive: true })
+  }
+}
+
+/**
+ * Get the file path for a page
+ * Handles hierarchical pages like "project/website" -> "pages/project/website.md"
+ */
+export function getPagePath(name: string): string {
+  // Normalize the name (lowercase, no leading/trailing slashes)
+  const normalizedName = name.toLowerCase().replace(/^\/+|\/+$/g, '')
+  return path.join(getPagesDirectory(), `${normalizedName}.md`)
+}
+
+/**
+ * Read a page's content
+ * @returns The page content, or null if the file doesn't exist
+ */
+export async function readPage(name: string): Promise<string | null> {
+  const filePath = getPagePath(name)
+
+  try {
+    const content = await fs.readFile(filePath, 'utf-8')
+    return content
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return null
+    }
+    throw error
+  }
+}
+
+/**
+ * Write (or overwrite) a page
+ * Creates parent directories if needed for hierarchical pages
+ */
+export async function writePage(name: string, content: string): Promise<void> {
+  await ensurePagesDirectory()
+  const filePath = getPagePath(name)
+
+  // Ensure parent directory exists for hierarchical pages
+  const dir = path.dirname(filePath)
+  if (!existsSync(dir)) {
+    await fs.mkdir(dir, { recursive: true })
+  }
+
+  await fs.writeFile(filePath, content, 'utf-8')
+}
+
+/**
+ * Check if a page file exists
+ */
+export async function pageFileExists(name: string): Promise<boolean> {
+  const filePath = getPagePath(name)
+  try {
+    await fs.access(filePath)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Create an empty page if it doesn't exist
+ * Returns true if created, false if already exists
+ */
+export async function createPageIfNotExists(name: string): Promise<boolean> {
+  const exists = await pageFileExists(name)
+  if (exists) {
+    return false
+  }
+
+  // Create empty page with just a header
+  const initialContent = `# ${name}\n\n`
+  await writePage(name, initialContent)
+  return true
+}
+
+/**
+ * List all pages in the pages directory
+ * @returns Array of page names (without .md extension)
+ */
+export async function listAllPages(): Promise<string[]> {
+  const pagesDir = getPagesDirectory()
+
+  try {
+    const pages: string[] = []
+
+    async function scanDir(dir: string, prefix: string = ''): Promise<void> {
+      const entries = await fs.readdir(dir, { withFileTypes: true })
+
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name)
+
+        if (entry.isDirectory()) {
+          // Recursively scan subdirectories for hierarchical pages
+          await scanDir(fullPath, prefix ? `${prefix}/${entry.name}` : entry.name)
+        } else if (entry.isFile() && entry.name.endsWith('.md')) {
+          // Extract page name without .md extension
+          const pageName = entry.name.slice(0, -3)
+          pages.push(prefix ? `${prefix}/${pageName}` : pageName)
+        }
+      }
+    }
+
+    await scanDir(pagesDir)
+    pages.sort()
+    return pages
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return []
+    }
+    throw error
+  }
+}
+
+/**
+ * Delete a page file
+ */
+export async function deletePageFile(name: string): Promise<void> {
+  const filePath = getPagePath(name)
+  try {
+    await fs.unlink(filePath)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error
+    }
+  }
 }

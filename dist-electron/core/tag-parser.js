@@ -10,13 +10,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseLineForTags = parseLineForTags;
 exports.parseNote = parseNote;
-exports.extractTags = extractTags;
-exports.isValidTagName = isValidTagName;
-exports.normalizeTagName = normalizeTagName;
-exports.getParentTag = getParentTag;
-exports.getAncestorTags = getAncestorTags;
-exports.isChildOf = isChildOf;
-exports.getTagDisplayName = getTagDisplayName;
 // Wiki-link pattern: [[word]] or [[word/subword]]
 const WIKILINK_PATTERN = /\[\[([\w\-]+(?:\/[\w\-]+)*)\]\]/g;
 // Checkbox patterns for implicit todo/done
@@ -75,63 +68,4 @@ function parseNote(content) {
         }
     }
     return { occurrences, tags };
-}
-/**
- * Extract just the unique tags from content (quick scan)
- */
-function extractTags(content) {
-    const { tags } = parseNote(content);
-    return Array.from(tags).sort();
-}
-/**
- * Check if a string is a valid tag name
- */
-function isValidTagName(name) {
-    const pattern = /^[\w\-]+(?:\/[\w\-]+)*$/;
-    return pattern.test(name);
-}
-/**
- * Normalize a tag name (lowercase, trim)
- */
-function normalizeTagName(name) {
-    return name.toLowerCase().trim();
-}
-/**
- * Get the parent tag for hierarchical tags
- * e.g., "project/website" -> "project"
- * Returns null for top-level tags
- */
-function getParentTag(tag) {
-    const lastSlash = tag.lastIndexOf('/');
-    if (lastSlash === -1)
-        return null;
-    return tag.substring(0, lastSlash);
-}
-/**
- * Get all ancestor tags for a hierarchical tag
- * e.g., "project/website/frontend" -> ["project", "project/website"]
- */
-function getAncestorTags(tag) {
-    const parts = tag.split('/');
-    const ancestors = [];
-    for (let i = 1; i < parts.length; i++) {
-        ancestors.push(parts.slice(0, i).join('/'));
-    }
-    return ancestors;
-}
-/**
- * Check if a tag is a child of another tag
- */
-function isChildOf(child, parent) {
-    return child.startsWith(parent + '/');
-}
-/**
- * Get the display name for a tag (last segment)
- * e.g., "project/website" -> "website"
- */
-function getTagDisplayName(tag) {
-    const lastSlash = tag.lastIndexOf('/');
-    if (lastSlash === -1)
-        return tag;
-    return tag.substring(lastSlash + 1);
 }

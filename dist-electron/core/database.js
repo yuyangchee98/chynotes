@@ -29,6 +29,11 @@ exports.saveSnapshot = saveSnapshot;
 exports.getSnapshotsForNote = getSnapshotsForNote;
 exports.getSnapshot = getSnapshot;
 exports.pruneSnapshots = pruneSnapshots;
+exports.upsertPage = upsertPage;
+exports.getPageByName = getPageByName;
+exports.getAllPages = getAllPages;
+exports.deletePage = deletePage;
+exports.pageExists = pageExists;
 exports.upsertBlock = upsertBlock;
 exports.getBlockById = getBlockById;
 exports.getBlocksForNote = getBlocksForNote;
@@ -126,13 +131,24 @@ function createTables(database) {
       value TEXT
     );
 
+    -- Pages metadata (tag pages stored as markdown files)
+    CREATE TABLE IF NOT EXISTS pages (
+      id INTEGER PRIMARY KEY,
+      name TEXT UNIQUE NOT NULL,
+      file_hash TEXT,
+      created_at INTEGER,
+      updated_at INTEGER
+    );
+
     -- Document snapshots for viewing evolution of thought
+    -- document_type: 'note' for daily notes, 'page' for tag pages
     CREATE TABLE IF NOT EXISTS snapshots (
       id INTEGER PRIMARY KEY,
       note_date TEXT NOT NULL,
       content TEXT NOT NULL,
       created_at INTEGER NOT NULL,
-      content_hash TEXT NOT NULL
+      content_hash TEXT NOT NULL,
+      document_type TEXT NOT NULL DEFAULT 'note'
     );
 
     -- Blocks table for block-based structure
@@ -162,8 +178,10 @@ function createTables(database) {
     CREATE INDEX IF NOT EXISTS idx_occurrence_tag ON tag_occurrences(tag_id);
     CREATE INDEX IF NOT EXISTS idx_occurrence_note ON tag_occurrences(note_id);
     CREATE INDEX IF NOT EXISTS idx_cache_tag ON cache(tag_id);
+    CREATE INDEX IF NOT EXISTS idx_pages_name ON pages(name);
     CREATE INDEX IF NOT EXISTS idx_snapshots_note_date ON snapshots(note_date);
     CREATE INDEX IF NOT EXISTS idx_snapshots_created_at ON snapshots(note_date, created_at);
+    CREATE INDEX IF NOT EXISTS idx_snapshots_document_type ON snapshots(document_type);
     CREATE INDEX IF NOT EXISTS idx_blocks_note_date ON blocks(note_date);
     CREATE INDEX IF NOT EXISTS idx_blocks_parent ON blocks(parent_id);
     CREATE INDEX IF NOT EXISTS idx_block_tags_block ON block_tags(block_id);
@@ -338,40 +356,40 @@ function hashContent(content) {
  * Save a snapshot if content has changed since last snapshot
  * Returns the new snapshot record, or null if skipped (no change)
  */
-function saveSnapshot(noteDate, content) {
+function saveSnapshot(noteDate, content, documentType = 'note') {
     const db = getDatabase();
     const contentHash = hashContent(content);
     const now = Date.now();
-    // Check if last snapshot has same content
+    // Check if last snapshot has same content (for same document type)
     const lastSnapshot = db.prepare(`
     SELECT content_hash FROM snapshots
-    WHERE note_date = ?
+    WHERE note_date = ? AND document_type = ?
     ORDER BY created_at DESC
     LIMIT 1
-  `).get(noteDate);
+  `).get(noteDate, documentType);
     if (lastSnapshot?.content_hash === contentHash) {
         // Content unchanged, skip
         return null;
     }
     // Insert new snapshot
     const stmt = db.prepare(`
-    INSERT INTO snapshots (note_date, content, created_at, content_hash)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO snapshots (note_date, content, created_at, content_hash, document_type)
+    VALUES (?, ?, ?, ?, ?)
     RETURNING *
   `);
-    return stmt.get(noteDate, content, now, contentHash);
+    return stmt.get(noteDate, content, now, contentHash, documentType);
 }
 /**
- * Get all snapshots for a note, ordered by creation time (newest first)
+ * Get all snapshots for a document, ordered by creation time (newest first)
  */
-function getSnapshotsForNote(noteDate) {
+function getSnapshotsForNote(noteDate, documentType = 'note') {
     const db = getDatabase();
     const stmt = db.prepare(`
     SELECT * FROM snapshots
-    WHERE note_date = ?
+    WHERE note_date = ? AND document_type = ?
     ORDER BY created_at DESC
   `);
-    return stmt.all(noteDate);
+    return stmt.all(noteDate, documentType);
 }
 /**
  * Get a specific snapshot by ID
@@ -384,18 +402,66 @@ function getSnapshot(id) {
 /**
  * Delete old snapshots, keeping only the most recent N
  */
-function pruneSnapshots(noteDate, keepCount) {
+function pruneSnapshots(noteDate, keepCount, documentType = 'note') {
     const db = getDatabase();
     db.prepare(`
     DELETE FROM snapshots
-    WHERE note_date = ?
+    WHERE note_date = ? AND document_type = ?
     AND id NOT IN (
       SELECT id FROM snapshots
-      WHERE note_date = ?
+      WHERE note_date = ? AND document_type = ?
       ORDER BY created_at DESC
       LIMIT ?
     )
-  `).run(noteDate, noteDate, keepCount);
+  `).run(noteDate, documentType, noteDate, documentType, keepCount);
+}
+/**
+ * Create or update a page record
+ */
+function upsertPage(name, fileHash = null) {
+    const db = getDatabase();
+    const now = Date.now();
+    const stmt = db.prepare(`
+    INSERT INTO pages (name, file_hash, created_at, updated_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(name) DO UPDATE SET
+      file_hash = excluded.file_hash,
+      updated_at = excluded.updated_at
+    RETURNING *
+  `);
+    return stmt.get(name, fileHash, now, now);
+}
+/**
+ * Get a page by name
+ */
+function getPageByName(name) {
+    const db = getDatabase();
+    const stmt = db.prepare('SELECT * FROM pages WHERE name = ?');
+    return stmt.get(name);
+}
+/**
+ * Get all pages
+ */
+function getAllPages() {
+    const db = getDatabase();
+    const stmt = db.prepare('SELECT * FROM pages ORDER BY name');
+    return stmt.all();
+}
+/**
+ * Delete a page
+ */
+function deletePage(name) {
+    const db = getDatabase();
+    const stmt = db.prepare('DELETE FROM pages WHERE name = ?');
+    stmt.run(name);
+}
+/**
+ * Check if a page exists
+ */
+function pageExists(name) {
+    const db = getDatabase();
+    const stmt = db.prepare('SELECT 1 FROM pages WHERE name = ?');
+    return stmt.get(name) !== undefined;
 }
 /**
  * Upsert a block (insert or update)
@@ -475,7 +541,6 @@ function getChildBlocks(db, parentId, noteDate) {
     ORDER BY line_number ASC
   `);
     const children = stmt.all(parentId, noteDate);
-    console.log(`[getChildBlocks] Looking for children of ${parentId} on ${noteDate}, found:`, children.length);
     return children.map(child => ({
         ...child,
         children: getChildBlocks(db, child.id, noteDate)

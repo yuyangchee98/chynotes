@@ -5,8 +5,14 @@ import {
   writeNote,
   listAllNotes,
   ensureNotesDirectorySync,
+  ensurePagesDirectorySync,
   formatDateForFileName,
-  updateNoteLine
+  updateNoteLine,
+  readPage,
+  writePage,
+  pageFileExists,
+  createPageIfNotExists,
+  listAllPages,
 } from '../core/file-manager'
 
 /**
@@ -43,10 +49,14 @@ import {
   saveSnapshot,
   getSnapshotsForNote,
   getSnapshot,
+  upsertPage,
+  getPageByName,
+  DocumentType,
 } from '../core/database'
 
-// Ensure notes directory exists on startup
+// Ensure notes and pages directories exist on startup
 ensureNotesDirectorySync()
+ensurePagesDirectorySync()
 
 // Initialize database
 initDatabase()
@@ -100,6 +110,33 @@ ipcMain.handle('list-notes', async () => {
 
 ipcMain.handle('ensure-notes-directory', async () => {
   ensureNotesDirectorySync()
+})
+
+// Page-related IPC handlers
+ipcMain.handle('read-page', async (_event, name: string) => {
+  return await readPage(name)
+})
+
+ipcMain.handle('write-page', async (_event, name: string, content: string) => {
+  await writePage(name, content)
+  // Update page record in database
+  upsertPage(name)
+})
+
+ipcMain.handle('page-exists', async (_event, name: string) => {
+  return await pageFileExists(name)
+})
+
+ipcMain.handle('create-page', async (_event, name: string) => {
+  const created = await createPageIfNotExists(name)
+  if (created) {
+    upsertPage(name)
+  }
+  return created
+})
+
+ipcMain.handle('list-pages', async () => {
+  return await listAllPages()
 })
 
 // Tag-related IPC handlers
@@ -165,12 +202,12 @@ ipcMain.handle('set-setting', (_event, key: string, value: string) => {
 })
 
 // Snapshot IPC handlers
-ipcMain.handle('save-snapshot', (_event, noteDate: string, content: string) => {
-  return saveSnapshot(noteDate, content)
+ipcMain.handle('save-snapshot', (_event, noteDate: string, content: string, documentType: DocumentType = 'note') => {
+  return saveSnapshot(noteDate, content, documentType)
 })
 
-ipcMain.handle('get-snapshots', (_event, noteDate: string) => {
-  return getSnapshotsForNote(noteDate)
+ipcMain.handle('get-snapshots', (_event, noteDate: string, documentType: DocumentType = 'note') => {
+  return getSnapshotsForNote(noteDate, documentType)
 })
 
 ipcMain.handle('get-snapshot', (_event, id: number) => {

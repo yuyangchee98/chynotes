@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { DailyEditor } from './components/DailyEditor'
 import { DailyStream } from './components/DailyStream'
-import { TagPage } from './components/TagPage'
+import { PageEditor } from './components/PageEditor'
 import { SearchPage } from './components/SearchPage'
 import { SettingsModal } from './components/SettingsModal'
 
@@ -111,9 +111,9 @@ function App() {
             onScrollComplete={() => setScrollToLine(null)}
           />
         )}
-        {view === 'tag' && (
-          <TagPage
-            tagName={selectedTag!}
+        {view === 'tag' && selectedTag && (
+          <PageEditor
+            pageName={selectedTag}
             onTagClick={handleTagClick}
             onBack={handleDailyNotesSelect}
             onDateSelect={handleDateSelect}
