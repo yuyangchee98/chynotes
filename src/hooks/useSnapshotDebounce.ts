@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 
-const SNAPSHOT_DELAY = 5000 // 5 seconds of inactivity
+const SNAPSHOT_DELAY = 1000 // 1 second of inactivity
 
 interface UseSnapshotDebounceReturn {
   // Progress from 0 to 1 for visual indicator

@@ -129,7 +129,7 @@ export function PageEditor({ pageName, onTagClick, onDateSelect, onBack }: PageE
       } catch (err) {
         console.error('Failed to save page:', err)
       }
-    }, 500)
+    }, 1000)
 
     return () => clearTimeout(timeoutId)
   }, [content, pageName])
@@ -146,7 +146,7 @@ export function PageEditor({ pageName, onTagClick, onDateSelect, onBack }: PageE
       } catch (err) {
         console.error('Failed to save snapshot:', err)
       }
-    }, 5000)
+    }, 1000)
 
     return () => clearTimeout(timeoutId)
   }, [content, pageName, loadSnapshots])

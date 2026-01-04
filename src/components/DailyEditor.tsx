@@ -188,7 +188,7 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete }
       } catch (err) {
         console.error('Failed to save note:', err)
       }
-    }, 500)
+    }, 1000)
 
     return () => clearTimeout(timeoutId)
   }, [content, date])

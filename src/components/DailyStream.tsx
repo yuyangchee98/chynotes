@@ -370,7 +370,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
         console.error('Failed to save note:', err)
       }
       saveTimeouts.current.delete(day.dateString)
-    }, 500)
+    }, 1000)
 
     saveTimeouts.current.set(day.dateString, timeout)
   }, [days, isViewingHistory, returnToLive])
