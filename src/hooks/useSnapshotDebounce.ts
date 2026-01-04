@@ -11,6 +11,8 @@ interface UseSnapshotDebounceReturn {
   triggerSnapshot: () => Promise<void>
   // Content from the last saved snapshot (for diffing)
   lastSnapshotContent: string | null
+  // Brief flag that's true right after a save completes (for completion animation)
+  justSaved: boolean
 }
 
 /**
@@ -28,9 +30,11 @@ export function useSnapshotDebounce(
   const [snapshotProgress, setSnapshotProgress] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
   const [lastSnapshotContent, setLastSnapshotContent] = useState<string | null>(null)
+  const [justSaved, setJustSaved] = useState(false)
 
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const justSavedTimerRef = useRef<NodeJS.Timeout | null>(null)
   const startTimeRef = useRef<number>(0)
 
   // Load the latest snapshot from DB on mount or when noteDate changes
@@ -72,6 +76,15 @@ export function useSnapshotDebounce(
     try {
       await window.api.saveSnapshot(noteDate, content)
       setLastSnapshotContent(content)
+
+      // Trigger brief "just saved" state for completion animation
+      setJustSaved(true)
+      if (justSavedTimerRef.current) {
+        clearTimeout(justSavedTimerRef.current)
+      }
+      justSavedTimerRef.current = setTimeout(() => {
+        setJustSaved(false)
+      }, 600)
     } catch (err) {
       console.error('Failed to save snapshot:', err)
     } finally {
@@ -126,6 +139,9 @@ export function useSnapshotDebounce(
   useEffect(() => {
     return () => {
       clearTimers()
+      if (justSavedTimerRef.current) {
+        clearTimeout(justSavedTimerRef.current)
+      }
     }
   }, [clearTimers])
 
@@ -134,5 +150,6 @@ export function useSnapshotDebounce(
     isSaving,
     triggerSnapshot,
     lastSnapshotContent,
+    justSaved,
   }
 }

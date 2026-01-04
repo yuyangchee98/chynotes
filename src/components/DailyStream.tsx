@@ -163,7 +163,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
   const [activeDay, setActiveDay] = useState<{ dateString: string; content: string } | null>(null)
 
   // Snapshot debouncing for the active day
-  const { lastSnapshotContent } = useSnapshotDebounce(activeDay?.dateString ?? '', activeDay?.content ?? '', !!activeDay)
+  const { lastSnapshotContent, justSaved } = useSnapshotDebounce(activeDay?.dateString ?? '', activeDay?.content ?? '', !!activeDay)
 
   // Check if current content differs from last snapshot
   const hasUnsavedChanges = activeDay?.content !== null
@@ -452,6 +452,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
               isDiffMode={isDiffMode}
               onToggleDiffMode={toggleDiffMode}
               hasUnsavedChanges={hasUnsavedChanges}
+              justSaved={justSaved}
             />
           )}
         </div>
