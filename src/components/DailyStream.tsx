@@ -6,6 +6,7 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
 import { tagHighlighter } from '../extensions/tag-highlighter'
 import { outliner } from '../extensions/outliner'
+import { unsavedHighlighter } from '../extensions/unsaved-highlighter'
 import { formatDateFromDate, toLocalDateString } from '../utils/format-date'
 import { useSnapshotDebounce } from '../hooks/useSnapshotDebounce'
 import { useSnapshotViewer } from '../hooks/useSnapshotViewer'
@@ -162,10 +163,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
   const [activeDay, setActiveDay] = useState<{ dateString: string; content: string } | null>(null)
 
   // Snapshot debouncing for the active day
-  const { snapshotProgress } = useSnapshotDebounce(activeDay?.dateString ?? '', activeDay?.content ?? '', !!activeDay)
-
-  // Unsaved text is lighter (pending), saved text is normal (solid)
-  const hasUnsavedChanges = snapshotProgress > 0
+  const { lastSnapshotContent } = useSnapshotDebounce(activeDay?.dateString ?? '', activeDay?.content ?? '', !!activeDay)
 
   // Focus detection - which day block is currently in view
   const [focusedDayIndex, setFocusedDayIndex] = useState(0)
@@ -494,14 +492,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                   style={{ minHeight: 'calc(100vh - 100px)' }}
                 >
                   {/* Today's editor - prominent, fills space */}
-                  <div
-                    className="flex-1 relative"
-                    style={{
-                      // Unsaved = lighter (pending), saved = normal (solid)
-                      opacity: hasUnsavedChanges ? 0.6 : 1,
-                      transition: 'opacity 0.3s ease-out',
-                    }}
-                  >
+                  <div className="flex-1 relative">
                     {showDiff ? (
                       <DiffView oldText={diffOldText} newText={day.content} />
                     ) : (
@@ -515,6 +506,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                             syntaxHighlighting(highlightStyle),
                             tagHighlighter(),
                             outliner(),
+                            unsavedHighlighter(lastSnapshotContent),
                             EditorView.lineWrapping,
                             ...(showingSnapshot ? [EditorView.editable.of(false)] : []),
                           ]}

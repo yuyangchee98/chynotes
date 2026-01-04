@@ -9,6 +9,8 @@ interface UseSnapshotDebounceReturn {
   isSaving: boolean
   // Manually trigger a snapshot (e.g., on blur/close)
   triggerSnapshot: () => Promise<void>
+  // Content from the last saved snapshot (for diffing)
+  lastSnapshotContent: string | null
 }
 
 /**
@@ -25,11 +27,31 @@ export function useSnapshotDebounce(
 ): UseSnapshotDebounceReturn {
   const [snapshotProgress, setSnapshotProgress] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
+  const [lastSnapshotContent, setLastSnapshotContent] = useState<string | null>(null)
 
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const lastContentRef = useRef<string>(content)
   const startTimeRef = useRef<number>(0)
+
+  // Load the latest snapshot from DB on mount or when noteDate changes
+  useEffect(() => {
+    if (!noteDate || !window.api) {
+      setLastSnapshotContent(null)
+      return
+    }
+
+    const loadLatestSnapshot = async () => {
+      const snapshots = await window.api.getSnapshots(noteDate)
+      if (snapshots.length > 0) {
+        setLastSnapshotContent(snapshots[0].content)
+      } else {
+        // No snapshots yet - treat current content as the baseline
+        setLastSnapshotContent(content)
+      }
+    }
+
+    loadLatestSnapshot()
+  }, [noteDate])
 
   const clearTimers = useCallback(() => {
     if (timerRef.current) {
@@ -49,7 +71,7 @@ export function useSnapshotDebounce(
     setIsSaving(true)
     try {
       await window.api.saveSnapshot(noteDate, content)
-      lastContentRef.current = content
+      setLastSnapshotContent(content)
     } catch (err) {
       console.error('Failed to save snapshot:', err)
     } finally {
@@ -111,5 +133,6 @@ export function useSnapshotDebounce(
     snapshotProgress,
     isSaving,
     triggerSnapshot,
+    lastSnapshotContent,
   }
 }

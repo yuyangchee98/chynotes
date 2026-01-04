@@ -84,6 +84,15 @@ body {
   color: var(--text-muted) !important;
 }
 
+/* Unsaved line styling - lines not yet in snapshot appear lighter */
+.cm-line-unsaved {
+  opacity: 0.5;
+}
+
+.dark .cm-line-unsaved {
+  opacity: 0.5;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;
