@@ -595,8 +595,6 @@ function getChildBlocks(db: ReturnType<typeof getDatabase>, parentId: string, no
   `)
   const children = stmt.all(parentId, noteDate) as BlockRecord[]
 
-  console.log(`[getChildBlocks] Looking for children of ${parentId} on ${noteDate}, found:`, children.length)
-
   return children.map(child => ({
     ...child,
     children: getChildBlocks(db, child.id, noteDate)
