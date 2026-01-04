@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { formatDate } from '../utils/format-date'
-import { SnapshotTimeline } from './SnapshotTimeline'
 
 interface SidebarProps {
   onTagSelect: (tag: string) => void
@@ -12,7 +11,6 @@ interface SidebarProps {
   isCollapsed: boolean
   onToggleCollapse: () => void
   onSettingsClick: () => void
-  currentNoteDate?: string
 }
 
 export function Sidebar({
@@ -25,7 +23,6 @@ export function Sidebar({
   isCollapsed,
   onToggleCollapse,
   onSettingsClick,
-  currentNoteDate,
 }: SidebarProps) {
   const [tags, setTags] = useState<TagTreeNode[]>([])
   const [recentDates, setRecentDates] = useState<string[]>([])
@@ -193,11 +190,6 @@ export function Sidebar({
               {tags.map(tag => renderTagNode(tag))}
             </div>
           </div>
-        )}
-
-        {/* Snapshots */}
-        {currentNoteDate && (
-          <SnapshotTimeline noteDate={currentNoteDate} currentContent="" />
         )}
 
         {/* History */}

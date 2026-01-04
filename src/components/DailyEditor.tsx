@@ -8,6 +8,8 @@ import { tagHighlighter } from '../extensions/tag-highlighter'
 import { outliner } from '../extensions/outliner'
 import { toLocalDateString } from '../utils/format-date'
 import { useSnapshotDebounce } from '../hooks/useSnapshotDebounce'
+import { useSnapshotViewer } from '../hooks/useSnapshotViewer'
+import { SnapshotSlider } from './SnapshotSlider'
 
 interface DailyEditorProps {
   date: Date
@@ -128,7 +130,18 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
   const noteDate = toLocalDateString(date)
 
   // Snapshot debouncing - saves after 5s of inactivity
-  const { snapshotProgress } = useSnapshotDebounce(noteDate, content)
+  useSnapshotDebounce(noteDate, content)
+
+  // Snapshot viewer state
+  const {
+    viewingSnapshotId,
+    snapshotContent,
+    isViewingHistory,
+    snapshots,
+    loadSnapshots,
+    viewSnapshot,
+    returnToLive,
+  } = useSnapshotViewer()
 
   const dateString = date.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -147,6 +160,18 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
     }
     loadNote()
   }, [date])
+
+  // Load snapshots when date changes
+  useEffect(() => {
+    loadSnapshots(noteDate)
+  }, [noteDate, loadSnapshots])
+
+  // Return to live when date changes (if viewing history)
+  useEffect(() => {
+    if (isViewingHistory) {
+      returnToLive()
+    }
+  }, [noteDate]) // Intentionally not including isViewingHistory/returnToLive to avoid loop
 
   // Debounced save
   useEffect(() => {
@@ -167,8 +192,12 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
   }, [content, date])
 
   const handleChange = useCallback((value: string) => {
+    // If viewing history, return to live first
+    if (isViewingHistory) {
+      returnToLive()
+    }
     setContent(value)
-  }, [])
+  }, [isViewingHistory, returnToLive])
 
   // Handle click events on tags
   const handleEditorClick = useCallback((event: React.MouseEvent) => {
@@ -188,23 +217,57 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
     }
   }, [onTagClick])
 
+  // Determine display content
+  const displayContent = isViewingHistory && snapshotContent !== null
+    ? snapshotContent
+    : content
+
   return (
     <div className="flex-1 flex flex-col h-full">
       {/* Header - draggable region, padded for traffic lights */}
       <div
-        className="px-6 pt-10 pb-4"
+        className="px-6 pt-10 pb-3"
         style={{
           WebkitAppRegion: 'drag',
           backgroundColor: 'var(--bg-primary)',
           borderBottom: '1px solid var(--border)'
         } as React.CSSProperties}
       >
-        <h1
-          className="text-xl font-semibold"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          {dateString}
-        </h1>
+        <div className="flex items-center justify-between">
+          <h1
+            className="text-xl font-semibold"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            {dateString}
+          </h1>
+
+          {/* Snapshot slider */}
+          {snapshots.length > 0 && (
+            <SnapshotSlider
+              snapshots={snapshots}
+              currentSnapshotId={viewingSnapshotId}
+              onSnapshotSelect={viewSnapshot}
+              onReturnToLive={returnToLive}
+            />
+          )}
+        </div>
+
+        {/* Viewing history indicator */}
+        {isViewingHistory && (
+          <div
+            className="mt-2 text-sm"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            Viewing snapshot from{' '}
+            {new Date(
+              snapshots.find(s => s.id === viewingSnapshotId)?.created_at ?? 0
+            ).toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true,
+            })}
+          </div>
+        )}
       </div>
 
       {/* Editor */}
@@ -213,33 +276,44 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
         style={{ backgroundColor: 'var(--bg-primary)' }}
         onClick={handleEditorClick}
       >
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-3xl mx-auto relative">
           <CodeMirror
-          value={content}
-          onChange={handleChange}
-          extensions={[
-            markdown(),
-            editorTheme,
-            syntaxHighlighting(highlightStyle),
-            tagHighlighter(),
-            outliner(),
-            EditorView.lineWrapping,
-          ]}
-          basicSetup={{
-            lineNumbers: false,
-            foldGutter: false,
-            highlightActiveLine: false,
-            highlightSelectionMatches: true,
-            bracketMatching: true,
-            closeBrackets: true,
-            autocompletion: true,
-            history: true,
-            drawSelection: true,
-            dropCursor: true,
-            indentOnInput: true,
-          }}
-          className="min-h-full"
-        />
+            value={displayContent}
+            onChange={handleChange}
+            extensions={[
+              markdown(),
+              editorTheme,
+              syntaxHighlighting(highlightStyle),
+              tagHighlighter(),
+              outliner(),
+              EditorView.lineWrapping,
+              ...(isViewingHistory ? [EditorView.editable.of(false)] : []),
+            ]}
+            basicSetup={{
+              lineNumbers: false,
+              foldGutter: false,
+              highlightActiveLine: false,
+              highlightSelectionMatches: true,
+              bracketMatching: true,
+              closeBrackets: true,
+              autocompletion: true,
+              history: true,
+              drawSelection: true,
+              dropCursor: true,
+              indentOnInput: true,
+            }}
+            className="min-h-full"
+          />
+          {/* Read-only overlay when viewing snapshot */}
+          {isViewingHistory && (
+            <div
+              className="absolute inset-0 pointer-events-none rounded"
+              style={{
+                backgroundColor: 'var(--bg-secondary)',
+                opacity: 0.15,
+              }}
+            />
+          )}
         </div>
       </div>
     </div>

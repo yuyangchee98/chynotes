@@ -8,6 +8,8 @@ import { tagHighlighter } from '../extensions/tag-highlighter'
 import { outliner } from '../extensions/outliner'
 import { formatDateFromDate, toLocalDateString } from '../utils/format-date'
 import { useSnapshotDebounce } from '../hooks/useSnapshotDebounce'
+import { useSnapshotViewer } from '../hooks/useSnapshotViewer'
+import { SnapshotSlider } from './SnapshotSlider'
 
 interface DailyStreamProps {
   onTagClick?: (tag: string) => void
@@ -155,11 +157,27 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const saveTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map())
 
-  // Track the currently active day for snapshots
+  // Track the currently active day for snapshots (for auto-save)
   const [activeDay, setActiveDay] = useState<{ dateString: string; content: string } | null>(null)
 
   // Snapshot debouncing for the active day
   useSnapshotDebounce(activeDay?.dateString ?? '', activeDay?.content ?? '', !!activeDay)
+
+  // Focus detection - which day block is currently in view
+  const [focusedDayIndex, setFocusedDayIndex] = useState(0)
+  const dayBlockRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+  const prevFocusedDayIndex = useRef(0)
+
+  // Snapshot viewer state
+  const {
+    viewingSnapshotId,
+    snapshotContent,
+    isViewingHistory,
+    snapshots,
+    loadSnapshots,
+    viewSnapshot,
+    returnToLive,
+  } = useSnapshotViewer()
 
   // Load initial days
   useEffect(() => {
@@ -219,6 +237,60 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
     return () => container.removeEventListener('scroll', handleScroll)
   }, [])
 
+  // Intersection Observer for focus detection
+  useEffect(() => {
+    if (days.length === 0) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Find the entry with highest intersection ratio
+        let maxRatio = 0
+        let maxIndex = focusedDayIndex
+
+        entries.forEach(entry => {
+          if (entry.isIntersecting && entry.intersectionRatio > maxRatio) {
+            const dateString = entry.target.getAttribute('data-date')
+            const index = days.findIndex(d => d.dateString === dateString)
+            if (index !== -1) {
+              maxRatio = entry.intersectionRatio
+              maxIndex = index
+            }
+          }
+        })
+
+        if (maxRatio > 0) {
+          setFocusedDayIndex(maxIndex)
+        }
+      },
+      {
+        root: scrollContainerRef.current,
+        rootMargin: '-20% 0px -60% 0px', // Focus zone in upper-middle of viewport
+        threshold: [0, 0.25, 0.5, 0.75, 1],
+      }
+    )
+
+    // Observe all day blocks
+    dayBlockRefs.current.forEach(el => observer.observe(el))
+
+    return () => observer.disconnect()
+  }, [days, focusedDayIndex])
+
+  // Load snapshots when focused day changes
+  useEffect(() => {
+    const focusedDay = days[focusedDayIndex]
+    if (focusedDay) {
+      loadSnapshots(focusedDay.dateString)
+    }
+  }, [focusedDayIndex, days, loadSnapshots])
+
+  // Return to live when focused day changes (while viewing history)
+  useEffect(() => {
+    if (isViewingHistory && focusedDayIndex !== prevFocusedDayIndex.current) {
+      returnToLive()
+    }
+    prevFocusedDayIndex.current = focusedDayIndex
+  }, [focusedDayIndex, isViewingHistory, returnToLive])
+
   const loadMoreDays = async () => {
     if (!window.api || isLoadingRef.current) return
     isLoadingRef.current = true
@@ -251,6 +323,11 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
   }
 
   const handleContentChange = useCallback((index: number, value: string) => {
+    // If viewing history, return to live first
+    if (isViewingHistory) {
+      returnToLive()
+    }
+
     setDays(prev => {
       const updated = [...prev]
       updated[index] = { ...updated[index], content: value, status: 'saving' }
@@ -291,7 +368,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
     }, 500)
 
     saveTimeouts.current.set(day.dateString, timeout)
-  }, [days])
+  }, [days, isViewingHistory, returnToLive])
 
   const handleEditorClick = useCallback((event: React.MouseEvent) => {
     const target = event.target as HTMLElement
@@ -322,35 +399,67 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
     <div className="flex-1 flex flex-col h-full">
       {/* Header - draggable region */}
       <div
-        className="px-6 pt-10 pb-4"
+        className="px-6 pt-10 pb-3"
         style={{
           WebkitAppRegion: 'drag',
           backgroundColor: 'var(--bg-primary)',
           borderBottom: '1px solid var(--border)'
         } as React.CSSProperties}
       >
-        <h1
-          className="text-xl font-semibold flex items-center gap-2"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          Daily Notes
-          <span
-            style={{
-              opacity: todayLabelOpacity,
-              color: 'var(--text-muted)',
-              fontWeight: 400
-            }}
+        <div className="flex items-center justify-between">
+          <h1
+            className="text-xl font-semibold flex items-center gap-2"
+            style={{ color: 'var(--text-primary)' }}
           >
-            Today
-          </span>
-          {/* Saving indicator - subtle dot */}
-          {days.some(d => d.status === 'saving') && (
+            Daily Notes
             <span
-              className="w-2 h-2 rounded-full animate-pulse"
-              style={{ backgroundColor: 'var(--accent)' }}
+              style={{
+                color: 'var(--text-muted)',
+                fontWeight: 400
+              }}
+            >
+              {days[focusedDayIndex]
+                ? (focusedDayIndex === 0
+                    ? 'Today'
+                    : formatDateFromDate(days[focusedDayIndex].date).date)
+                : 'Today'}
+            </span>
+            {/* Saving indicator - subtle dot */}
+            {days.some(d => d.status === 'saving') && (
+              <span
+                className="w-2 h-2 rounded-full animate-pulse"
+                style={{ backgroundColor: 'var(--accent)' }}
+              />
+            )}
+          </h1>
+
+          {/* Snapshot slider */}
+          {snapshots.length > 0 && (
+            <SnapshotSlider
+              snapshots={snapshots}
+              currentSnapshotId={viewingSnapshotId}
+              onSnapshotSelect={viewSnapshot}
+              onReturnToLive={returnToLive}
             />
           )}
-        </h1>
+        </div>
+
+        {/* Viewing history indicator */}
+        {isViewingHistory && (
+          <div
+            className="mt-2 text-sm"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            Viewing snapshot from{' '}
+            {new Date(
+              snapshots.find(s => s.id === viewingSnapshotId)?.created_at ?? 0
+            ).toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true,
+            })}
+          </div>
+        )}
       </div>
 
       {/* Scrollable stream */}
@@ -366,14 +475,29 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
             // Check for real content (not just empty bullets)
             const hasContent = !/^(\s*-\s*)*$/.test(day.content)
 
+            // Determine if this day is showing snapshot content
+            const isThisDayFocused = index === focusedDayIndex
+            const showingSnapshot = isViewingHistory && isThisDayFocused
+            const displayContent = showingSnapshot && snapshotContent !== null
+              ? snapshotContent
+              : day.content
+
             // Today: always show full editor, fills the entire viewport
             if (isTodayEntry) {
               return (
-                <div key={day.dateString} className="flex flex-col relative" style={{ minHeight: 'calc(100vh - 100px)' }}>
+                <div
+                  key={day.dateString}
+                  data-date={day.dateString}
+                  ref={el => {
+                    if (el) dayBlockRefs.current.set(day.dateString, el)
+                  }}
+                  className="flex flex-col relative"
+                  style={{ minHeight: 'calc(100vh - 100px)' }}
+                >
                   {/* Today's editor - prominent, fills space */}
-                  <div className="flex-1">
+                  <div className="flex-1 relative">
                     <CodeMirror
-                      value={day.content}
+                      value={displayContent}
                       onChange={(value) => handleContentChange(index, value)}
                       extensions={[
                         markdown(),
@@ -382,6 +506,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                         tagHighlighter(),
                         outliner(),
                         EditorView.lineWrapping,
+                        ...(showingSnapshot ? [EditorView.editable.of(false)] : []),
                       ]}
                       basicSetup={{
                         lineNumbers: false,
@@ -398,6 +523,16 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                       }}
                       className="min-h-full"
                     />
+                    {/* Read-only overlay when viewing snapshot */}
+                    {showingSnapshot && (
+                      <div
+                        className="absolute inset-0 pointer-events-none rounded"
+                        style={{
+                          backgroundColor: 'var(--bg-secondary)',
+                          opacity: 0.15,
+                        }}
+                      />
+                    )}
                   </div>
 
                   {/* Scroll indicator - fades as you scroll */}
@@ -431,6 +566,10 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
               return (
                 <div
                   key={day.dateString}
+                  data-date={day.dateString}
+                  ref={el => {
+                    if (el) dayBlockRefs.current.set(day.dateString, el)
+                  }}
                   className="flex items-center gap-3 py-3 mb-2"
                   style={{ borderBottom: '1px solid var(--border)' }}
                 >
@@ -464,7 +603,14 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
             // Past day with content: show editor
             const formatted = formatDateFromDate(day.date)
             return (
-              <div key={day.dateString} className="mt-6 mb-6">
+              <div
+                key={day.dateString}
+                data-date={day.dateString}
+                ref={el => {
+                  if (el) dayBlockRefs.current.set(day.dateString, el)
+                }}
+                className="mt-6 mb-6"
+              >
                 {/* Day header */}
                 <div
                   className="flex items-center gap-3 mb-3 pb-2"
@@ -490,31 +636,44 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                 </div>
 
                 {/* Day editor */}
-                <CodeMirror
-                  value={day.content}
-                  onChange={(value) => handleContentChange(index, value)}
-                  extensions={[
-                    markdown(),
-                    editorTheme,
-                    syntaxHighlighting(highlightStyle),
-                    tagHighlighter(),
-                    outliner(),
-                    EditorView.lineWrapping,
-                  ]}
-                  basicSetup={{
-                    lineNumbers: false,
-                    foldGutter: false,
-                    highlightActiveLine: false,
-                    highlightSelectionMatches: true,
-                    bracketMatching: true,
-                    closeBrackets: true,
-                    autocompletion: true,
-                    history: true,
-                    drawSelection: true,
-                    dropCursor: true,
-                    indentOnInput: true,
-                  }}
-                />
+                <div className="relative">
+                  <CodeMirror
+                    value={displayContent}
+                    onChange={(value) => handleContentChange(index, value)}
+                    extensions={[
+                      markdown(),
+                      editorTheme,
+                      syntaxHighlighting(highlightStyle),
+                      tagHighlighter(),
+                      outliner(),
+                      EditorView.lineWrapping,
+                      ...(showingSnapshot ? [EditorView.editable.of(false)] : []),
+                    ]}
+                    basicSetup={{
+                      lineNumbers: false,
+                      foldGutter: false,
+                      highlightActiveLine: false,
+                      highlightSelectionMatches: true,
+                      bracketMatching: true,
+                      closeBrackets: true,
+                      autocompletion: true,
+                      history: true,
+                      drawSelection: true,
+                      dropCursor: true,
+                      indentOnInput: true,
+                    }}
+                  />
+                  {/* Read-only overlay when viewing snapshot */}
+                  {showingSnapshot && (
+                    <div
+                      className="absolute inset-0 pointer-events-none rounded"
+                      style={{
+                        backgroundColor: 'var(--bg-secondary)',
+                        opacity: 0.15,
+                      }}
+                    />
+                  )}
+                </div>
               </div>
             )
           })}

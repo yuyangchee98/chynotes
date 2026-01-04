@@ -1,11 +1,10 @@
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { DailyEditor } from './components/DailyEditor'
 import { DailyStream } from './components/DailyStream'
 import { TagPage } from './components/TagPage'
 import { SearchPage } from './components/SearchPage'
 import { SettingsModal } from './components/SettingsModal'
-import { toLocalDateString } from './utils/format-date'
 
 type View = 'stream' | 'single-day' | 'tag' | 'search'
 type Theme = 'light' | 'dark' | 'system'
@@ -82,16 +81,6 @@ function App() {
     setView('search')
   }, [])
 
-  // Compute current note date for snapshot timeline
-  const currentNoteDate = useMemo(() => {
-    if (view === 'stream') {
-      return toLocalDateString(new Date()) // Today
-    } else if (view === 'single-day') {
-      return toLocalDateString(currentDate)
-    }
-    return undefined
-  }, [view, currentDate])
-
   return (
     <div className="h-screen flex" style={{ backgroundColor: 'var(--bg-primary)' }}>
       {/* Sidebar */}
@@ -105,7 +94,6 @@ function App() {
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         onSettingsClick={() => setSettingsOpen(true)}
-        currentNoteDate={currentNoteDate}
       />
 
       {/* Main content */}
