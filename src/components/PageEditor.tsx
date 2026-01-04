@@ -141,13 +141,15 @@ export function PageEditor({ pageName, onTagClick, onDateSelect, onBack }: PageE
     const timeoutId = setTimeout(async () => {
       try {
         await window.api.saveSnapshot(pageName, content, 'page')
+        // Reload snapshots so the timeline appears/updates
+        loadSnapshots(pageName, 'page')
       } catch (err) {
         console.error('Failed to save snapshot:', err)
       }
     }, 5000)
 
     return () => clearTimeout(timeoutId)
-  }, [content, pageName])
+  }, [content, pageName, loadSnapshots])
 
   const handleChange = useCallback((value: string) => {
     if (isViewingHistory) {
