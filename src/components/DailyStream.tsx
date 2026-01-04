@@ -375,22 +375,6 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
     saveTimeouts.current.set(day.dateString, timeout)
   }, [days, isViewingHistory, returnToLive])
 
-  const handleEditorClick = useCallback((event: React.MouseEvent) => {
-    const target = event.target as HTMLElement
-    if (target.classList.contains('cm-wikilink')) {
-      const tagText = target.textContent
-      if (tagText && onTagClick) {
-        // Extract tag name from [[tag]]
-        let tagName = tagText
-        if (tagName.startsWith('[[') && tagName.endsWith(']]')) {
-          tagName = tagName.slice(2, -2)
-        }
-        onTagClick(tagName.toLowerCase())
-      }
-    }
-  }, [onTagClick])
-
-
   const isToday = (date: Date) => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -458,7 +442,6 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
         ref={scrollContainerRef}
         className="flex-1 overflow-auto px-6 py-4 relative"
         style={{ backgroundColor: 'var(--bg-primary)' }}
-        onClick={handleEditorClick}
       >
           <div className="max-w-3xl mx-auto">
           {days.map((day, index) => {
@@ -505,7 +488,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                             markdown(),
                             editorTheme,
                             syntaxHighlighting(highlightStyle),
-                            tagHighlighter(),
+                            tagHighlighter(onTagClick),
                             outliner(),
                             blockIdHider(),
                             unsavedHighlighter(lastSnapshotContent),
@@ -654,7 +637,7 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                           markdown(),
                           editorTheme,
                           syntaxHighlighting(highlightStyle),
-                          tagHighlighter(),
+                          tagHighlighter(onTagClick),
                           outliner(),
                           blockIdHider(),
                           EditorView.lineWrapping,

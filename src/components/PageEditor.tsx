@@ -156,21 +156,6 @@ export function PageEditor({ pageName, onTagClick, onDateSelect, onBack }: PageE
     setContent(value)
   }, [isViewingHistory, returnToLive])
 
-  // Handle click events on wiki-links
-  const handleEditorClick = useCallback((event: React.MouseEvent) => {
-    const target = event.target as HTMLElement
-    if (target.classList.contains('cm-wikilink')) {
-      const tagText = target.textContent
-      if (tagText && onTagClick) {
-        let tagName = tagText
-        if (tagName.startsWith('[[') && tagName.endsWith(']]')) {
-          tagName = tagName.slice(2, -2)
-        }
-        onTagClick(tagName.toLowerCase())
-      }
-    }
-  }, [onTagClick])
-
   // Determine display content
   const displayContent = isViewingHistory && snapshotContent !== null
     ? snapshotContent
@@ -242,7 +227,6 @@ export function PageEditor({ pageName, onTagClick, onDateSelect, onBack }: PageE
       <div
         className="flex-1 overflow-auto px-6 py-4"
         style={{ backgroundColor: 'var(--bg-primary)' }}
-        onClick={handleEditorClick}
       >
         <div className="max-w-3xl mx-auto relative">
           {isDiffMode && snapshots.length > 0 ? (
@@ -257,7 +241,7 @@ export function PageEditor({ pageName, onTagClick, onDateSelect, onBack }: PageE
                   markdown(),
                   editorTheme,
                   syntaxHighlighting(highlightStyle),
-                  tagHighlighter(),
+                  tagHighlighter(onTagClick),
                   EditorView.lineWrapping,
                   ...(isViewingHistory ? [EditorView.editable.of(false)] : []),
                 ]}

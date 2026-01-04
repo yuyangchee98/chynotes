@@ -201,22 +201,6 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete }
     setContent(value)
   }, [isViewingHistory, returnToLive])
 
-  // Handle click events on wiki-links
-  const handleEditorClick = useCallback((event: React.MouseEvent) => {
-    const target = event.target as HTMLElement
-    if (target.classList.contains('cm-wikilink')) {
-      const tagText = target.textContent
-      if (tagText && onTagClick) {
-        // Extract tag name from [[tag]]
-        let tagName = tagText
-        if (tagName.startsWith('[[') && tagName.endsWith(']]')) {
-          tagName = tagName.slice(2, -2)
-        }
-        onTagClick(tagName.toLowerCase())
-      }
-    }
-  }, [onTagClick])
-
   // Scroll to line when requested
   useEffect(() => {
     if (scrollToLine && editorRef.current?.view) {
@@ -278,7 +262,6 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete }
       <div
         className="flex-1 overflow-auto px-6 py-4"
         style={{ backgroundColor: 'var(--bg-primary)' }}
-        onClick={handleEditorClick}
       >
         <div className="max-w-3xl mx-auto relative">
           {isDiffMode && snapshots.length > 0 ? (
@@ -295,7 +278,7 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete }
                   markdown(),
                   editorTheme,
                   syntaxHighlighting(highlightStyle),
-                  tagHighlighter(),
+                  tagHighlighter(onTagClick),
                   outliner(),
                   blockIdHider(),
                   EditorView.lineWrapping,
