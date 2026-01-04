@@ -84,13 +84,18 @@ body {
   color: var(--text-muted) !important;
 }
 
-/* Unsaved line styling - lines not yet in snapshot appear lighter */
+/* Unsaved line styling - lines not yet in snapshot pulse lighter */
 .cm-line-unsaved {
-  opacity: 0.5;
+  animation: unsaved-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-.dark .cm-line-unsaved {
-  opacity: 0.5;
+@keyframes unsaved-pulse {
+  0%, 100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 /* Scrollbar styling */

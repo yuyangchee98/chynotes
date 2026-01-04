@@ -16,7 +16,6 @@ interface SnapshotSliderProps {
   isDiffMode: boolean
   onToggleDiffMode: () => void
   hasUnsavedChanges?: boolean
-  justSaved?: boolean
 }
 
 function formatTime(timestamp: number): string {
@@ -40,7 +39,6 @@ export function SnapshotSlider({
   isDiffMode,
   onToggleDiffMode,
   hasUnsavedChanges = false,
-  justSaved = false,
 }: SnapshotSliderProps) {
   const trackRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -118,14 +116,8 @@ export function SnapshotSlider({
       className="flex items-center gap-3"
       style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
     >
-      {/* Timeline scrubber - pulses when unsaved changes, glows on save */}
-      <div
-        className={`flex items-center gap-2 ${hasUnsavedChanges ? 'animate-pulse' : ''}`}
-        style={{
-          filter: justSaved ? 'drop-shadow(0 0 6px var(--accent))' : 'none',
-          transition: 'filter 0.3s ease-out',
-        }}
-      >
+      {/* Timeline scrubber - pulses when unsaved changes */}
+      <div className={`flex items-center gap-2 ${hasUnsavedChanges ? 'animate-pulse' : ''}`}>
         {/* Time label - only show when not at live */}
         {!isLive && (
           <span
