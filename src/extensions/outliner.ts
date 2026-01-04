@@ -253,7 +253,10 @@ function handleShiftTab(view: EditorView): boolean {
   return true
 }
 
-// Backspace: Delete empty bullet
+// Block ID pattern for extraction
+const BLOCK_ID_PATTERN = /\s*§[a-z0-9]+§\s*$/
+
+// Backspace: Handle bullet merging and empty bullet deletion
 function handleBackspace(view: EditorView): boolean {
   const { state } = view
   const { from, to } = state.selection.main
@@ -264,32 +267,68 @@ function handleBackspace(view: EditorView): boolean {
   }
 
   const line = state.doc.lineAt(from)
-
-  // Check if at end of empty bullet line (just "- " or "  - " etc)
-  const bulletMatch = line.text.match(/^(\s*)- $/)
+  const bulletMatch = line.text.match(/^(\s*)- (.*)$/)
 
   if (!bulletMatch) {
     return false
   }
 
-  const bulletPrefix = bulletMatch[0]
-  if (from !== line.from + bulletPrefix.length) {
-    return false
+  const [, indent, content] = bulletMatch
+  const bulletPrefix = indent + '- '
+  const cursorAtContentStart = from === line.from + bulletPrefix.length
+
+  if (!cursorAtContentStart) {
+    return false // Let default backspace handle mid-content deletion
   }
 
-  if (line.number === 1) {
-    // First line - just remove bullet prefix
-    view.dispatch({
-      changes: { from: line.from, to: line.from + bulletPrefix.length, insert: '' },
-    })
-  } else {
-    // Delete entire line including preceding newline
-    const prevLine = state.doc.line(line.number - 1)
-    view.dispatch({
-      changes: { from: prevLine.to, to: line.to, insert: '' },
-      selection: { anchor: prevLine.to },
-    })
+  // Case 1: Empty bullet (just "- " with optional whitespace)
+  if (content.trim() === '' || content.match(/^§[a-z0-9]+§\s*$/)) {
+    if (line.number === 1) {
+      // First line - just remove bullet prefix
+      view.dispatch({
+        changes: { from: line.from, to: line.to, insert: '' },
+      })
+    } else {
+      // Delete entire line including preceding newline
+      const prevLine = state.doc.line(line.number - 1)
+      view.dispatch({
+        changes: { from: prevLine.to, to: line.to, insert: '' },
+        selection: { anchor: prevLine.to },
+      })
+    }
+    return true
   }
+
+  // Case 2: Non-empty bullet - merge with previous line
+  if (line.number === 1) {
+    return false // Can't merge first line with anything
+  }
+
+  const prevLine = state.doc.line(line.number - 1)
+  const prevBulletMatch = prevLine.text.match(/^(\s*)- (.*)$/)
+
+  if (!prevBulletMatch) {
+    return false // Previous line is not a bullet, let default handle it
+  }
+
+  const [, prevIndent, prevContent] = prevBulletMatch
+
+  // Extract content without block IDs
+  const currentContentWithoutId = content.replace(BLOCK_ID_PATTERN, '')
+  const prevContentWithoutId = prevContent.replace(BLOCK_ID_PATTERN, '')
+
+  // Extract the previous line's block ID (if any) - we keep this one
+  const prevIdMatch = prevContent.match(/(§[a-z0-9]+§)\s*$/)
+  const prevBlockId = prevIdMatch ? ' ' + prevIdMatch[1] : ''
+
+  // Merge: prev content + current content + prev block ID
+  const mergedContent = prevIndent + '- ' + prevContentWithoutId + currentContentWithoutId + prevBlockId
+  const cursorPosition = prevLine.from + prevIndent.length + 2 + prevContentWithoutId.length
+
+  view.dispatch({
+    changes: { from: prevLine.from, to: line.to, insert: mergedContent },
+    selection: { anchor: cursorPosition },
+  })
 
   return true
 }
