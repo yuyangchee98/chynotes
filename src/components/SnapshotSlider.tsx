@@ -1,3 +1,5 @@
+import { useRef, useState, useCallback } from 'react'
+
 interface SnapshotRecord {
   id: number
   note_date: string
@@ -32,25 +34,72 @@ export function SnapshotSlider({
   onSnapshotSelect,
   onReturnToLive,
 }: SnapshotSliderProps) {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
   // Sort snapshots oldest to newest (left to right)
   const sortedSnapshots = [...snapshots].sort((a, b) => a.created_at - b.created_at)
 
   const isLive = currentSnapshotId === null
 
-  // Handle clicking on a snapshot dot
-  const handleDotClick = (snapshotId: number) => {
-    if (currentSnapshotId === snapshotId) {
-      // Clicking current snapshot returns to live
-      onReturnToLive()
-    } else {
-      onSnapshotSelect(snapshotId)
-    }
-  }
+  // Total positions = snapshots + 1 (for live)
+  const totalPositions = sortedSnapshots.length + 1
 
-  // Handle clicking on "now" dot
-  const handleNowClick = () => {
-    onReturnToLive()
-  }
+  // Current position: 0 to sortedSnapshots.length (last = live)
+  const currentPosition = isLive
+    ? sortedSnapshots.length
+    : sortedSnapshots.findIndex(s => s.id === currentSnapshotId)
+
+  // Convert position to percentage
+  const thumbPercent = totalPositions > 1
+    ? (currentPosition / (totalPositions - 1)) * 100
+    : 100
+
+  // Get time label for current position
+  const currentTimeLabel = isLive
+    ? 'now'
+    : formatTime(sortedSnapshots[currentPosition]?.created_at ?? Date.now())
+
+  // Handle position from mouse/touch event
+  const getPositionFromEvent = useCallback((clientX: number): number => {
+    if (!trackRef.current) return sortedSnapshots.length
+    const rect = trackRef.current.getBoundingClientRect()
+    const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+    // Map to nearest position
+    const position = Math.round(percent * (totalPositions - 1))
+    return position
+  }, [totalPositions, sortedSnapshots.length])
+
+  // Select snapshot at position
+  const selectPosition = useCallback((position: number) => {
+    if (position >= sortedSnapshots.length) {
+      onReturnToLive()
+    } else if (position >= 0 && position < sortedSnapshots.length) {
+      onSnapshotSelect(sortedSnapshots[position].id)
+    }
+  }, [sortedSnapshots, onSnapshotSelect, onReturnToLive])
+
+  // Mouse handlers
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+    const position = getPositionFromEvent(e.clientX)
+    selectPosition(position)
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const position = getPositionFromEvent(e.clientX)
+      selectPosition(position)
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }, [getPositionFromEvent, selectPosition])
 
   if (sortedSnapshots.length === 0) {
     return null
@@ -61,94 +110,59 @@ export function SnapshotSlider({
       className="flex items-center gap-3"
       style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
     >
-      {/* Back to Live button - only show when viewing history */}
-      {!isLive && (
-        <button
-          onClick={onReturnToLive}
-          className="flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors hover:opacity-80"
-          style={{
-            backgroundColor: 'var(--accent-subtle)',
-            color: 'var(--accent)',
-          }}
-        >
-          <span>←</span>
-          <span>Live</span>
-        </button>
-      )}
+      {/* Time label */}
+      <span
+        className="text-xs min-w-[50px] text-right"
+        style={{ color: 'var(--text-muted)' }}
+      >
+        {currentTimeLabel}
+      </span>
 
-      {/* Timeline track */}
-      <div className="flex items-center gap-1">
-        {/* Snapshot dots */}
-        {sortedSnapshots.map((snapshot, index) => {
-          const isSelected = currentSnapshotId === snapshot.id
-
-          return (
-            <div key={snapshot.id} className="flex items-center">
-              {/* Connector line (not before first dot) */}
-              {index > 0 && (
-                <div
-                  className="w-3 h-px"
-                  style={{ backgroundColor: 'var(--border)' }}
-                />
-              )}
-
-              {/* Dot with tooltip */}
-              <button
-                onClick={() => handleDotClick(snapshot.id)}
-                className="relative group"
-                title={formatTime(snapshot.created_at)}
-              >
-                <div
-                  className="w-2 h-2 rounded-full transition-transform hover:scale-125"
-                  style={{
-                    backgroundColor: isSelected
-                      ? 'var(--accent)'
-                      : 'var(--text-muted)',
-                    opacity: isSelected ? 1 : 0.5,
-                  }}
-                />
-
-                {/* Time label on hover */}
-                <div
-                  className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  {formatTime(snapshot.created_at)}
-                </div>
-              </button>
-            </div>
-          )
-        })}
-
-        {/* Connector to "now" */}
+      {/* Scrubber track */}
+      <div
+        ref={trackRef}
+        className="relative w-24 h-6 flex items-center cursor-pointer"
+        onMouseDown={handleMouseDown}
+      >
+        {/* Track background */}
         <div
-          className="w-3 h-px"
+          className="absolute inset-x-0 h-1 rounded-full"
           style={{ backgroundColor: 'var(--border)' }}
         />
 
-        {/* "Now" dot */}
-        <button
-          onClick={handleNowClick}
-          className="relative group"
-          title="Live"
-        >
-          <div
-            className="w-2.5 h-2.5 rounded-full transition-transform hover:scale-125"
-            style={{
-              backgroundColor: isLive ? 'var(--accent)' : 'var(--text-muted)',
-              opacity: isLive ? 1 : 0.5,
-            }}
-          />
+        {/* Filled portion */}
+        <div
+          className="absolute left-0 h-1 rounded-full transition-all"
+          style={{
+            width: `${thumbPercent}%`,
+            backgroundColor: 'var(--accent)',
+            opacity: 0.5,
+            transitionDuration: isDragging ? '0ms' : '150ms',
+          }}
+        />
 
-          {/* "now" label */}
-          <div
-            className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            now
-          </div>
-        </button>
+        {/* Thumb */}
+        <div
+          className="absolute w-3 h-3 rounded-full transition-all"
+          style={{
+            left: `${thumbPercent}%`,
+            transform: 'translateX(-50%)',
+            backgroundColor: 'var(--accent)',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+            transitionDuration: isDragging ? '0ms' : '150ms',
+          }}
+        />
       </div>
+
+      {/* Right endpoint label */}
+      <span
+        className="text-xs"
+        style={{
+          color: 'var(--text-muted)',
+        }}
+      >
+        live
+      </span>
     </div>
   )
 }

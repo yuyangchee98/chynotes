@@ -252,22 +252,6 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
           )}
         </div>
 
-        {/* Viewing history indicator */}
-        {isViewingHistory && (
-          <div
-            className="mt-2 text-sm"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            Viewing snapshot from{' '}
-            {new Date(
-              snapshots.find(s => s.id === viewingSnapshotId)?.created_at ?? 0
-            ).toLocaleTimeString('en-US', {
-              hour: 'numeric',
-              minute: '2-digit',
-              hour12: true,
-            })}
-          </div>
-        )}
       </div>
 
       {/* Editor */}
