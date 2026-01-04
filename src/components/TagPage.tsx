@@ -7,11 +7,60 @@ interface TagPageProps {
   tagName: string
   onTagClick: (tag: string) => void
   onBack: () => void
+  onDateSelect: (date: Date, line?: number) => void
 }
 
 type GenerationStatus = 'idle' | 'loading' | 'generating' | 'success' | 'error'
 
-export function TagPage({ tagName, onTagClick, onBack }: TagPageProps) {
+// Block display component with styled bullets
+function BlockItem({
+  block,
+  depth = 0,
+  onBlockClick
+}: {
+  block: TagOccurrence
+  depth?: number
+  onBlockClick: (date: string, line: number) => void
+}) {
+  // Remove block ID pattern from display
+  const displayContent = block.content.replace(/\s*§[a-z0-9]+§\s*$/, '')
+
+  return (
+    <div>
+      <div
+        className="flex items-start gap-2 py-1 px-2 -mx-2 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        style={{ paddingLeft: `${depth * 20 + 8}px` }}
+        onClick={() => onBlockClick(block.date, block.line)}
+      >
+        {/* Styled bullet matching the editor */}
+        <span
+          className="flex-shrink-0 mt-[0.6em]"
+          style={{
+            width: '0.35em',
+            height: '0.35em',
+            backgroundColor: 'var(--accent)',
+            borderRadius: '50%',
+            opacity: Math.max(0.4, 1 - depth * 0.2),
+          }}
+        />
+        <span className="flex-1" style={{ color: 'var(--text-primary)' }}>
+          {displayContent}
+        </span>
+      </div>
+      {/* Render children */}
+      {block.children?.map((child, idx) => (
+        <BlockItem
+          key={`${child.block_id}-${idx}`}
+          block={child}
+          depth={depth + 1}
+          onBlockClick={onBlockClick}
+        />
+      ))}
+    </div>
+  )
+}
+
+export function TagPage({ tagName, onTagClick, onBack, onDateSelect }: TagPageProps) {
   const [occurrences, setOccurrences] = useState<TagOccurrence[]>([])
   const [generatedCode, setGeneratedCode] = useState<string | null>(null)
   const [status, setStatus] = useState<GenerationStatus>('idle')
@@ -224,45 +273,41 @@ export function TagPage({ tagName, onTagClick, onBack }: TagPageProps) {
             No notes found with this tag.
           </div>
         ) : (
-          /* Fallback: simple list view */
+          /* Default: block tree view */
           <div className="space-y-6">
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-              <p className="text-sm text-blue-700 dark:text-blue-300">
-                Click "Generate View" to create an AI-powered interactive view for this tag.
-              </p>
-            </div>
-
             {Object.entries(groupedByDate).map(([date, items]) => {
               const formatted = formatDate(date)
               return (
-              <div key={date}>
-                <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-2">
-                  <span>{formatted.date}</span>
-                  {formatted.label && (
-                    <span
-                      className="text-xs px-1.5 py-0.5 rounded"
-                      style={{
-                        backgroundColor: 'var(--bg-tertiary)',
-                        color: 'var(--text-muted)'
-                      }}
-                    >
-                      {formatted.label}
-                    </span>
-                  )}
-                </h2>
-                <div className="space-y-2">
-                  {items.map((item, idx) => (
-                    <div
-                      key={`${date}-${item.line}-${idx}`}
-                      className="px-4 py-2 bg-gray-50 dark:bg-gray-900 rounded-lg text-gray-800 dark:text-gray-200"
-                    >
-                      {item.content}
-                    </div>
-                  ))}
+                <div key={date}>
+                  <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-2">
+                    <span>{formatted.date}</span>
+                    {formatted.label && (
+                      <span
+                        className="text-xs px-1.5 py-0.5 rounded"
+                        style={{
+                          backgroundColor: 'var(--bg-tertiary)',
+                          color: 'var(--text-muted)'
+                        }}
+                      >
+                        {formatted.label}
+                      </span>
+                    )}
+                  </h2>
+                  <div>
+                    {items.map((item, idx) => (
+                      <BlockItem
+                        key={`${item.block_id}-${idx}`}
+                        block={item}
+                        onBlockClick={(blockDate, line) => {
+                          const [year, month, day] = blockDate.split('-').map(Number)
+                          onDateSelect(new Date(year, month - 1, day), line)
+                        }}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )})}
-
+              )
+            })}
           </div>
         )}
 

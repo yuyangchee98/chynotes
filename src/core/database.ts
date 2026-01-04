@@ -578,6 +578,43 @@ export function getBlocksWithTag(tagName: string): BlockRecord[] {
 }
 
 /**
+ * Block with nested children for tree display
+ */
+export interface BlockWithChildren extends BlockRecord {
+  children: BlockWithChildren[]
+}
+
+/**
+ * Get all children of a block (recursive)
+ */
+function getChildBlocks(db: ReturnType<typeof getDatabase>, parentId: string, noteDate: string): BlockWithChildren[] {
+  const stmt = db.prepare(`
+    SELECT * FROM blocks
+    WHERE parent_id = ? AND note_date = ?
+    ORDER BY line_number ASC
+  `)
+  const children = stmt.all(parentId, noteDate) as BlockRecord[]
+
+  return children.map(child => ({
+    ...child,
+    children: getChildBlocks(db, child.id, noteDate)
+  }))
+}
+
+/**
+ * Get all blocks containing a specific tag, with their children
+ */
+export function getBlocksWithTagAndChildren(tagName: string): BlockWithChildren[] {
+  const db = getDatabase()
+  const blocks = getBlocksWithTag(tagName)
+
+  return blocks.map(block => ({
+    ...block,
+    children: getChildBlocks(db, block.id, block.note_date)
+  }))
+}
+
+/**
  * Delete all tags for a block
  */
 export function deleteBlockTags(blockId: string): void {

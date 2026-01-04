@@ -69,10 +69,13 @@ function App() {
     setTheme(newTheme)
   }, [])
 
-  const handleDateSelect = useCallback((date: Date) => {
+  const [scrollToLine, setScrollToLine] = useState<number | null>(null)
+
+  const handleDateSelect = useCallback((date: Date, line?: number) => {
     setSelectedTag(null)
     setView('single-day')
     setCurrentDate(date)
+    setScrollToLine(line ?? null)
   }, [])
 
   const handleSearchSelect = useCallback(() => {
@@ -104,6 +107,8 @@ function App() {
           <DailyEditor
             date={currentDate}
             onTagClick={handleTagClick}
+            scrollToLine={scrollToLine}
+            onScrollComplete={() => setScrollToLine(null)}
           />
         )}
         {view === 'tag' && (
@@ -111,6 +116,7 @@ function App() {
             tagName={selectedTag!}
             onTagClick={handleTagClick}
             onBack={handleDailyNotesSelect}
+            onDateSelect={handleDateSelect}
           />
         )}
         {view === 'search' && (

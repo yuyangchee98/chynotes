@@ -15,9 +15,11 @@ import {
   getTagsWithCounts,
   getOccurrencesForTag,
   getBlocksWithTag,
+  getBlocksWithTagAndChildren,
   TagWithCount,
   TagOccurrenceWithDetails,
   BlockRecord,
+  BlockWithChildren,
 } from './database'
 import { parseNote } from './tag-parser'
 import { listDefaultPrompts } from './prompt-manager'
@@ -126,20 +128,31 @@ export interface BlockOccurrence {
   date: string
   line: number
   content: string
+  indent_level: number
+  children: BlockOccurrence[]
 }
 
 /**
- * Get all blocks containing a specific tag
+ * Convert BlockWithChildren to BlockOccurrence
  */
-export function getTagOccurrences(tagName: string): BlockOccurrence[] {
-  initDatabase()
-  const blocks = getBlocksWithTag(tagName.toLowerCase())
-  return blocks.map(block => ({
+function toBlockOccurrence(block: BlockWithChildren): BlockOccurrence {
+  return {
     block_id: block.id,
     date: block.note_date,
     line: block.line_number,
     content: block.content,
-  }))
+    indent_level: block.indent_level,
+    children: block.children.map(toBlockOccurrence),
+  }
+}
+
+/**
+ * Get all blocks containing a specific tag (with children)
+ */
+export function getTagOccurrences(tagName: string): BlockOccurrence[] {
+  initDatabase()
+  const blocks = getBlocksWithTagAndChildren(tagName.toLowerCase())
+  return blocks.map(toBlockOccurrence)
 }
 
 /**

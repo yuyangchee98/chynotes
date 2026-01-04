@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import { EditorView } from '@codemirror/view'
@@ -16,6 +16,8 @@ import { DiffView } from './DiffView'
 interface DailyEditorProps {
   date: Date
   onTagClick?: (tag: string) => void
+  scrollToLine?: number | null
+  onScrollComplete?: () => void
 }
 
 // Custom theme for Logseq/Obsidian-like appearance
@@ -122,8 +124,9 @@ const highlightStyle = HighlightStyle.define([
   { tag: t.monospace, fontFamily: 'ui-monospace, monospace', backgroundColor: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.9em' },
 ])
 
-export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
+export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete }: DailyEditorProps) {
   const [content, setContent] = useState('')
+  const editorRef = useRef<{ view: EditorView } | null>(null)
   const noteDate = toLocalDateString(date)
 
   // Snapshot debouncing - saves after 5s of inactivity
@@ -214,6 +217,18 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
     }
   }, [onTagClick])
 
+  // Scroll to line when requested
+  useEffect(() => {
+    if (scrollToLine && editorRef.current?.view) {
+      const view = editorRef.current.view
+      const line = view.state.doc.line(Math.min(scrollToLine, view.state.doc.lines))
+      view.dispatch({
+        effects: EditorView.scrollIntoView(line.from, { y: 'start', yMargin: 100 })
+      })
+      onScrollComplete?.()
+    }
+  }, [scrollToLine, content, onScrollComplete])
+
   // Determine display content
   const displayContent = isViewingHistory && snapshotContent !== null
     ? snapshotContent
@@ -273,6 +288,7 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
             // Normal editor mode
             <>
               <CodeMirror
+                ref={editorRef}
                 value={displayContent}
                 onChange={handleChange}
                 extensions={[
