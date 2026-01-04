@@ -95,10 +95,12 @@ export function DiffView({ oldText, newText }: DiffViewProps) {
         {lines.map((line, lineIndex) => (
           <span key={lineIndex}>
             {lineIndex > 0 && '\n'}
-            {line.match(/^\s*-\s/)
-              ? processLineWithBullets(line, undefined, style)
-              : <span style={style}>{line}</span>
-            }
+            <span style={{ display: 'inline-block', padding: '3px 0' }}>
+              {line.match(/^\s*-\s/)
+                ? processLineWithBullets(line, undefined, style)
+                : <span style={style}>{line}</span>
+              }
+            </span>
           </span>
         ))}
       </span>
