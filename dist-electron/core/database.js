@@ -35,6 +35,7 @@ exports.getBlocksForNote = getBlocksForNote;
 exports.deleteBlocksForNote = deleteBlocksForNote;
 exports.addBlockTag = addBlockTag;
 exports.getBlocksWithTag = getBlocksWithTag;
+exports.getBlocksWithTagAndChildren = getBlocksWithTagAndChildren;
 exports.deleteBlockTags = deleteBlockTags;
 const better_sqlite3_1 = __importDefault(require("better-sqlite3"));
 const path_1 = __importDefault(require("path"));
@@ -463,6 +464,33 @@ function getBlocksWithTag(tagName) {
     ORDER BY b.note_date DESC, b.line_number ASC
   `);
     return stmt.all(tagName.toLowerCase());
+}
+/**
+ * Get all children of a block (recursive)
+ */
+function getChildBlocks(db, parentId, noteDate) {
+    const stmt = db.prepare(`
+    SELECT * FROM blocks
+    WHERE parent_id = ? AND note_date = ?
+    ORDER BY line_number ASC
+  `);
+    const children = stmt.all(parentId, noteDate);
+    console.log(`[getChildBlocks] Looking for children of ${parentId} on ${noteDate}, found:`, children.length);
+    return children.map(child => ({
+        ...child,
+        children: getChildBlocks(db, child.id, noteDate)
+    }));
+}
+/**
+ * Get all blocks containing a specific tag, with their children
+ */
+function getBlocksWithTagAndChildren(tagName) {
+    const db = getDatabase();
+    const blocks = getBlocksWithTag(tagName);
+    return blocks.map(block => ({
+        ...block,
+        children: getChildBlocks(db, block.id, block.note_date)
+    }));
 }
 /**
  * Delete all tags for a block

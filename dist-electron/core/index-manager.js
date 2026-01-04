@@ -123,17 +123,25 @@ function getAllTagsWithCounts() {
     return (0, database_1.getTagsWithCounts)();
 }
 /**
- * Get all blocks containing a specific tag
+ * Convert BlockWithChildren to BlockOccurrence
  */
-function getTagOccurrences(tagName) {
-    (0, database_1.initDatabase)();
-    const blocks = (0, database_1.getBlocksWithTag)(tagName.toLowerCase());
-    return blocks.map(block => ({
+function toBlockOccurrence(block) {
+    return {
         block_id: block.id,
         date: block.note_date,
         line: block.line_number,
         content: block.content,
-    }));
+        indent_level: block.indent_level,
+        children: block.children.map(toBlockOccurrence),
+    };
+}
+/**
+ * Get all blocks containing a specific tag (with children)
+ */
+function getTagOccurrences(tagName) {
+    (0, database_1.initDatabase)();
+    const blocks = (0, database_1.getBlocksWithTagAndChildren)(tagName.toLowerCase());
+    return blocks.map(toBlockOccurrence);
 }
 /**
  * Search tags by prefix (for autocomplete)

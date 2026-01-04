@@ -7,8 +7,8 @@
 
 import { randomBytes } from 'crypto'
 
-// Block ID pattern: §alphanumeric§
-const BLOCK_ID_PATTERN = /§([a-z0-9]+)§\s*$/
+// Block ID pattern: §alphanumeric with - and _§ (base64url characters)
+const BLOCK_ID_PATTERN = /§([a-z0-9_-]+)§\s*$/
 
 // Bullet line pattern: optional indent + "- " + content
 const BULLET_PATTERN = /^(\s*)-\s+(.*)$/
@@ -30,11 +30,11 @@ export interface ParsedBlocks {
 }
 
 /**
- * Generate a new block ID (8 chars, lowercase alphanumeric)
+ * Generate a new block ID (8 chars, hex - only 0-9 and a-f)
  * Uses Node's built-in crypto module - no external dependencies
  */
 export function generateBlockId(): string {
-  return randomBytes(6).toString('base64url').slice(0, 8).toLowerCase()
+  return randomBytes(4).toString('hex')
 }
 
 /**
