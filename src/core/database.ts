@@ -97,12 +97,23 @@ function createTables(database: Database.Database): void {
       value TEXT
     );
 
+    -- Document snapshots for viewing evolution of thought
+    CREATE TABLE IF NOT EXISTS snapshots (
+      id INTEGER PRIMARY KEY,
+      note_date TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      content_hash TEXT NOT NULL
+    );
+
     -- Create indexes for faster queries
     CREATE INDEX IF NOT EXISTS idx_notes_date ON notes(date);
     CREATE INDEX IF NOT EXISTS idx_tag_name ON tags(name);
     CREATE INDEX IF NOT EXISTS idx_occurrence_tag ON tag_occurrences(tag_id);
     CREATE INDEX IF NOT EXISTS idx_occurrence_note ON tag_occurrences(note_id);
     CREATE INDEX IF NOT EXISTS idx_cache_tag ON cache(tag_id);
+    CREATE INDEX IF NOT EXISTS idx_snapshots_note_date ON snapshots(note_date);
+    CREATE INDEX IF NOT EXISTS idx_snapshots_created_at ON snapshots(note_date, created_at);
   `)
 }
 
@@ -347,4 +358,100 @@ export function deleteSetting(key: string): void {
   const db = getDatabase()
   const stmt = db.prepare('DELETE FROM settings WHERE key = ?')
   stmt.run(key)
+}
+
+// ============================================================================
+// Snapshots Table Operations
+// ============================================================================
+
+export interface SnapshotRecord {
+  id: number
+  note_date: string
+  content: string
+  created_at: number
+  content_hash: string
+}
+
+/**
+ * Simple hash function for content comparison
+ */
+function hashContent(content: string): string {
+  let hash = 0
+  for (let i = 0; i < content.length; i++) {
+    const char = content.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash // Convert to 32bit integer
+  }
+  return hash.toString(16)
+}
+
+/**
+ * Save a snapshot if content has changed since last snapshot
+ * Returns the new snapshot record, or null if skipped (no change)
+ */
+export function saveSnapshot(noteDate: string, content: string): SnapshotRecord | null {
+  const db = getDatabase()
+  const contentHash = hashContent(content)
+  const now = Date.now()
+
+  // Check if last snapshot has same content
+  const lastSnapshot = db.prepare(`
+    SELECT content_hash FROM snapshots
+    WHERE note_date = ?
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).get(noteDate) as { content_hash: string } | undefined
+
+  if (lastSnapshot?.content_hash === contentHash) {
+    // Content unchanged, skip
+    return null
+  }
+
+  // Insert new snapshot
+  const stmt = db.prepare(`
+    INSERT INTO snapshots (note_date, content, created_at, content_hash)
+    VALUES (?, ?, ?, ?)
+    RETURNING *
+  `)
+
+  return stmt.get(noteDate, content, now, contentHash) as SnapshotRecord
+}
+
+/**
+ * Get all snapshots for a note, ordered by creation time (newest first)
+ */
+export function getSnapshotsForNote(noteDate: string): SnapshotRecord[] {
+  const db = getDatabase()
+  const stmt = db.prepare(`
+    SELECT * FROM snapshots
+    WHERE note_date = ?
+    ORDER BY created_at DESC
+  `)
+  return stmt.all(noteDate) as SnapshotRecord[]
+}
+
+/**
+ * Get a specific snapshot by ID
+ */
+export function getSnapshot(id: number): SnapshotRecord | null {
+  const db = getDatabase()
+  const stmt = db.prepare('SELECT * FROM snapshots WHERE id = ?')
+  return (stmt.get(id) as SnapshotRecord) || null
+}
+
+/**
+ * Delete old snapshots, keeping only the most recent N
+ */
+export function pruneSnapshots(noteDate: string, keepCount: number): void {
+  const db = getDatabase()
+  db.prepare(`
+    DELETE FROM snapshots
+    WHERE note_date = ?
+    AND id NOT IN (
+      SELECT id FROM snapshots
+      WHERE note_date = ?
+      ORDER BY created_at DESC
+      LIMIT ?
+    )
+  `).run(noteDate, noteDate, keepCount)
 }

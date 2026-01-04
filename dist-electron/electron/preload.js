@@ -60,4 +60,14 @@ electron_1.contextBridge.exposeInMainWorld('api', {
     setSetting: (key, value) => {
         return electron_1.ipcRenderer.invoke('set-setting', key, value);
     },
+    // Snapshot operations
+    saveSnapshot: (noteDate, content) => {
+        return electron_1.ipcRenderer.invoke('save-snapshot', noteDate, content);
+    },
+    getSnapshots: (noteDate) => {
+        return electron_1.ipcRenderer.invoke('get-snapshots', noteDate);
+    },
+    getSnapshot: (id) => {
+        return electron_1.ipcRenderer.invoke('get-snapshot', id);
+    },
 });

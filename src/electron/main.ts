@@ -36,7 +36,14 @@ import {
   listOllamaModels,
 } from '../core/code-generator'
 import { getPromptForTag, setPromptForTag } from '../core/prompt-manager'
-import { setSetting, getSetting, getCachedCodeByTagName } from '../core/database'
+import {
+  setSetting,
+  getSetting,
+  getCachedCodeByTagName,
+  saveSnapshot,
+  getSnapshotsForNote,
+  getSnapshot,
+} from '../core/database'
 
 // Ensure notes directory exists on startup
 ensureNotesDirectorySync()
@@ -155,6 +162,19 @@ ipcMain.handle('get-setting', (_event, key: string) => {
 
 ipcMain.handle('set-setting', (_event, key: string, value: string) => {
   setSetting(key, value)
+})
+
+// Snapshot IPC handlers
+ipcMain.handle('save-snapshot', (_event, noteDate: string, content: string) => {
+  return saveSnapshot(noteDate, content)
+})
+
+ipcMain.handle('get-snapshots', (_event, noteDate: string) => {
+  return getSnapshotsForNote(noteDate)
+})
+
+ipcMain.handle('get-snapshot', (_event, id: number) => {
+  return getSnapshot(id)
 })
 
 app.whenReady().then(async () => {

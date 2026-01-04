@@ -7,6 +7,7 @@ import { tags as t } from '@lezer/highlight'
 import { tagHighlighter } from '../extensions/tag-highlighter'
 import { outliner } from '../extensions/outliner'
 import { formatDateFromDate, toLocalDateString } from '../utils/format-date'
+import { useSnapshotDebounce } from '../hooks/useSnapshotDebounce'
 
 interface DailyStreamProps {
   onTagClick?: (tag: string) => void
@@ -154,6 +155,12 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const saveTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map())
 
+  // Track the currently active day for snapshots
+  const [activeDay, setActiveDay] = useState<{ dateString: string; content: string } | null>(null)
+
+  // Snapshot debouncing for the active day
+  useSnapshotDebounce(activeDay?.dateString ?? '', activeDay?.content ?? '', !!activeDay)
+
   // Load initial days
   useEffect(() => {
     const loadInitialDays = async () => {
@@ -250,8 +257,13 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
       return updated
     })
 
-    // Debounced save
+    // Update active day for snapshot tracking
     const day = days[index]
+    if (day) {
+      setActiveDay({ dateString: day.dateString, content: value })
+    }
+
+    // Debounced save
     if (!day) return
 
     const existingTimeout = saveTimeouts.current.get(day.dateString)

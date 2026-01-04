@@ -119,6 +119,16 @@ electron_1.ipcMain.handle('get-setting', (_event, key) => {
 electron_1.ipcMain.handle('set-setting', (_event, key, value) => {
     (0, database_2.setSetting)(key, value);
 });
+// Snapshot IPC handlers
+electron_1.ipcMain.handle('save-snapshot', (_event, noteDate, content) => {
+    return (0, database_2.saveSnapshot)(noteDate, content);
+});
+electron_1.ipcMain.handle('get-snapshots', (_event, noteDate) => {
+    return (0, database_2.getSnapshotsForNote)(noteDate);
+});
+electron_1.ipcMain.handle('get-snapshot', (_event, id) => {
+    return (0, database_2.getSnapshot)(id);
+});
 electron_1.app.whenReady().then(async () => {
     // Initial index of all notes
     await (0, index_manager_1.reindexAll)();

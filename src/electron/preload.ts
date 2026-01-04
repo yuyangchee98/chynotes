@@ -23,6 +23,14 @@ interface TagTreeNode {
   children: TagTreeNode[]
 }
 
+interface SnapshotRecord {
+  id: number
+  note_date: string
+  content: string
+  created_at: number
+  content_hash: string
+}
+
 contextBridge.exposeInMainWorld('api', {
   // Note operations
   readNote: (dateISO: string): Promise<string | null> => {
@@ -98,5 +106,18 @@ contextBridge.exposeInMainWorld('api', {
 
   setSetting: (key: string, value: string): Promise<void> => {
     return ipcRenderer.invoke('set-setting', key, value)
+  },
+
+  // Snapshot operations
+  saveSnapshot: (noteDate: string, content: string): Promise<SnapshotRecord | null> => {
+    return ipcRenderer.invoke('save-snapshot', noteDate, content)
+  },
+
+  getSnapshots: (noteDate: string): Promise<SnapshotRecord[]> => {
+    return ipcRenderer.invoke('get-snapshots', noteDate)
+  },
+
+  getSnapshot: (id: number): Promise<SnapshotRecord | null> => {
+    return ipcRenderer.invoke('get-snapshot', id)
   },
 })

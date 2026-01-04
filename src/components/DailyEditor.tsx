@@ -7,6 +7,7 @@ import { tags as t } from '@lezer/highlight'
 import { tagHighlighter } from '../extensions/tag-highlighter'
 import { outliner } from '../extensions/outliner'
 import { toLocalDateString } from '../utils/format-date'
+import { useSnapshotDebounce } from '../hooks/useSnapshotDebounce'
 
 interface DailyEditorProps {
   date: Date
@@ -124,6 +125,10 @@ const highlightStyle = HighlightStyle.define([
 
 export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
   const [content, setContent] = useState('')
+  const noteDate = toLocalDateString(date)
+
+  // Snapshot debouncing - saves after 5s of inactivity
+  const { snapshotProgress } = useSnapshotDebounce(noteDate, content)
 
   const dateString = date.toLocaleDateString('en-US', {
     weekday: 'long',

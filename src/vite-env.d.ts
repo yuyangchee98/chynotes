@@ -22,6 +22,14 @@ interface TagTreeNode {
   children: TagTreeNode[]
 }
 
+interface SnapshotRecord {
+  id: number
+  note_date: string
+  content: string
+  created_at: number
+  content_hash: string
+}
+
 interface Window {
   api: {
     // Note operations
@@ -43,9 +51,16 @@ interface Window {
     listOllamaModels: () => Promise<string[]>
     getTagPrompt: (tagName: string) => Promise<string>
     setTagPrompt: (tagName: string, prompt: string) => Promise<void>
+    getCachedCode: (tagName: string) => Promise<string | null>
+    updateNoteLine: (dateStr: string, lineNumber: number, newContent: string) => Promise<void>
 
     // Settings operations
     getSetting: (key: string) => Promise<string | null>
     setSetting: (key: string, value: string) => Promise<void>
+
+    // Snapshot operations
+    saveSnapshot: (noteDate: string, content: string) => Promise<SnapshotRecord | null>
+    getSnapshots: (noteDate: string) => Promise<SnapshotRecord[]>
+    getSnapshot: (id: number) => Promise<SnapshotRecord | null>
   }
 }
