@@ -162,7 +162,10 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
   const [activeDay, setActiveDay] = useState<{ dateString: string; content: string } | null>(null)
 
   // Snapshot debouncing for the active day
-  useSnapshotDebounce(activeDay?.dateString ?? '', activeDay?.content ?? '', !!activeDay)
+  const { snapshotProgress } = useSnapshotDebounce(activeDay?.dateString ?? '', activeDay?.content ?? '', !!activeDay)
+
+  // Unsaved text is lighter (pending), saved text is normal (solid)
+  const hasUnsavedChanges = snapshotProgress > 0
 
   // Focus detection - which day block is currently in view
   const [focusedDayIndex, setFocusedDayIndex] = useState(0)
@@ -491,7 +494,14 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                   style={{ minHeight: 'calc(100vh - 100px)' }}
                 >
                   {/* Today's editor - prominent, fills space */}
-                  <div className="flex-1 relative">
+                  <div
+                    className="flex-1 relative"
+                    style={{
+                      // Unsaved = lighter (pending), saved = normal (solid)
+                      opacity: hasUnsavedChanges ? 0.6 : 1,
+                      transition: 'opacity 0.3s ease-out',
+                    }}
+                  >
                     {showDiff ? (
                       <DiffView oldText={diffOldText} newText={day.content} />
                     ) : (
