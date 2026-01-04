@@ -14,11 +14,13 @@ interface UseSnapshotViewerReturn {
   snapshotContent: string | null
   isViewingHistory: boolean
   snapshots: SnapshotRecord[]
+  isDiffMode: boolean
 
   // Actions
   loadSnapshots: (noteDate: string) => Promise<void>
   viewSnapshot: (snapshotId: number) => void
   returnToLive: () => void
+  toggleDiffMode: () => void
 }
 
 /**
@@ -29,6 +31,7 @@ export function useSnapshotViewer(): UseSnapshotViewerReturn {
   const [viewingSnapshotId, setViewingSnapshotId] = useState<number | null>(null)
   const [snapshotContent, setSnapshotContent] = useState<string | null>(null)
   const [snapshots, setSnapshots] = useState<SnapshotRecord[]>([])
+  const [isDiffMode, setIsDiffMode] = useState(false)
 
   const loadSnapshots = useCallback(async (noteDate: string) => {
     if (!window.api || !noteDate) {
@@ -58,13 +61,19 @@ export function useSnapshotViewer(): UseSnapshotViewerReturn {
     setSnapshotContent(null)
   }, [])
 
+  const toggleDiffMode = useCallback(() => {
+    setIsDiffMode(prev => !prev)
+  }, [])
+
   return {
     viewingSnapshotId,
     snapshotContent,
     isViewingHistory: viewingSnapshotId !== null,
     snapshots,
+    isDiffMode,
     loadSnapshots,
     viewSnapshot,
     returnToLive,
+    toggleDiffMode,
   }
 }

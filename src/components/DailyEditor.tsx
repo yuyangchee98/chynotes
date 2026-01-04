@@ -10,6 +10,7 @@ import { toLocalDateString } from '../utils/format-date'
 import { useSnapshotDebounce } from '../hooks/useSnapshotDebounce'
 import { useSnapshotViewer } from '../hooks/useSnapshotViewer'
 import { SnapshotSlider } from './SnapshotSlider'
+import { DiffView } from './DiffView'
 
 interface DailyEditorProps {
   date: Date
@@ -138,9 +139,11 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
     snapshotContent,
     isViewingHistory,
     snapshots,
+    isDiffMode,
     loadSnapshots,
     viewSnapshot,
     returnToLive,
+    toggleDiffMode,
   } = useSnapshotViewer()
 
   const dateString = date.toLocaleDateString('en-US', {
@@ -222,6 +225,12 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
     ? snapshotContent
     : content
 
+  // For diff mode: determine the "old" text to compare against live
+  const sortedSnapshots = [...snapshots].sort((a, b) => a.created_at - b.created_at)
+  const diffOldText = isViewingHistory && snapshotContent !== null
+    ? snapshotContent  // Viewing a snapshot: compare snapshot vs live
+    : sortedSnapshots[0]?.content ?? content  // At live: compare first snapshot vs live
+
   return (
     <div className="flex-1 flex flex-col h-full">
       {/* Header - draggable region, padded for traffic lights */}
@@ -248,6 +257,8 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
               currentSnapshotId={viewingSnapshotId}
               onSnapshotSelect={viewSnapshot}
               onReturnToLive={returnToLive}
+              isDiffMode={isDiffMode}
+              onToggleDiffMode={toggleDiffMode}
             />
           )}
         </div>
@@ -261,42 +272,50 @@ export function DailyEditor({ date, onTagClick }: DailyEditorProps) {
         onClick={handleEditorClick}
       >
         <div className="max-w-3xl mx-auto relative">
-          <CodeMirror
-            value={displayContent}
-            onChange={handleChange}
-            extensions={[
-              markdown(),
-              editorTheme,
-              syntaxHighlighting(highlightStyle),
-              tagHighlighter(),
-              outliner(),
-              EditorView.lineWrapping,
-              ...(isViewingHistory ? [EditorView.editable.of(false)] : []),
-            ]}
-            basicSetup={{
-              lineNumbers: false,
-              foldGutter: false,
-              highlightActiveLine: false,
-              highlightSelectionMatches: true,
-              bracketMatching: true,
-              closeBrackets: true,
-              autocompletion: true,
-              history: true,
-              drawSelection: true,
-              dropCursor: true,
-              indentOnInput: true,
-            }}
-            className="min-h-full"
-          />
-          {/* Read-only overlay when viewing snapshot */}
-          {isViewingHistory && (
-            <div
-              className="absolute inset-0 pointer-events-none rounded"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                opacity: 0.15,
-              }}
-            />
+          {isDiffMode && snapshots.length > 0 ? (
+            // Diff view mode
+            <DiffView oldText={diffOldText} newText={content} />
+          ) : (
+            // Normal editor mode
+            <>
+              <CodeMirror
+                value={displayContent}
+                onChange={handleChange}
+                extensions={[
+                  markdown(),
+                  editorTheme,
+                  syntaxHighlighting(highlightStyle),
+                  tagHighlighter(),
+                  outliner(),
+                  EditorView.lineWrapping,
+                  ...(isViewingHistory ? [EditorView.editable.of(false)] : []),
+                ]}
+                basicSetup={{
+                  lineNumbers: false,
+                  foldGutter: false,
+                  highlightActiveLine: false,
+                  highlightSelectionMatches: true,
+                  bracketMatching: true,
+                  closeBrackets: true,
+                  autocompletion: true,
+                  history: true,
+                  drawSelection: true,
+                  dropCursor: true,
+                  indentOnInput: true,
+                }}
+                className="min-h-full"
+              />
+              {/* Read-only overlay when viewing snapshot */}
+              {isViewingHistory && (
+                <div
+                  className="absolute inset-0 pointer-events-none rounded"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    opacity: 0.15,
+                  }}
+                />
+              )}
+            </>
           )}
         </div>
       </div>

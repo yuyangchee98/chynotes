@@ -13,6 +13,8 @@ interface SnapshotSliderProps {
   currentSnapshotId: number | null // null = live
   onSnapshotSelect: (id: number | null) => void
   onReturnToLive: () => void
+  isDiffMode: boolean
+  onToggleDiffMode: () => void
 }
 
 function formatTime(timestamp: number): string {
@@ -33,6 +35,8 @@ export function SnapshotSlider({
   currentSnapshotId,
   onSnapshotSelect,
   onReturnToLive,
+  isDiffMode,
+  onToggleDiffMode,
 }: SnapshotSliderProps) {
   const trackRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -163,6 +167,19 @@ export function SnapshotSlider({
       >
         live
       </span>
+
+      {/* Diff toggle button */}
+      <button
+        onClick={onToggleDiffMode}
+        className="ml-2 px-2 py-0.5 text-xs rounded transition-colors"
+        style={{
+          backgroundColor: isDiffMode ? 'var(--accent)' : 'var(--bg-tertiary)',
+          color: isDiffMode ? 'white' : 'var(--text-muted)',
+        }}
+        title={isDiffMode ? 'Hide changes' : 'Show changes'}
+      >
+        diff
+      </button>
     </div>
   )
 }

@@ -10,6 +10,7 @@ import { formatDateFromDate, toLocalDateString } from '../utils/format-date'
 import { useSnapshotDebounce } from '../hooks/useSnapshotDebounce'
 import { useSnapshotViewer } from '../hooks/useSnapshotViewer'
 import { SnapshotSlider } from './SnapshotSlider'
+import { DiffView } from './DiffView'
 
 interface DailyStreamProps {
   onTagClick?: (tag: string) => void
@@ -174,9 +175,11 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
     snapshotContent,
     isViewingHistory,
     snapshots,
+    isDiffMode,
     loadSnapshots,
     viewSnapshot,
     returnToLive,
+    toggleDiffMode,
   } = useSnapshotViewer()
 
   // Load initial days
@@ -440,6 +443,8 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
               currentSnapshotId={viewingSnapshotId}
               onSnapshotSelect={viewSnapshot}
               onReturnToLive={returnToLive}
+              isDiffMode={isDiffMode}
+              onToggleDiffMode={toggleDiffMode}
             />
           )}
         </div>
@@ -466,6 +471,13 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
               ? snapshotContent
               : day.content
 
+            // For diff mode: determine the "old" text to compare against live
+            const sortedSnapshots = [...snapshots].sort((a, b) => a.created_at - b.created_at)
+            const diffOldText = isViewingHistory && snapshotContent !== null
+              ? snapshotContent
+              : sortedSnapshots[0]?.content ?? day.content
+            const showDiff = isDiffMode && isThisDayFocused && snapshots.length > 0
+
             // Today: always show full editor, fills the entire viewport
             if (isTodayEntry) {
               return (
@@ -480,42 +492,48 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                 >
                   {/* Today's editor - prominent, fills space */}
                   <div className="flex-1 relative">
-                    <CodeMirror
-                      value={displayContent}
-                      onChange={(value) => handleContentChange(index, value)}
-                      extensions={[
-                        markdown(),
-                        editorTheme,
-                        syntaxHighlighting(highlightStyle),
-                        tagHighlighter(),
-                        outliner(),
-                        EditorView.lineWrapping,
-                        ...(showingSnapshot ? [EditorView.editable.of(false)] : []),
-                      ]}
-                      basicSetup={{
-                        lineNumbers: false,
-                        foldGutter: false,
-                        highlightActiveLine: false,
-                        highlightSelectionMatches: true,
-                        bracketMatching: true,
-                        closeBrackets: true,
-                        autocompletion: true,
-                        history: true,
-                        drawSelection: true,
-                        dropCursor: true,
-                        indentOnInput: true,
-                      }}
-                      className="min-h-full"
-                    />
-                    {/* Read-only overlay when viewing snapshot */}
-                    {showingSnapshot && (
-                      <div
-                        className="absolute inset-0 pointer-events-none rounded"
-                        style={{
-                          backgroundColor: 'var(--bg-secondary)',
-                          opacity: 0.15,
-                        }}
-                      />
+                    {showDiff ? (
+                      <DiffView oldText={diffOldText} newText={day.content} />
+                    ) : (
+                      <>
+                        <CodeMirror
+                          value={displayContent}
+                          onChange={(value) => handleContentChange(index, value)}
+                          extensions={[
+                            markdown(),
+                            editorTheme,
+                            syntaxHighlighting(highlightStyle),
+                            tagHighlighter(),
+                            outliner(),
+                            EditorView.lineWrapping,
+                            ...(showingSnapshot ? [EditorView.editable.of(false)] : []),
+                          ]}
+                          basicSetup={{
+                            lineNumbers: false,
+                            foldGutter: false,
+                            highlightActiveLine: false,
+                            highlightSelectionMatches: true,
+                            bracketMatching: true,
+                            closeBrackets: true,
+                            autocompletion: true,
+                            history: true,
+                            drawSelection: true,
+                            dropCursor: true,
+                            indentOnInput: true,
+                          }}
+                          className="min-h-full"
+                        />
+                        {/* Read-only overlay when viewing snapshot */}
+                        {showingSnapshot && (
+                          <div
+                            className="absolute inset-0 pointer-events-none rounded"
+                            style={{
+                              backgroundColor: 'var(--bg-secondary)',
+                              opacity: 0.15,
+                            }}
+                          />
+                        )}
+                      </>
                     )}
                   </div>
 
@@ -621,41 +639,47 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
 
                 {/* Day editor */}
                 <div className="relative">
-                  <CodeMirror
-                    value={displayContent}
-                    onChange={(value) => handleContentChange(index, value)}
-                    extensions={[
-                      markdown(),
-                      editorTheme,
-                      syntaxHighlighting(highlightStyle),
-                      tagHighlighter(),
-                      outliner(),
-                      EditorView.lineWrapping,
-                      ...(showingSnapshot ? [EditorView.editable.of(false)] : []),
-                    ]}
-                    basicSetup={{
-                      lineNumbers: false,
-                      foldGutter: false,
-                      highlightActiveLine: false,
-                      highlightSelectionMatches: true,
-                      bracketMatching: true,
-                      closeBrackets: true,
-                      autocompletion: true,
-                      history: true,
-                      drawSelection: true,
-                      dropCursor: true,
-                      indentOnInput: true,
-                    }}
-                  />
-                  {/* Read-only overlay when viewing snapshot */}
-                  {showingSnapshot && (
-                    <div
-                      className="absolute inset-0 pointer-events-none rounded"
-                      style={{
-                        backgroundColor: 'var(--bg-secondary)',
-                        opacity: 0.15,
-                      }}
-                    />
+                  {showDiff ? (
+                    <DiffView oldText={diffOldText} newText={day.content} />
+                  ) : (
+                    <>
+                      <CodeMirror
+                        value={displayContent}
+                        onChange={(value) => handleContentChange(index, value)}
+                        extensions={[
+                          markdown(),
+                          editorTheme,
+                          syntaxHighlighting(highlightStyle),
+                          tagHighlighter(),
+                          outliner(),
+                          EditorView.lineWrapping,
+                          ...(showingSnapshot ? [EditorView.editable.of(false)] : []),
+                        ]}
+                        basicSetup={{
+                          lineNumbers: false,
+                          foldGutter: false,
+                          highlightActiveLine: false,
+                          highlightSelectionMatches: true,
+                          bracketMatching: true,
+                          closeBrackets: true,
+                          autocompletion: true,
+                          history: true,
+                          drawSelection: true,
+                          dropCursor: true,
+                          indentOnInput: true,
+                        }}
+                      />
+                      {/* Read-only overlay when viewing snapshot */}
+                      {showingSnapshot && (
+                        <div
+                          className="absolute inset-0 pointer-events-none rounded"
+                          style={{
+                            backgroundColor: 'var(--bg-secondary)',
+                            opacity: 0.15,
+                          }}
+                        />
+                      )}
+                    </>
                   )}
                 </div>
               </div>
