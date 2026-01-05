@@ -86,4 +86,23 @@ electron_1.contextBridge.exposeInMainWorld('api', {
     getSnapshot: (id) => {
         return electron_1.ipcRenderer.invoke('get-snapshot', id);
     },
+    // Embedding operations
+    findSemanticSimilar: (tagName, limit) => {
+        return electron_1.ipcRenderer.invoke('find-semantic-similar', tagName, limit);
+    },
+    getEmbeddingStats: () => {
+        return electron_1.ipcRenderer.invoke('get-embedding-stats');
+    },
+    rebuildEmbeddings: () => {
+        return electron_1.ipcRenderer.invoke('rebuild-embeddings');
+    },
+    setEmbeddingEnabled: (enabled) => {
+        return electron_1.ipcRenderer.invoke('set-embedding-enabled', enabled);
+    },
+    checkEmbeddingModel: () => {
+        return electron_1.ipcRenderer.invoke('check-embedding-model');
+    },
+    listEmbeddingModels: () => {
+        return electron_1.ipcRenderer.invoke('list-embedding-models');
+    },
 });

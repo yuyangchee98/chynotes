@@ -23,6 +23,8 @@ const index_manager_1 = require("../core/index-manager");
 const code_generator_1 = require("../core/code-generator");
 const prompt_manager_1 = require("../core/prompt-manager");
 const database_2 = require("../core/database");
+const embeddings_1 = require("../core/embeddings");
+const embedding_queue_1 = require("../core/embedding-queue");
 // Ensure notes and pages directories exist on startup
 (0, file_manager_1.ensureNotesDirectorySync)();
 (0, file_manager_1.ensurePagesDirectorySync)();
@@ -152,9 +154,37 @@ electron_1.ipcMain.handle('get-snapshots', (_event, noteDate, documentType = 'no
 electron_1.ipcMain.handle('get-snapshot', (_event, id) => {
     return (0, database_2.getSnapshot)(id);
 });
+// Embedding IPC handlers
+electron_1.ipcMain.handle('find-semantic-similar', async (_event, tagName, limit) => {
+    return await (0, embeddings_1.findSemanticallySimilar)(tagName, limit);
+});
+electron_1.ipcMain.handle('get-embedding-stats', () => {
+    return {
+        embeddedBlocks: (0, database_2.getEmbeddedBlockCount)(),
+        totalBlocks: (0, database_2.getTotalBlockCount)(),
+        queueStatus: (0, embedding_queue_1.getQueueStatus)(),
+        enabled: (0, embedding_queue_1.isEmbeddingEnabled)(),
+    };
+});
+electron_1.ipcMain.handle('rebuild-embeddings', async () => {
+    await (0, embedding_queue_1.rebuildAllEmbeddings)();
+    return (0, embedding_queue_1.getQueueStatus)();
+});
+electron_1.ipcMain.handle('set-embedding-enabled', (_event, enabled) => {
+    (0, embedding_queue_1.setEmbeddingEnabled)(enabled);
+    return (0, embedding_queue_1.isEmbeddingEnabled)();
+});
+electron_1.ipcMain.handle('check-embedding-model', async () => {
+    return await (0, embeddings_1.checkEmbeddingModelAvailable)();
+});
+electron_1.ipcMain.handle('list-embedding-models', async () => {
+    return await (0, embeddings_1.listEmbeddingModels)();
+});
 electron_1.app.whenReady().then(async () => {
     // Initial index of all notes
     await (0, index_manager_1.reindexAll)();
+    // Start processing any blocks that need embedding
+    (0, embedding_queue_1.processBacklogOnStartup)();
     createWindow();
     electron_1.app.on('activate', () => {
         if (electron_1.BrowserWindow.getAllWindows().length === 0) {

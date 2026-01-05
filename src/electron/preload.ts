@@ -36,6 +36,34 @@ interface SnapshotRecord {
   document_type: DocumentType
 }
 
+interface SemanticResult {
+  block_id: string
+  note_date: string
+  content: string
+  distance: number
+  similarity: number
+}
+
+interface EmbeddingQueueStatus {
+  queueLength: number
+  isProcessing: boolean
+  lastError: string | null
+  processedCount: number
+}
+
+interface EmbeddingStats {
+  embeddedBlocks: number
+  totalBlocks: number
+  queueStatus: EmbeddingQueueStatus
+  enabled: boolean
+}
+
+interface EmbeddingModelStatus {
+  available: boolean
+  model: string
+  error?: string
+}
+
 contextBridge.exposeInMainWorld('api', {
   // Note operations
   readNote: (dateISO: string): Promise<string | null> => {
@@ -145,5 +173,30 @@ contextBridge.exposeInMainWorld('api', {
 
   getSnapshot: (id: number): Promise<SnapshotRecord | null> => {
     return ipcRenderer.invoke('get-snapshot', id)
+  },
+
+  // Embedding operations
+  findSemanticSimilar: (tagName: string, limit?: number): Promise<SemanticResult[]> => {
+    return ipcRenderer.invoke('find-semantic-similar', tagName, limit)
+  },
+
+  getEmbeddingStats: (): Promise<EmbeddingStats> => {
+    return ipcRenderer.invoke('get-embedding-stats')
+  },
+
+  rebuildEmbeddings: (): Promise<EmbeddingQueueStatus> => {
+    return ipcRenderer.invoke('rebuild-embeddings')
+  },
+
+  setEmbeddingEnabled: (enabled: boolean): Promise<boolean> => {
+    return ipcRenderer.invoke('set-embedding-enabled', enabled)
+  },
+
+  checkEmbeddingModel: (): Promise<EmbeddingModelStatus> => {
+    return ipcRenderer.invoke('check-embedding-model')
+  },
+
+  listEmbeddingModels: (): Promise<string[]> => {
+    return ipcRenderer.invoke('list-embedding-models')
   },
 })

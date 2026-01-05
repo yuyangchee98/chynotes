@@ -128,9 +128,100 @@ function BlockItem({
   )
 }
 
+// Semantic result display component
+function SemanticBlockItem({
+  result,
+  onBlockClick,
+  onTagClick,
+}: {
+  result: SemanticResult
+  onBlockClick: (date: string, line: number) => void
+  onTagClick?: (tag: string) => void
+}) {
+  // Remove block ID pattern from display
+  const displayContent = result.content.replace(/\s*§[a-z0-9]+§\s*$/, '')
+
+  // Render content with clickable wiki-links
+  const renderContent = () => {
+    const parts: (string | JSX.Element)[] = []
+    const regex = /\[\[([\w\-]+(?:\/[\w\-]+)*)\]\]/g
+    let lastIndex = 0
+    let match: RegExpExecArray | null
+
+    while ((match = regex.exec(displayContent)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(displayContent.slice(lastIndex, match.index))
+      }
+
+      const tagName = match[1].toLowerCase()
+      parts.push(
+        <span
+          key={match.index}
+          className="backlink-tag cursor-pointer"
+          data-tag={tagName}
+          onClick={(e) => {
+            e.stopPropagation()
+            onTagClick?.(tagName)
+          }}
+          style={{
+            color: 'var(--accent)',
+            fontWeight: '500',
+            backgroundColor: 'var(--accent-subtle)',
+            borderRadius: '3px',
+            padding: '0 2px',
+          }}
+        >
+          [[{match[1]}]]
+        </span>
+      )
+
+      lastIndex = match.index + match[0].length
+    }
+
+    if (lastIndex < displayContent.length) {
+      parts.push(displayContent.slice(lastIndex))
+    }
+
+    return parts.length > 0 ? parts : displayContent
+  }
+
+  const similarityPercent = Math.round(result.similarity * 100)
+
+  return (
+    <div
+      className="flex items-start gap-2 py-1.5 px-2 -mx-2 rounded cursor-pointer transition-colors"
+      onClick={() => onBlockClick(result.note_date, 1)}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = 'transparent'
+      }}
+    >
+      {/* Similarity indicator */}
+      <span
+        className="flex-shrink-0 text-xs px-1.5 py-0.5 rounded font-medium"
+        style={{
+          backgroundColor: 'var(--accent-subtle)',
+          color: 'var(--accent)',
+          minWidth: '2.5rem',
+          textAlign: 'center',
+        }}
+      >
+        {similarityPercent}%
+      </span>
+      <span className="flex-1 text-sm" style={{ color: 'var(--text-primary)' }}>
+        {renderContent()}
+      </span>
+    </div>
+  )
+}
+
 export function Backlinks({ pageName, onBlockClick, onTagClick }: BacklinksProps) {
   const [occurrences, setOccurrences] = useState<TagOccurrence[]>([])
+  const [semanticResults, setSemanticResults] = useState<SemanticResult[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingSemantic, setIsLoadingSemantic] = useState(false)
 
   // Load occurrences when pageName changes
   useEffect(() => {
@@ -148,6 +239,24 @@ export function Backlinks({ pageName, onBlockClick, onTagClick }: BacklinksProps
       setIsLoading(false)
     }
     loadOccurrences()
+  }, [pageName])
+
+  // Load semantic results when pageName changes
+  useEffect(() => {
+    const loadSemanticResults = async () => {
+      setIsLoadingSemantic(true)
+      if (window.api?.findSemanticSimilar) {
+        try {
+          const results = await window.api.findSemanticSimilar(pageName, 10)
+          setSemanticResults(results)
+        } catch (err) {
+          console.error('Failed to load semantic results:', err)
+          setSemanticResults([])
+        }
+      }
+      setIsLoadingSemantic(false)
+    }
+    loadSemanticResults()
   }, [pageName])
 
   // Group occurrences by date
@@ -184,49 +293,86 @@ export function Backlinks({ pageName, onBlockClick, onTagClick }: BacklinksProps
   }
 
   return (
-    <div>
-      <h2
-        className="text-sm font-semibold uppercase tracking-wider mb-3"
-        style={{ color: 'var(--text-muted)' }}
-      >
-        Linked References ({occurrences.length})
-      </h2>
+    <div className="space-y-6">
+      {/* Linked References Section */}
+      <div>
+        <h2
+          className="text-sm font-semibold uppercase tracking-wider mb-3"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          Linked References ({occurrences.length})
+        </h2>
 
-      <div className="space-y-4">
-        {Object.entries(groupedByDate).map(([date, items]) => {
-          const formatted = formatDate(date)
-          return (
-            <div key={date}>
-              <h3
-                className="text-sm font-medium mb-2 flex items-center gap-2"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                <span>{formatted.date}</span>
-                {formatted.label && (
-                  <span
-                    className="text-xs px-1.5 py-0.5 rounded"
-                    style={{
-                      backgroundColor: 'var(--bg-tertiary)',
-                      color: 'var(--text-muted)'
-                    }}
-                  >
-                    {formatted.label}
-                  </span>
-                )}
-              </h3>
-              <div>
-                {items.map((item, idx) => (
-                  <BlockItem
-                    key={`${item.block_id}-${idx}`}
-                    block={item}
-                    onBlockClick={onBlockClick}
-                    onTagClick={onTagClick}
-                  />
-                ))}
+        <div className="space-y-4">
+          {Object.entries(groupedByDate).map(([date, items]) => {
+            const formatted = formatDate(date)
+            return (
+              <div key={date}>
+                <h3
+                  className="text-sm font-medium mb-2 flex items-center gap-2"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  <span>{formatted.date}</span>
+                  {formatted.label && (
+                    <span
+                      className="text-xs px-1.5 py-0.5 rounded"
+                      style={{
+                        backgroundColor: 'var(--bg-tertiary)',
+                        color: 'var(--text-muted)'
+                      }}
+                    >
+                      {formatted.label}
+                    </span>
+                  )}
+                </h3>
+                <div>
+                  {items.map((item, idx) => (
+                    <BlockItem
+                      key={`${item.block_id}-${idx}`}
+                      block={item}
+                      onBlockClick={onBlockClick}
+                      onTagClick={onTagClick}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Semantically Related Section */}
+      <div>
+        <h2
+          className="text-sm font-semibold uppercase tracking-wider mb-3 flex items-center gap-2"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          <span>Semantically Related</span>
+          {isLoadingSemantic && (
+            <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>
+              loading...
+            </span>
+          )}
+        </h2>
+
+        {!isLoadingSemantic && semanticResults.length === 0 && (
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            No similar content found yet. Embeddings are generated in the background.
+          </p>
+        )}
+
+        {semanticResults.length > 0 && (
+          <div className="space-y-1">
+            {semanticResults.map((result) => (
+              <SemanticBlockItem
+                key={result.block_id}
+                result={result}
+                onBlockClick={onBlockClick}
+                onTagClick={onTagClick}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

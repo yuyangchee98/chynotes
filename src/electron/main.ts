@@ -52,7 +52,21 @@ import {
   upsertPage,
   getPageByName,
   DocumentType,
+  getEmbeddedBlockCount,
+  getTotalBlockCount,
 } from '../core/database'
+import {
+  findSemanticallySimilar,
+  checkEmbeddingModelAvailable,
+  listEmbeddingModels,
+} from '../core/embeddings'
+import {
+  getQueueStatus,
+  rebuildAllEmbeddings,
+  processBacklogOnStartup,
+  setEmbeddingEnabled,
+  isEmbeddingEnabled,
+} from '../core/embedding-queue'
 
 // Ensure notes and pages directories exist on startup
 ensureNotesDirectorySync()
@@ -214,9 +228,45 @@ ipcMain.handle('get-snapshot', (_event, id: number) => {
   return getSnapshot(id)
 })
 
+// Embedding IPC handlers
+ipcMain.handle('find-semantic-similar', async (_event, tagName: string, limit?: number) => {
+  return await findSemanticallySimilar(tagName, limit)
+})
+
+ipcMain.handle('get-embedding-stats', () => {
+  return {
+    embeddedBlocks: getEmbeddedBlockCount(),
+    totalBlocks: getTotalBlockCount(),
+    queueStatus: getQueueStatus(),
+    enabled: isEmbeddingEnabled(),
+  }
+})
+
+ipcMain.handle('rebuild-embeddings', async () => {
+  await rebuildAllEmbeddings()
+  return getQueueStatus()
+})
+
+ipcMain.handle('set-embedding-enabled', (_event, enabled: boolean) => {
+  setEmbeddingEnabled(enabled)
+  return isEmbeddingEnabled()
+})
+
+ipcMain.handle('check-embedding-model', async () => {
+  return await checkEmbeddingModelAvailable()
+})
+
+ipcMain.handle('list-embedding-models', async () => {
+  return await listEmbeddingModels()
+})
+
 app.whenReady().then(async () => {
   // Initial index of all notes
   await reindexAll()
+
+  // Start processing any blocks that need embedding
+  processBacklogOnStartup()
+
   createWindow()
 
   app.on('activate', () => {

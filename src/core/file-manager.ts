@@ -10,6 +10,7 @@ import {
   addBlockTag,
   deleteBlockTags
 } from './database'
+import { queueBlocksForEmbedding } from './embedding-queue'
 
 const NOTES_DIR_NAME = '.chynotes'
 const NOTES_SUBDIR = 'notes'
@@ -145,6 +146,9 @@ function indexBlocks(noteDate: string, content: string): void {
   // Parse blocks
   const { allBlocks } = parseBlocks(content)
 
+  // Collect block IDs for embedding queue
+  const blockIds: string[] = []
+
   // Insert each block
   for (const block of allBlocks) {
     upsertBlock(
@@ -161,6 +165,13 @@ function indexBlocks(noteDate: string, content: string): void {
     for (const tag of tags) {
       addBlockTag(block.id, tag)
     }
+
+    blockIds.push(block.id)
+  }
+
+  // Queue blocks for embedding (non-blocking)
+  if (blockIds.length > 0) {
+    queueBlocksForEmbedding(blockIds)
   }
 }
 

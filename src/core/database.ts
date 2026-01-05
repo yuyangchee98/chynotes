@@ -1,10 +1,15 @@
 import Database from 'better-sqlite3'
+import * as sqliteVec from 'sqlite-vec'
 import path from 'path'
 import { getChynotesDirectory } from './file-manager'
 
 const DB_NAME = 'chynotes.db'
 
+// Default embedding dimension (nomic-embed-text uses 768)
+export const EMBEDDING_DIMENSION = 768
+
 let db: Database.Database | null = null
+let vecExtensionLoaded = false
 
 /**
  * Get the database file path
@@ -25,8 +30,17 @@ export function initDatabase(): Database.Database {
   // Enable WAL mode for better concurrent performance
   db.pragma('journal_mode = WAL')
 
+  // Load sqlite-vec extension for vector search
+  if (!vecExtensionLoaded) {
+    sqliteVec.load(db)
+    vecExtensionLoaded = true
+  }
+
   // Create tables
   createTables(db)
+
+  // Create vector tables (separate because virtual tables need extension loaded first)
+  createVectorTables(db)
 
   return db
 }
@@ -126,6 +140,7 @@ function createTables(database: Database.Database): void {
       indent_level INTEGER DEFAULT 0,
       line_number INTEGER,
       updated_at INTEGER,
+      embedded_at INTEGER,
       FOREIGN KEY (parent_id) REFERENCES blocks(id) ON DELETE SET NULL
     );
 
@@ -153,6 +168,35 @@ function createTables(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_block_tags_block ON block_tags(block_id);
     CREATE INDEX IF NOT EXISTS idx_block_tags_tag ON block_tags(tag_name);
   `)
+
+  // Migration: Add embedded_at column if it doesn't exist (for existing databases)
+  const columns = database.pragma('table_info(blocks)') as { name: string }[]
+  const hasEmbeddedAt = columns.some(col => col.name === 'embedded_at')
+  if (!hasEmbeddedAt) {
+    database.exec('ALTER TABLE blocks ADD COLUMN embedded_at INTEGER')
+  }
+}
+
+/**
+ * Create vector search tables (requires sqlite-vec extension to be loaded)
+ */
+function createVectorTables(database: Database.Database): void {
+  // Check if vec_blocks virtual table already exists
+  const tableExists = database.prepare(`
+    SELECT name FROM sqlite_master
+    WHERE type='table' AND name='vec_blocks'
+  `).get()
+
+  if (!tableExists) {
+    // Create virtual table for vector search
+    // Using cosine distance metric for semantic similarity
+    database.exec(`
+      CREATE VIRTUAL TABLE vec_blocks USING vec0(
+        block_id TEXT PRIMARY KEY,
+        embedding float[${EMBEDDING_DIMENSION}] distance_metric=cosine
+      )
+    `)
+  }
 }
 
 // ============================================================================
@@ -587,6 +631,7 @@ export interface BlockRecord {
   indent_level: number
   line_number: number
   updated_at: number
+  embedded_at: number | null
 }
 
 /**
@@ -714,4 +759,125 @@ export function getBlocksWithTagAndChildren(tagName: string): BlockWithChildren[
 export function deleteBlockTags(blockId: string): void {
   const db = getDatabase()
   db.prepare('DELETE FROM block_tags WHERE block_id = ?').run(blockId)
+}
+
+// ============================================================================
+// Vector Embeddings Operations
+// ============================================================================
+
+export interface VecBlockRecord {
+  block_id: string
+  distance: number
+}
+
+/**
+ * Insert or update a block's embedding
+ */
+export function upsertBlockEmbedding(blockId: string, embedding: Float32Array): void {
+  const db = getDatabase()
+
+  // Delete existing embedding for this block (if any)
+  db.prepare('DELETE FROM vec_blocks WHERE block_id = ?').run(blockId)
+
+  // Insert new embedding
+  db.prepare(`
+    INSERT INTO vec_blocks(block_id, embedding)
+    VALUES (?, ?)
+  `).run(blockId, embedding)
+
+  // Mark block as embedded
+  db.prepare('UPDATE blocks SET embedded_at = ? WHERE id = ?')
+    .run(Date.now(), blockId)
+}
+
+/**
+ * Get embedding for a specific block
+ */
+export function getBlockEmbedding(blockId: string): Float32Array | null {
+  const db = getDatabase()
+  const result = db.prepare(`
+    SELECT embedding FROM vec_blocks WHERE block_id = ?
+  `).get(blockId) as { embedding: Buffer } | undefined
+
+  if (!result) return null
+
+  // Convert Buffer to Float32Array
+  return new Float32Array(result.embedding.buffer, result.embedding.byteOffset, result.embedding.byteLength / 4)
+}
+
+/**
+ * Get embeddings for multiple blocks
+ */
+export function getBlockEmbeddings(blockIds: string[]): Map<string, Float32Array> {
+  const db = getDatabase()
+  const result = new Map<string, Float32Array>()
+
+  if (blockIds.length === 0) return result
+
+  const placeholders = blockIds.map(() => '?').join(',')
+  const rows = db.prepare(`
+    SELECT block_id, embedding FROM vec_blocks
+    WHERE block_id IN (${placeholders})
+  `).all(...blockIds) as { block_id: string; embedding: Buffer }[]
+
+  for (const row of rows) {
+    const arr = new Float32Array(row.embedding.buffer, row.embedding.byteOffset, row.embedding.byteLength / 4)
+    result.set(row.block_id, arr)
+  }
+
+  return result
+}
+
+/**
+ * Find blocks similar to a query embedding using KNN
+ */
+export function findSimilarBlocksKNN(queryEmbedding: Float32Array, limit: number = 20): VecBlockRecord[] {
+  const db = getDatabase()
+  return db.prepare(`
+    SELECT block_id, distance
+    FROM vec_blocks
+    WHERE embedding MATCH ?
+      AND k = ?
+  `).all(queryEmbedding, limit) as VecBlockRecord[]
+}
+
+/**
+ * Delete embedding for a block
+ */
+export function deleteBlockEmbedding(blockId: string): void {
+  const db = getDatabase()
+  db.prepare('DELETE FROM vec_blocks WHERE block_id = ?').run(blockId)
+  db.prepare('UPDATE blocks SET embedded_at = NULL WHERE id = ?').run(blockId)
+}
+
+/**
+ * Get count of blocks that have embeddings
+ */
+export function getEmbeddedBlockCount(): number {
+  const db = getDatabase()
+  const result = db.prepare('SELECT COUNT(*) as count FROM vec_blocks').get() as { count: number }
+  return result.count
+}
+
+/**
+ * Get count of all blocks
+ */
+export function getTotalBlockCount(): number {
+  const db = getDatabase()
+  const result = db.prepare('SELECT COUNT(*) as count FROM blocks').get() as { count: number }
+  return result.count
+}
+
+/**
+ * Get blocks that need embedding (no embedded_at or content changed)
+ */
+export function getBlocksNeedingEmbedding(limit: number = 100): BlockRecord[] {
+  const db = getDatabase()
+  return db.prepare(`
+    SELECT * FROM blocks
+    WHERE embedded_at IS NULL
+       OR embedded_at < updated_at
+    ORDER BY updated_at DESC
+    LIMIT ?
+  `).all(limit) as BlockRecord[]
 }

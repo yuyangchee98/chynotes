@@ -10,8 +10,12 @@ interface SettingsModalProps {
 export function SettingsModal({ isOpen, onClose, theme, onThemeChange }: SettingsModalProps) {
   const [ollamaEndpoint, setOllamaEndpoint] = useState('http://localhost:11434')
   const [ollamaModel, setOllamaModel] = useState('llama3.2')
+  const [embeddingModel, setEmbeddingModel] = useState('nomic-embed-text')
   const [availableModels, setAvailableModels] = useState<string[]>([])
+  const [availableEmbeddingModels, setAvailableEmbeddingModels] = useState<string[]>([])
   const [ollamaStatus, setOllamaStatus] = useState<'checking' | 'connected' | 'error'>('checking')
+  const [embeddingStats, setEmbeddingStats] = useState<EmbeddingStats | null>(null)
+  const [isRebuildingEmbeddings, setIsRebuildingEmbeddings] = useState(false)
   const [saving, setSaving] = useState(false)
 
   // Load settings on mount
@@ -20,19 +24,38 @@ export function SettingsModal({ isOpen, onClose, theme, onThemeChange }: Setting
 
     const loadSettings = async () => {
       if (window.api) {
-        const [endpoint, model] = await Promise.all([
+        const [endpoint, model, embedModel] = await Promise.all([
           window.api.getSetting('ollamaEndpoint'),
           window.api.getSetting('ollamaModel'),
+          window.api.getSetting('embeddingModel'),
         ])
         if (endpoint) setOllamaEndpoint(endpoint)
         if (model) setOllamaModel(model)
+        if (embedModel) setEmbeddingModel(embedModel)
 
         // Check Ollama connection
         checkOllama()
+
+        // Load embedding stats
+        loadEmbeddingStats()
       }
     }
     loadSettings()
   }, [isOpen])
+
+  const loadEmbeddingStats = async () => {
+    if (window.api?.getEmbeddingStats) {
+      const stats = await window.api.getEmbeddingStats()
+      setEmbeddingStats(stats)
+    }
+  }
+
+  const loadEmbeddingModels = async () => {
+    if (window.api?.listEmbeddingModels) {
+      const models = await window.api.listEmbeddingModels()
+      setAvailableEmbeddingModels(models)
+    }
+  }
 
   const checkOllama = async () => {
     setOllamaStatus('checking')
@@ -41,11 +64,26 @@ export function SettingsModal({ isOpen, onClose, theme, onThemeChange }: Setting
       if (result.ok) {
         setOllamaStatus('connected')
         setAvailableModels(result.models || [])
+        // Also load embedding models
+        loadEmbeddingModels()
       } else {
         setOllamaStatus('error')
       }
     } catch {
       setOllamaStatus('error')
+    }
+  }
+
+  const handleRebuildEmbeddings = async () => {
+    setIsRebuildingEmbeddings(true)
+    try {
+      if (window.api?.rebuildEmbeddings) {
+        await window.api.rebuildEmbeddings()
+        // Refresh stats
+        loadEmbeddingStats()
+      }
+    } finally {
+      setIsRebuildingEmbeddings(false)
     }
   }
 
@@ -55,6 +93,7 @@ export function SettingsModal({ isOpen, onClose, theme, onThemeChange }: Setting
       await Promise.all([
         window.api.setSetting('ollamaEndpoint', ollamaEndpoint),
         window.api.setSetting('ollamaModel', ollamaModel),
+        window.api.setSetting('embeddingModel', embeddingModel),
       ])
     }
     setSaving(false)
@@ -173,6 +212,87 @@ export function SettingsModal({ isOpen, onClose, theme, onThemeChange }: Setting
                 Run <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">ollama pull llama3.2</code> to download a model
               </p>
             </div>
+          </section>
+
+          {/* Semantic Search / Embeddings */}
+          <section>
+            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Semantic Search</h3>
+
+            {/* Embedding Model */}
+            <div className="space-y-2 mb-4">
+              <label className="block text-sm text-gray-600 dark:text-gray-400">Embedding Model</label>
+              {availableEmbeddingModels.length > 0 ? (
+                <select
+                  value={embeddingModel}
+                  onChange={(e) => setEmbeddingModel(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {availableEmbeddingModels.map((model) => (
+                    <option key={model} value={model}>{model}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={embeddingModel}
+                  onChange={(e) => setEmbeddingModel(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="nomic-embed-text"
+                />
+              )}
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Run <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">ollama pull nomic-embed-text</code> to download
+              </p>
+            </div>
+
+            {/* Embedding Stats */}
+            {embeddingStats && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Embedded blocks</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {embeddingStats.embeddedBlocks} / {embeddingStats.totalBlocks}
+                  </span>
+                </div>
+
+                {/* Progress bar */}
+                <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 transition-all duration-300"
+                    style={{
+                      width: `${embeddingStats.totalBlocks > 0
+                        ? (embeddingStats.embeddedBlocks / embeddingStats.totalBlocks) * 100
+                        : 0}%`
+                    }}
+                  />
+                </div>
+
+                {/* Queue status */}
+                {embeddingStats.queueStatus.isProcessing && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      Processing... {embeddingStats.queueStatus.queueLength} remaining
+                    </span>
+                  </div>
+                )}
+
+                {embeddingStats.queueStatus.lastError && (
+                  <p className="text-xs text-red-500">
+                    Error: {embeddingStats.queueStatus.lastError}
+                  </p>
+                )}
+
+                {/* Rebuild button */}
+                <button
+                  onClick={handleRebuildEmbeddings}
+                  disabled={isRebuildingEmbeddings}
+                  className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+                >
+                  {isRebuildingEmbeddings ? 'Rebuilding...' : 'Rebuild All Embeddings'}
+                </button>
+              </div>
+            )}
           </section>
 
           {/* Storage */}

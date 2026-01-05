@@ -35,6 +35,34 @@ interface SnapshotRecord {
   document_type: DocumentType
 }
 
+interface SemanticResult {
+  block_id: string
+  note_date: string
+  content: string
+  distance: number
+  similarity: number
+}
+
+interface EmbeddingQueueStatus {
+  queueLength: number
+  isProcessing: boolean
+  lastError: string | null
+  processedCount: number
+}
+
+interface EmbeddingStats {
+  embeddedBlocks: number
+  totalBlocks: number
+  queueStatus: EmbeddingQueueStatus
+  enabled: boolean
+}
+
+interface EmbeddingModelStatus {
+  available: boolean
+  model: string
+  error?: string
+}
+
 interface Window {
   api: {
     // Note operations
@@ -74,5 +102,13 @@ interface Window {
     saveSnapshot: (noteDate: string, content: string, documentType?: DocumentType) => Promise<SnapshotRecord | null>
     getSnapshots: (noteDate: string, documentType?: DocumentType) => Promise<SnapshotRecord[]>
     getSnapshot: (id: number) => Promise<SnapshotRecord | null>
+
+    // Embedding operations
+    findSemanticSimilar: (tagName: string, limit?: number) => Promise<SemanticResult[]>
+    getEmbeddingStats: () => Promise<EmbeddingStats>
+    rebuildEmbeddings: () => Promise<EmbeddingQueueStatus>
+    setEmbeddingEnabled: (enabled: boolean) => Promise<boolean>
+    checkEmbeddingModel: () => Promise<EmbeddingModelStatus>
+    listEmbeddingModels: () => Promise<string[]>
   }
 }

@@ -65,6 +65,7 @@ const os_1 = require("os");
 const block_parser_1 = require("./block-parser");
 const tag_parser_1 = require("./tag-parser");
 const database_1 = require("./database");
+const embedding_queue_1 = require("./embedding-queue");
 const NOTES_DIR_NAME = '.chynotes';
 const NOTES_SUBDIR = 'notes';
 const PAGES_SUBDIR = 'pages';
@@ -181,6 +182,8 @@ function indexBlocks(noteDate, content) {
     (0, database_1.deleteBlocksForNote)(noteDate);
     // Parse blocks
     const { allBlocks } = (0, block_parser_1.parseBlocks)(content);
+    // Collect block IDs for embedding queue
+    const blockIds = [];
     // Insert each block
     for (const block of allBlocks) {
         (0, database_1.upsertBlock)(block.id, noteDate, block.content, block.parent?.id || null, block.indentLevel, block.line);
@@ -189,6 +192,11 @@ function indexBlocks(noteDate, content) {
         for (const tag of tags) {
             (0, database_1.addBlockTag)(block.id, tag);
         }
+        blockIds.push(block.id);
+    }
+    // Queue blocks for embedding (non-blocking)
+    if (blockIds.length > 0) {
+        (0, embedding_queue_1.queueBlocksForEmbedding)(blockIds);
     }
 }
 /**

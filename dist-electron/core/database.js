@@ -1,8 +1,42 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.EMBEDDING_DIMENSION = void 0;
 exports.getDatabasePath = getDatabasePath;
 exports.initDatabase = initDatabase;
 exports.getDatabase = getDatabase;
@@ -42,11 +76,23 @@ exports.addBlockTag = addBlockTag;
 exports.getBlocksWithTag = getBlocksWithTag;
 exports.getBlocksWithTagAndChildren = getBlocksWithTagAndChildren;
 exports.deleteBlockTags = deleteBlockTags;
+exports.upsertBlockEmbedding = upsertBlockEmbedding;
+exports.getBlockEmbedding = getBlockEmbedding;
+exports.getBlockEmbeddings = getBlockEmbeddings;
+exports.findSimilarBlocksKNN = findSimilarBlocksKNN;
+exports.deleteBlockEmbedding = deleteBlockEmbedding;
+exports.getEmbeddedBlockCount = getEmbeddedBlockCount;
+exports.getTotalBlockCount = getTotalBlockCount;
+exports.getBlocksNeedingEmbedding = getBlocksNeedingEmbedding;
 const better_sqlite3_1 = __importDefault(require("better-sqlite3"));
+const sqliteVec = __importStar(require("sqlite-vec"));
 const path_1 = __importDefault(require("path"));
 const file_manager_1 = require("./file-manager");
 const DB_NAME = 'chynotes.db';
+// Default embedding dimension (nomic-embed-text uses 768)
+exports.EMBEDDING_DIMENSION = 768;
 let db = null;
+let vecExtensionLoaded = false;
 /**
  * Get the database file path
  */
@@ -63,8 +109,15 @@ function initDatabase() {
     db = new better_sqlite3_1.default(dbPath);
     // Enable WAL mode for better concurrent performance
     db.pragma('journal_mode = WAL');
+    // Load sqlite-vec extension for vector search
+    if (!vecExtensionLoaded) {
+        sqliteVec.load(db);
+        vecExtensionLoaded = true;
+    }
     // Create tables
     createTables(db);
+    // Create vector tables (separate because virtual tables need extension loaded first)
+    createVectorTables(db);
     return db;
 }
 /**
@@ -160,6 +213,7 @@ function createTables(database) {
       indent_level INTEGER DEFAULT 0,
       line_number INTEGER,
       updated_at INTEGER,
+      embedded_at INTEGER,
       FOREIGN KEY (parent_id) REFERENCES blocks(id) ON DELETE SET NULL
     );
 
@@ -187,6 +241,32 @@ function createTables(database) {
     CREATE INDEX IF NOT EXISTS idx_block_tags_block ON block_tags(block_id);
     CREATE INDEX IF NOT EXISTS idx_block_tags_tag ON block_tags(tag_name);
   `);
+    // Migration: Add embedded_at column if it doesn't exist (for existing databases)
+    const columns = database.pragma('table_info(blocks)');
+    const hasEmbeddedAt = columns.some(col => col.name === 'embedded_at');
+    if (!hasEmbeddedAt) {
+        database.exec('ALTER TABLE blocks ADD COLUMN embedded_at INTEGER');
+    }
+}
+/**
+ * Create vector search tables (requires sqlite-vec extension to be loaded)
+ */
+function createVectorTables(database) {
+    // Check if vec_blocks virtual table already exists
+    const tableExists = database.prepare(`
+    SELECT name FROM sqlite_master
+    WHERE type='table' AND name='vec_blocks'
+  `).get();
+    if (!tableExists) {
+        // Create virtual table for vector search
+        // Using cosine distance metric for semantic similarity
+        database.exec(`
+      CREATE VIRTUAL TABLE vec_blocks USING vec0(
+        block_id TEXT PRIMARY KEY,
+        embedding float[${exports.EMBEDDING_DIMENSION}] distance_metric=cosine
+      )
+    `);
+    }
 }
 function upsertNote(date, fileHash) {
     const db = getDatabase();
@@ -563,4 +643,101 @@ function getBlocksWithTagAndChildren(tagName) {
 function deleteBlockTags(blockId) {
     const db = getDatabase();
     db.prepare('DELETE FROM block_tags WHERE block_id = ?').run(blockId);
+}
+/**
+ * Insert or update a block's embedding
+ */
+function upsertBlockEmbedding(blockId, embedding) {
+    const db = getDatabase();
+    // Delete existing embedding for this block (if any)
+    db.prepare('DELETE FROM vec_blocks WHERE block_id = ?').run(blockId);
+    // Insert new embedding
+    db.prepare(`
+    INSERT INTO vec_blocks(block_id, embedding)
+    VALUES (?, ?)
+  `).run(blockId, embedding);
+    // Mark block as embedded
+    db.prepare('UPDATE blocks SET embedded_at = ? WHERE id = ?')
+        .run(Date.now(), blockId);
+}
+/**
+ * Get embedding for a specific block
+ */
+function getBlockEmbedding(blockId) {
+    const db = getDatabase();
+    const result = db.prepare(`
+    SELECT embedding FROM vec_blocks WHERE block_id = ?
+  `).get(blockId);
+    if (!result)
+        return null;
+    // Convert Buffer to Float32Array
+    return new Float32Array(result.embedding.buffer, result.embedding.byteOffset, result.embedding.byteLength / 4);
+}
+/**
+ * Get embeddings for multiple blocks
+ */
+function getBlockEmbeddings(blockIds) {
+    const db = getDatabase();
+    const result = new Map();
+    if (blockIds.length === 0)
+        return result;
+    const placeholders = blockIds.map(() => '?').join(',');
+    const rows = db.prepare(`
+    SELECT block_id, embedding FROM vec_blocks
+    WHERE block_id IN (${placeholders})
+  `).all(...blockIds);
+    for (const row of rows) {
+        const arr = new Float32Array(row.embedding.buffer, row.embedding.byteOffset, row.embedding.byteLength / 4);
+        result.set(row.block_id, arr);
+    }
+    return result;
+}
+/**
+ * Find blocks similar to a query embedding using KNN
+ */
+function findSimilarBlocksKNN(queryEmbedding, limit = 20) {
+    const db = getDatabase();
+    return db.prepare(`
+    SELECT block_id, distance
+    FROM vec_blocks
+    WHERE embedding MATCH ?
+      AND k = ?
+  `).all(queryEmbedding, limit);
+}
+/**
+ * Delete embedding for a block
+ */
+function deleteBlockEmbedding(blockId) {
+    const db = getDatabase();
+    db.prepare('DELETE FROM vec_blocks WHERE block_id = ?').run(blockId);
+    db.prepare('UPDATE blocks SET embedded_at = NULL WHERE id = ?').run(blockId);
+}
+/**
+ * Get count of blocks that have embeddings
+ */
+function getEmbeddedBlockCount() {
+    const db = getDatabase();
+    const result = db.prepare('SELECT COUNT(*) as count FROM vec_blocks').get();
+    return result.count;
+}
+/**
+ * Get count of all blocks
+ */
+function getTotalBlockCount() {
+    const db = getDatabase();
+    const result = db.prepare('SELECT COUNT(*) as count FROM blocks').get();
+    return result.count;
+}
+/**
+ * Get blocks that need embedding (no embedded_at or content changed)
+ */
+function getBlocksNeedingEmbedding(limit = 100) {
+    const db = getDatabase();
+    return db.prepare(`
+    SELECT * FROM blocks
+    WHERE embedded_at IS NULL
+       OR embedded_at < updated_at
+    ORDER BY updated_at DESC
+    LIMIT ?
+  `).all(limit);
 }
