@@ -128,7 +128,7 @@ function BlockItem({
   )
 }
 
-// Semantic result display component
+// Semantic result display component - opacity based on similarity
 function SemanticBlockItem({
   result,
   onBlockClick,
@@ -189,29 +189,34 @@ function SemanticBlockItem({
 
   return (
     <div
-      className="flex items-start gap-2 py-1.5 px-2 -mx-2 rounded cursor-pointer transition-colors"
+      className="group flex items-start gap-2 py-1 px-2 -mx-2 rounded cursor-pointer transition-colors hover:bg-[var(--bg-tertiary)]"
       onClick={() => onBlockClick(result.note_date, 1)}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = 'transparent'
-      }}
     >
-      {/* Similarity indicator */}
+      {/* Bullet */}
       <span
-        className="flex-shrink-0 text-xs px-1.5 py-0.5 rounded font-medium"
+        className="flex-shrink-0 mt-[0.6em]"
         style={{
-          backgroundColor: 'var(--accent-subtle)',
-          color: 'var(--accent)',
-          minWidth: '2.5rem',
-          textAlign: 'center',
+          width: '0.35em',
+          height: '0.35em',
+          backgroundColor: 'var(--accent)',
+          borderRadius: '50%',
+        }}
+      />
+
+      {/* Content */}
+      <span className="flex-1 text-sm" style={{ color: 'var(--text-primary)' }}>
+        {renderContent()}
+      </span>
+
+      {/* Hover-revealed percentage */}
+      <span
+        className="flex-shrink-0 text-xs self-center opacity-0 group-hover:opacity-60 transition-opacity duration-150"
+        style={{
+          color: 'var(--text-muted)',
+          fontVariantNumeric: 'tabular-nums',
         }}
       >
         {similarityPercent}%
-      </span>
-      <span className="flex-1 text-sm" style={{ color: 'var(--text-primary)' }}>
-        {renderContent()}
       </span>
     </div>
   )
