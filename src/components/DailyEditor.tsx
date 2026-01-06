@@ -114,50 +114,30 @@ const editorTheme = EditorView.theme({
     height: '0.25em',
     opacity: '0.5',
   },
-  // Block reference styling - wrapper
+  // Block reference styling - minimal background only
   '.cm-block-reference': {
-    backgroundColor: 'var(--bg-tertiary)',
-    borderRadius: '6px',
+    backgroundColor: 'var(--bg-secondary)',
+    borderRadius: '4px',
     padding: '4px 8px',
     cursor: 'pointer',
-    borderLeft: '2px solid var(--accent)',
     display: 'inline-block',
     verticalAlign: 'top',
     maxWidth: '100%',
     margin: '2px 0',
   },
   '.cm-block-reference:hover': {
-    backgroundColor: 'var(--accent-subtle)',
+    backgroundColor: 'var(--bg-tertiary)',
   },
   '.cm-block-reference-missing': {
     color: 'var(--text-muted)',
     cursor: 'default',
-    borderLeftColor: 'var(--text-muted)',
     fontStyle: 'italic',
   },
-  // Block reference container
-  '.cm-block-ref-container': {
+  '.cm-block-ref-line': {
     display: 'flex',
-    flexDirection: 'column',
-    gap: '2px',
-  },
-  '.cm-block-ref-parent': {
-    color: 'var(--text-secondary)',
-    fontSize: '0.95em',
-    lineHeight: '1.4',
-  },
-  '.cm-block-ref-children': {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1px',
-    marginTop: '2px',
-    paddingTop: '2px',
-    borderTop: '1px solid var(--border)',
-  },
-  '.cm-block-ref-child': {
-    color: 'var(--text-muted)',
-    fontSize: '0.9em',
-    lineHeight: '1.35',
+    alignItems: 'baseline',
+    gap: '4px',
+    lineHeight: '1.5',
   },
 })
 

@@ -73,45 +73,35 @@ class BlockRefWidget extends WidgetType {
 
     const parentBlock = this.blocks[0]
     const children = this.blocks.slice(1)
-    const hasChildren = children.length > 0
 
-    // Create container
-    const container = document.createElement('div')
-    container.className = 'cm-block-ref-container'
+    // Render blocks - parent has no bullet (editor provides it), children have bullets
+    for (let i = 0; i < this.blocks.length; i++) {
+      const block = this.blocks[i]
+      const isParent = i === 0
+      const line = document.createElement('div')
+      line.className = 'cm-block-ref-line'
 
-    // Parent block content
-    const parentDiv = document.createElement('div')
-    parentDiv.className = 'cm-block-ref-parent'
-    let parentContent = parentBlock.content
-      .replace(/\s*§[a-z0-9]+§\s*$/, '') // Strip block ID
-      .replace(/^\s*-\s*/, '') // Strip bullet
-    parentDiv.textContent = parentContent
-    container.appendChild(parentDiv)
+      // Calculate indent relative to parent
+      const relativeIndent = block.indent_level - parentBlock.indent_level
+      line.style.paddingLeft = `${relativeIndent * 20}px`
 
-    // Children (if any)
-    if (hasChildren) {
-      const childrenContainer = document.createElement('div')
-      childrenContainer.className = 'cm-block-ref-children'
-
-      for (const child of children) {
-        const childDiv = document.createElement('div')
-        childDiv.className = 'cm-block-ref-child'
-
-        // Calculate relative indent (relative to parent)
-        const relativeIndent = child.indent_level - parentBlock.indent_level
-        childDiv.style.paddingLeft = `${relativeIndent * 12}px`
-
-        let childContent = child.content
-          .replace(/\s*§[a-z0-9]+§\s*$/, '') // Strip block ID
-          .replace(/^\s*-\s*/, '') // Strip bullet
-        childDiv.textContent = childContent
-        childrenContainer.appendChild(childDiv)
+      // Add bullet only for children (parent's bullet comes from the editor)
+      if (!isParent) {
+        const bullet = document.createElement('span')
+        bullet.className = 'cm-bullet-widget'
+        bullet.setAttribute('data-indent', String(relativeIndent))
+        line.appendChild(bullet)
       }
 
-      container.appendChild(childrenContainer)
-    }
+      // Add content (strip block ID and original bullet)
+      const content = document.createElement('span')
+      content.textContent = block.content
+        .replace(/\s*§[a-z0-9]+§\s*$/, '') // Strip block ID
+        .replace(/^\s*-\s*/, '') // Strip bullet
+      line.appendChild(content)
 
-    wrapper.appendChild(container)
+      wrapper.appendChild(line)
+    }
 
     // Add click handler for navigation
     if (this.config.onClick && parentBlock) {
@@ -122,9 +112,9 @@ class BlockRefWidget extends WidgetType {
         this.config.onClick!(parentBlock.note_date, parentBlock.line_number)
       })
 
-      // Add title for hover info
+      // Hover title
       const childCount = children.length
-      wrapper.title = `From ${parentBlock.note_date}${childCount > 0 ? ` (${childCount} children)` : ''} - click to navigate`
+      wrapper.title = `From ${parentBlock.note_date}${childCount > 0 ? ` (+${childCount})` : ''}`
     }
 
     return wrapper
