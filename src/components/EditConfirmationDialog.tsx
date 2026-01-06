@@ -1,3 +1,5 @@
+import { Tooltip } from './Tooltip'
+
 interface EditConfirmationDialogProps {
   isOpen: boolean
   dateString: string
@@ -51,12 +53,14 @@ export function EditConfirmationDialog({
         style={{ backgroundColor: 'var(--bg-primary)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2
-          className="text-lg font-semibold mb-3"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          Edit Past Note?
-        </h2>
+        <Tooltip explanationKey="softLock">
+          <h2
+            className="text-lg font-semibold mb-3"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            Edit Past Note?
+          </h2>
+        </Tooltip>
         <p
           className="mb-4"
           style={{ color: 'var(--text-secondary)' }}

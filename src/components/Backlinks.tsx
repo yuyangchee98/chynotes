@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { formatDate } from '../utils/format-date'
+import { Tooltip } from './Tooltip'
 
 interface BacklinksProps {
   pageName: string
@@ -302,12 +303,14 @@ export function Backlinks({ pageName, onBlockClick, onTagClick }: BacklinksProps
     <div className="space-y-6">
       {/* Linked References Section */}
       <div>
-        <h2
-          className="text-sm font-semibold uppercase tracking-wider mb-3"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          Linked References ({occurrences.length})
-        </h2>
+        <Tooltip explanationKey="linkedReferences">
+          <h2
+            className="text-sm font-semibold uppercase tracking-wider mb-3"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            Linked References ({occurrences.length})
+          </h2>
+        </Tooltip>
 
         <div className="space-y-4">
           {Object.entries(groupedByDate).map(([date, items]) => {
@@ -349,17 +352,19 @@ export function Backlinks({ pageName, onBlockClick, onTagClick }: BacklinksProps
 
       {/* Semantically Related Section */}
       <div>
-        <h2
-          className="text-sm font-semibold uppercase tracking-wider mb-3 flex items-center gap-2"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          <span>Semantically Related</span>
-          {isLoadingSemantic && (
-            <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>
-              loading...
-            </span>
-          )}
-        </h2>
+        <Tooltip explanationKey="semanticBacklinks">
+          <h2
+            className="text-sm font-semibold uppercase tracking-wider mb-3 flex items-center gap-2"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            <span>Semantically Related</span>
+            {isLoadingSemantic && (
+              <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>
+                loading...
+              </span>
+            )}
+          </h2>
+        </Tooltip>
 
         {!isLoadingSemantic && semanticResults.length === 0 && (
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>

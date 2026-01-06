@@ -136,19 +136,21 @@ export function Sidebar({
           </Tooltip>
 
           {/* Search */}
-          <button
-            onClick={onSearchSelect}
-            className="w-full flex items-center gap-3 px-3 py-2.5 text-base font-medium rounded-lg transition-colors"
-            style={{
-              backgroundColor: isSearchView ? 'var(--accent-subtle)' : 'transparent',
-              color: isSearchView ? 'var(--accent)' : 'var(--text-primary)',
-            }}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <span>Search</span>
-          </button>
+          <Tooltip explanationKey="search">
+            <button
+              onClick={onSearchSelect}
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-base font-medium rounded-lg transition-colors"
+              style={{
+                backgroundColor: isSearchView ? 'var(--accent-subtle)' : 'transparent',
+                color: isSearchView ? 'var(--accent)' : 'var(--text-primary)',
+              }}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <span>Search</span>
+            </button>
+          </Tooltip>
         </div>
 
         {/* Tags */}
@@ -169,12 +171,14 @@ export function Sidebar({
         {/* History */}
         {recentDates.length > 0 && (
           <div className="px-3 py-2">
-            <h3
-              className="text-xs font-semibold uppercase tracking-wider mb-2"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              History
-            </h3>
+            <Tooltip explanationKey="history">
+              <h3
+                className="text-xs font-semibold uppercase tracking-wider mb-2"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                History
+              </h3>
+            </Tooltip>
             <div className="space-y-0.5">
               {recentDates.map(dateStr => {
                 const [year, month, day] = dateStr.split('-').map(Number)
