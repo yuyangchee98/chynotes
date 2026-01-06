@@ -16,6 +16,7 @@ function App() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>('system')
+  const [contentToAppend, setContentToAppend] = useState<string | null>(null)
 
   // Load and apply theme
   useEffect(() => {
@@ -84,6 +85,19 @@ function App() {
     setView('search')
   }, [])
 
+  // Handle copying content from an old note to today
+  const handleCopyToToday = useCallback((content: string) => {
+    setSelectedTag(null)
+    setView('single-day')
+    setCurrentDate(new Date())
+    setContentToAppend(content)
+  }, [])
+
+  // Clear appended content after it's been processed
+  const handleContentAppended = useCallback(() => {
+    setContentToAppend(null)
+  }, [])
+
   return (
     <div className="h-screen flex" style={{ backgroundColor: 'var(--bg-primary)' }}>
       {/* Sidebar */}
@@ -104,6 +118,8 @@ function App() {
         {view === 'stream' && (
           <DailyStream
             onTagClick={handleTagClick}
+            onCopyToToday={handleCopyToToday}
+            onDateSelect={handleDateSelect}
           />
         )}
         {view === 'single-day' && (
@@ -112,6 +128,10 @@ function App() {
             onTagClick={handleTagClick}
             scrollToLine={scrollToLine}
             onScrollComplete={() => setScrollToLine(null)}
+            onCopyToToday={handleCopyToToday}
+            contentToAppend={contentToAppend}
+            onContentAppended={handleContentAppended}
+            onDateSelect={handleDateSelect}
           />
         )}
         {view === 'tag' && selectedTag && (

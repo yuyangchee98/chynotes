@@ -54,6 +54,7 @@ import {
   DocumentType,
   getEmbeddedBlockCount,
   getTotalBlockCount,
+  getBlockById,
 } from '../core/database'
 import {
   findSemanticallySimilar,
@@ -258,6 +259,11 @@ ipcMain.handle('check-embedding-model', async () => {
 
 ipcMain.handle('list-embedding-models', async () => {
   return await listEmbeddingModels()
+})
+
+// Block operations
+ipcMain.handle('get-block-by-id', (_event, id: string) => {
+  return getBlockById(id)
 })
 
 app.whenReady().then(async () => {

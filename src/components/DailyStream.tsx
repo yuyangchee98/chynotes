@@ -8,14 +8,19 @@ import { tagHighlighter } from '../extensions/tag-highlighter'
 import { outliner } from '../extensions/outliner'
 import { blockIdHider } from '../extensions/block-id-hider'
 import { unsavedHighlighter } from '../extensions/unsaved-highlighter'
+import { blockReference, extractBlockRefIds, BlockRecord } from '../extensions/block-reference'
+import { blockContextMenu } from '../extensions/block-context-menu'
 import { formatDateFromDate, toLocalDateString } from '../utils/format-date'
 import { useSnapshotDebounce } from '../hooks/useSnapshotDebounce'
 import { useSnapshotViewer } from '../hooks/useSnapshotViewer'
 import { SnapshotSlider } from './SnapshotSlider'
 import { DiffView } from './DiffView'
+import { EditConfirmationDialog } from './EditConfirmationDialog'
 
 interface DailyStreamProps {
   onTagClick?: (tag: string) => void
+  onCopyToToday?: (content: string) => void
+  onDateSelect?: (date: Date, line?: number) => void
 }
 
 interface DayBlock {
@@ -112,6 +117,30 @@ const editorTheme = EditorView.theme({
     height: '0.25em',
     opacity: '0.5',
   },
+  // Block reference styling
+  '.cm-block-reference': {
+    backgroundColor: 'var(--bg-tertiary)',
+    borderRadius: '4px',
+    padding: '2px 6px',
+    cursor: 'pointer',
+    fontStyle: 'italic',
+    borderLeft: '2px solid var(--accent)',
+    display: 'inline',
+    color: 'var(--text-secondary)',
+  },
+  '.cm-block-reference:hover': {
+    backgroundColor: 'var(--accent-subtle)',
+  },
+  '.cm-block-reference-missing': {
+    color: 'var(--text-muted)',
+    cursor: 'default',
+    borderLeftColor: 'var(--text-muted)',
+  },
+  '.cm-block-reference-circular': {
+    color: 'var(--text-muted)',
+    cursor: 'default',
+    borderLeftColor: 'var(--text-muted)',
+  },
 })
 
 const highlightStyle = HighlightStyle.define([
@@ -144,7 +173,7 @@ function generateDates(count: number, startOffset = 0): Date[] {
 }
 
 
-export function DailyStream({ onTagClick }: DailyStreamProps) {
+export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailyStreamProps) {
   const [days, setDays] = useState<DayBlock[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const isLoadingRef = useRef(false)
@@ -154,6 +183,13 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
   const todayEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const saveTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map())
+
+  // Soft-lock state for past notes
+  const [unlockedDays, setUnlockedDays] = useState<Set<string>>(new Set())
+  const [dialogDay, setDialogDay] = useState<{ dateString: string; formattedDate: string; content: string } | null>(null)
+
+  // Block reference cache for ((block-id)) embeds
+  const [blockCache, setBlockCache] = useState<Map<string, BlockRecord | null>>(new Map())
 
   // Track the currently active day for snapshots (for auto-save)
   const [activeDay, setActiveDay] = useState<{ dateString: string; content: string } | null>(null)
@@ -383,6 +419,96 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
     return d.getTime() === today.getTime()
   }
 
+  // Check if a day is locked (past day and not explicitly unlocked)
+  const isDayLocked = useCallback((dateString: string, date: Date) => {
+    return !isToday(date) && !unlockedDays.has(dateString)
+  }, [unlockedDays])
+
+  // Handle click on locked day editor
+  const handleLockedDayClick = useCallback((day: DayBlock) => {
+    const formatted = formatDateFromDate(day.date)
+    setDialogDay({
+      dateString: day.dateString,
+      formattedDate: formatted.date,
+      content: day.content
+    })
+  }, [])
+
+  // Dialog callbacks
+  const handleEditAnyway = useCallback(() => {
+    if (dialogDay) {
+      setUnlockedDays(prev => new Set(prev).add(dialogDay.dateString))
+    }
+    setDialogDay(null)
+  }, [dialogDay])
+
+  const handleCopyToToday = useCallback(() => {
+    if (dialogDay) {
+      // Get first meaningful line
+      const lines = dialogDay.content.split('\n').filter(l => l.trim())
+      const firstLine = lines[0] || '- '
+      onCopyToToday?.(firstLine)
+    }
+    setDialogDay(null)
+  }, [dialogDay, onCopyToToday])
+
+  const handleCancelDialog = useCallback(() => {
+    setDialogDay(null)
+  }, [])
+
+  // Handle block reference click - navigate to source date
+  const handleBlockRefClick = useCallback((noteDateStr: string, lineNumber: number) => {
+    // Parse the date string (YYYY-MM-DD) as local date
+    const [year, month, day] = noteDateStr.split('-').map(Number)
+    const targetDate = new Date(year, month - 1, day)
+    onDateSelect?.(targetDate, lineNumber)
+  }, [onDateSelect])
+
+  // Fetch block content for ((block-id)) references across all days
+  useEffect(() => {
+    const fetchBlockRefs = async () => {
+      if (!window.api) return
+
+      // Collect all block ref IDs from all days
+      const allRefIds = new Set<string>()
+      for (const day of days) {
+        const refIds = extractBlockRefIds(day.content)
+        refIds.forEach(id => allRefIds.add(id))
+      }
+
+      if (allRefIds.size === 0) return
+
+      // Only fetch blocks we don't have cached
+      const newCache = new Map(blockCache)
+      let needsUpdate = false
+
+      for (const id of allRefIds) {
+        if (!newCache.has(id)) {
+          const block = await window.api.getBlockById(id)
+          newCache.set(id, block)
+          needsUpdate = true
+
+          // Fetch nested refs too
+          if (block) {
+            const nestedIds = extractBlockRefIds(block.content)
+            for (const nestedId of nestedIds) {
+              if (!newCache.has(nestedId)) {
+                const nestedBlock = await window.api.getBlockById(nestedId)
+                newCache.set(nestedId, nestedBlock)
+              }
+            }
+          }
+        }
+      }
+
+      if (needsUpdate) {
+        setBlockCache(newCache)
+      }
+    }
+
+    fetchBlockRefs()
+  }, [days])
+
   return (
     <div className="flex-1 flex flex-col h-full">
       {/* Header - draggable region */}
@@ -491,6 +617,8 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                             tagHighlighter(onTagClick),
                             outliner(),
                             blockIdHider(),
+                            blockReference({ blockCache, onClick: handleBlockRefClick }),
+                            blockContextMenu(),
                             unsavedHighlighter(lastSnapshotContent),
                             EditorView.lineWrapping,
                             ...(showingSnapshot ? [EditorView.editable.of(false)] : []),
@@ -589,8 +717,9 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
               )
             }
 
-            // Past day with content: show editor
+            // Past day with content: show editor (locked by default)
             const formatted = formatDateFromDate(day.date)
+            const isLocked = isDayLocked(day.dateString, day.date)
             return (
               <div
                 key={day.dateString}
@@ -640,8 +769,10 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                           tagHighlighter(onTagClick),
                           outliner(),
                           blockIdHider(),
+                          blockReference({ blockCache, onClick: handleBlockRefClick }),
+                          blockContextMenu(),
                           EditorView.lineWrapping,
-                          ...(showingSnapshot ? [EditorView.editable.of(false)] : []),
+                          ...((showingSnapshot || isLocked) ? [EditorView.editable.of(false)] : []),
                         ]}
                         basicSetup={{
                           lineNumbers: false,
@@ -667,6 +798,17 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
                           }}
                         />
                       )}
+                      {/* Locked overlay for past notes - clickable to show dialog */}
+                      {isLocked && !showingSnapshot && (
+                        <div
+                          className="absolute inset-0 rounded cursor-pointer"
+                          style={{
+                            backgroundColor: 'var(--bg-secondary)',
+                            opacity: 0.1,
+                          }}
+                          onClick={() => handleLockedDayClick(day)}
+                        />
+                      )}
                     </>
                   )}
                 </div>
@@ -682,6 +824,15 @@ export function DailyStream({ onTagClick }: DailyStreamProps) {
           </div>
         </div>
       </div>
+
+      {/* Confirmation dialog for editing past notes */}
+      <EditConfirmationDialog
+        isOpen={dialogDay !== null}
+        dateString={dialogDay?.formattedDate ?? ''}
+        onEditAnyway={handleEditAnyway}
+        onCopyToToday={handleCopyToToday}
+        onCancel={handleCancelDialog}
+      />
     </div>
   )
 }

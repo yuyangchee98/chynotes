@@ -7,17 +7,24 @@ import { tags as t } from '@lezer/highlight'
 import { tagHighlighter } from '../extensions/tag-highlighter'
 import { outliner } from '../extensions/outliner'
 import { blockIdHider } from '../extensions/block-id-hider'
+import { blockReference, extractBlockRefIds, BlockRecord } from '../extensions/block-reference'
+import { blockContextMenu } from '../extensions/block-context-menu'
 import { toLocalDateString } from '../utils/format-date'
 import { useSnapshotDebounce } from '../hooks/useSnapshotDebounce'
 import { useSnapshotViewer } from '../hooks/useSnapshotViewer'
 import { SnapshotSlider } from './SnapshotSlider'
 import { DiffView } from './DiffView'
+import { EditConfirmationDialog } from './EditConfirmationDialog'
 
 interface DailyEditorProps {
   date: Date
   onTagClick?: (tag: string) => void
   scrollToLine?: number | null
   onScrollComplete?: () => void
+  onCopyToToday?: (content: string) => void
+  contentToAppend?: string | null
+  onContentAppended?: () => void
+  onDateSelect?: (date: Date, line?: number) => void
 }
 
 // Custom theme for Logseq/Obsidian-like appearance
@@ -109,6 +116,30 @@ const editorTheme = EditorView.theme({
     height: '0.25em',
     opacity: '0.5',
   },
+  // Block reference styling
+  '.cm-block-reference': {
+    backgroundColor: 'var(--bg-tertiary)',
+    borderRadius: '4px',
+    padding: '2px 6px',
+    cursor: 'pointer',
+    fontStyle: 'italic',
+    borderLeft: '2px solid var(--accent)',
+    display: 'inline',
+    color: 'var(--text-secondary)',
+  },
+  '.cm-block-reference:hover': {
+    backgroundColor: 'var(--accent-subtle)',
+  },
+  '.cm-block-reference-missing': {
+    color: 'var(--text-muted)',
+    cursor: 'default',
+    borderLeftColor: 'var(--text-muted)',
+  },
+  '.cm-block-reference-circular': {
+    color: 'var(--text-muted)',
+    cursor: 'default',
+    borderLeftColor: 'var(--text-muted)',
+  },
 })
 
 // Syntax highlighting colors
@@ -124,10 +155,20 @@ const highlightStyle = HighlightStyle.define([
   { tag: t.monospace, fontFamily: 'ui-monospace, monospace', backgroundColor: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.9em' },
 ])
 
-export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete }: DailyEditorProps) {
+export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, onCopyToToday, contentToAppend, onContentAppended, onDateSelect }: DailyEditorProps) {
   const [content, setContent] = useState('')
   const editorRef = useRef<{ view: EditorView } | null>(null)
   const noteDate = toLocalDateString(date)
+
+  // Soft-lock state for non-today notes
+  const [unlocked, setUnlocked] = useState(false)
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const todayDate = toLocalDateString(new Date())
+  const isToday = noteDate === todayDate
+  const isLocked = !isToday && !unlocked
+
+  // Block reference cache for ((block-id)) embeds
+  const [blockCache, setBlockCache] = useState<Map<string, BlockRecord | null>>(new Map())
 
   // Snapshot debouncing - saves after 5s of inactivity
   useSnapshotDebounce(noteDate, content)
@@ -175,6 +216,63 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete }
     }
   }, [noteDate]) // Intentionally not including isViewingHistory/returnToLive to avoid loop
 
+  // Reset unlocked state when date changes
+  useEffect(() => {
+    setUnlocked(false)
+    setShowConfirmDialog(false)
+  }, [noteDate])
+
+  // Handle content to append (from Copy to Today)
+  useEffect(() => {
+    if (contentToAppend && isToday) {
+      setContent(prev => {
+        const trimmed = prev.trimEnd()
+        return trimmed + '\n' + contentToAppend
+      })
+      // Clear the appended content flag
+      onContentAppended?.()
+    }
+  }, [contentToAppend, isToday, onContentAppended])
+
+  // Fetch block content for ((block-id)) references
+  useEffect(() => {
+    const fetchBlockRefs = async () => {
+      if (!window.api) return
+
+      const refIds = extractBlockRefIds(content)
+      if (refIds.length === 0) return
+
+      // Only fetch blocks we don't have cached
+      const newCache = new Map(blockCache)
+      let needsUpdate = false
+
+      for (const id of refIds) {
+        if (!newCache.has(id)) {
+          const block = await window.api.getBlockById(id)
+          newCache.set(id, block)
+          needsUpdate = true
+
+          // If block has nested refs, fetch those too (up to 3 levels)
+          if (block) {
+            const nestedIds = extractBlockRefIds(block.content)
+            for (const nestedId of nestedIds) {
+              if (!newCache.has(nestedId)) {
+                const nestedBlock = await window.api.getBlockById(nestedId)
+                newCache.set(nestedId, nestedBlock)
+              }
+            }
+          }
+        }
+      }
+
+      if (needsUpdate) {
+        setBlockCache(newCache)
+      }
+    }
+
+    fetchBlockRefs()
+  }, [content]) // Re-run when content changes
+
   // Debounced save
   useEffect(() => {
     if (!window.api) return
@@ -200,6 +298,39 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete }
     }
     setContent(value)
   }, [isViewingHistory, returnToLive])
+
+  // Handle click on locked editor - show confirmation dialog
+  const handleLockedEditorClick = useCallback(() => {
+    if (isLocked && !showConfirmDialog) {
+      setShowConfirmDialog(true)
+    }
+  }, [isLocked, showConfirmDialog])
+
+  // Dialog callbacks
+  const handleEditAnyway = useCallback(() => {
+    setUnlocked(true)
+    setShowConfirmDialog(false)
+  }, [])
+
+  const handleCopyToToday = useCallback(() => {
+    setShowConfirmDialog(false)
+    // Get the current line or first line of content
+    const lines = content.split('\n').filter(l => l.trim())
+    const firstLine = lines[0] || '- '
+    onCopyToToday?.(firstLine)
+  }, [content, onCopyToToday])
+
+  const handleCancelDialog = useCallback(() => {
+    setShowConfirmDialog(false)
+  }, [])
+
+  // Handle block reference click - navigate to source date
+  const handleBlockRefClick = useCallback((noteDateStr: string, lineNumber: number) => {
+    // Parse the date string (YYYY-MM-DD) as local date
+    const [year, month, day] = noteDateStr.split('-').map(Number)
+    const targetDate = new Date(year, month - 1, day)
+    onDateSelect?.(targetDate, lineNumber)
+  }, [onDateSelect])
 
   // Scroll to line when requested
   useEffect(() => {
@@ -281,8 +412,10 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete }
                   tagHighlighter(onTagClick),
                   outliner(),
                   blockIdHider(),
+                  blockReference({ blockCache, onClick: handleBlockRefClick }),
+                  blockContextMenu(),
                   EditorView.lineWrapping,
-                  ...(isViewingHistory ? [EditorView.editable.of(false)] : []),
+                  ...((isViewingHistory || isLocked) ? [EditorView.editable.of(false)] : []),
                 ]}
                 basicSetup={{
                   lineNumbers: false,
@@ -309,10 +442,30 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete }
                   }}
                 />
               )}
+              {/* Locked overlay for past notes - clickable to show dialog */}
+              {isLocked && !isViewingHistory && (
+                <div
+                  className="absolute inset-0 rounded cursor-pointer"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    opacity: 0.1,
+                  }}
+                  onClick={handleLockedEditorClick}
+                />
+              )}
             </>
           )}
         </div>
       </div>
+
+      {/* Confirmation dialog for editing past notes */}
+      <EditConfirmationDialog
+        isOpen={showConfirmDialog}
+        dateString={dateString}
+        onEditAnyway={handleEditAnyway}
+        onCopyToToday={handleCopyToToday}
+        onCancel={handleCancelDialog}
+      />
     </div>
   )
 }

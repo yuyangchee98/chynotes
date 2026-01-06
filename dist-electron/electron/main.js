@@ -180,6 +180,10 @@ electron_1.ipcMain.handle('check-embedding-model', async () => {
 electron_1.ipcMain.handle('list-embedding-models', async () => {
     return await (0, embeddings_1.listEmbeddingModels)();
 });
+// Block operations
+electron_1.ipcMain.handle('get-block-by-id', (_event, id) => {
+    return (0, database_2.getBlockById)(id);
+});
 electron_1.app.whenReady().then(async () => {
     // Initial index of all notes
     await (0, index_manager_1.reindexAll)();

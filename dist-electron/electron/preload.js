@@ -105,4 +105,8 @@ electron_1.contextBridge.exposeInMainWorld('api', {
     listEmbeddingModels: () => {
         return electron_1.ipcRenderer.invoke('list-embedding-models');
     },
+    // Block operations
+    getBlockById: (id) => {
+        return electron_1.ipcRenderer.invoke('get-block-by-id', id);
+    },
 });

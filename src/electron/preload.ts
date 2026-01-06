@@ -64,6 +64,17 @@ interface EmbeddingModelStatus {
   error?: string
 }
 
+interface BlockRecord {
+  id: string
+  note_date: string
+  content: string
+  parent_id: string | null
+  indent_level: number
+  line_number: number
+  updated_at: number
+  embedded_at: number | null
+}
+
 contextBridge.exposeInMainWorld('api', {
   // Note operations
   readNote: (dateISO: string): Promise<string | null> => {
@@ -198,5 +209,10 @@ contextBridge.exposeInMainWorld('api', {
 
   listEmbeddingModels: (): Promise<string[]> => {
     return ipcRenderer.invoke('list-embedding-models')
+  },
+
+  // Block operations
+  getBlockById: (id: string): Promise<BlockRecord | null> => {
+    return ipcRenderer.invoke('get-block-by-id', id)
   },
 })
