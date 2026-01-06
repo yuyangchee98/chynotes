@@ -35,7 +35,7 @@ Snapshots and indexes are stored in a SQLite file to keep your markdown folder c
 Requires [Ollama](https://ollama.com) running locally. Other local LLM providers and hosted services coming eventually.
 
 ```
-git clone https://github.com/yangchenyun/chynotes.git
+git clone https://github.com/yuyangchee98/chynotes.git
 cd chynotes
 npm install
 npm run electron:dev
