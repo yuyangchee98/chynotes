@@ -1,7 +1,7 @@
 interface EditConfirmationDialogProps {
   isOpen: boolean
   dateString: string
-  blockContent?: string // The clicked block's content to show
+  blockContent?: string // The clicked block's content (may include children)
   onEditAnyway: () => void
   onReferenceToToday: () => void
   onCancel: () => void
@@ -17,9 +17,26 @@ export function EditConfirmationDialog({
 }: EditConfirmationDialogProps) {
   if (!isOpen) return null
 
-  // Strip block ID and bullet from display
-  const displayContent = blockContent
-    ?.replace(/§[a-f0-9]{8}§\s*$/, '')
+  // Process block content for display - strip block IDs and format nicely
+  const formatBlockContent = (content: string | undefined) => {
+    if (!content) return null
+
+    const lines = content.split('\n')
+    const formattedLines = lines.map(line => {
+      // Strip block ID
+      let formatted = line.replace(/§[a-f0-9]{8}§\s*$/, '')
+      // Convert leading spaces to visual indent but keep bullet
+      return formatted
+    })
+
+    return formattedLines
+  }
+
+  const displayLines = formatBlockContent(blockContent)
+  const hasChildren = displayLines && displayLines.length > 1
+
+  // Get first line content for display (stripped of bullet and ID)
+  const firstLineDisplay = displayLines?.[0]
     ?.replace(/^\s*-\s*/, '')
     ?.trim()
 
@@ -30,7 +47,7 @@ export function EditConfirmationDialog({
       onClick={onCancel}
     >
       <div
-        className="rounded-lg shadow-xl p-6 max-w-md mx-4"
+        className="rounded-lg shadow-xl p-6 max-w-lg mx-4"
         style={{ backgroundColor: 'var(--bg-primary)' }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -48,25 +65,29 @@ export function EditConfirmationDialog({
         </p>
 
         {/* Show clicked block preview */}
-        {displayContent && (
+        {displayLines && displayLines.length > 0 && (
           <div
-            className="mb-4 p-3 rounded-md text-sm"
+            className="mb-4 p-3 rounded-md text-sm max-h-48 overflow-auto"
             style={{
               backgroundColor: 'var(--bg-tertiary)',
               borderLeft: '3px solid var(--accent)',
-              color: 'var(--text-secondary)',
             }}
           >
             <div
-              className="text-xs mb-1 font-medium"
+              className="text-xs mb-2 font-medium"
               style={{ color: 'var(--text-muted)' }}
             >
-              Selected block:
+              Selected block{hasChildren ? ' (with children)' : ''}:
             </div>
-            <div style={{ color: 'var(--text-primary)' }}>
-              {displayContent.length > 100
-                ? displayContent.slice(0, 100) + '...'
-                : displayContent}
+            <div
+              className="font-mono text-xs whitespace-pre-wrap"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              {displayLines.map((line, i) => (
+                <div key={i} style={{ color: i === 0 ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                  {line.replace(/§[a-f0-9]{8}§\s*$/, '')}
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -82,7 +103,7 @@ export function EditConfirmationDialog({
           >
             Cancel
           </button>
-          {displayContent && (
+          {firstLineDisplay && (
             <button
               onClick={onReferenceToToday}
               className="px-4 py-2 rounded-md text-sm font-medium transition-colors"

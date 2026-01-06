@@ -287,6 +287,60 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
     setContent(value)
   }, [isViewingHistory, returnToLive])
 
+  // Hover state for highlighting blocks with children
+  const [hoveredLineRange, setHoveredLineRange] = useState<{ start: number; end: number } | null>(null)
+
+  // Get indent level of a line (count leading spaces/tabs before "- ")
+  const getIndentLevel = useCallback((line: string) => {
+    const match = line.match(/^(\s*)- /)
+    if (!match) return -1
+    return match[1].length
+  }, [])
+
+  // Get line range (start, end) for a block with its children
+  const getBlockLineRange = useCallback((allLines: string[], lineIndex: number): { start: number; end: number } => {
+    const clickedLine = allLines[lineIndex]
+    const clickedIndent = getIndentLevel(clickedLine)
+    if (clickedIndent === -1) return { start: lineIndex, end: lineIndex }
+
+    let endIndex = lineIndex
+
+    // Find the last child line
+    for (let i = lineIndex + 1; i < allLines.length; i++) {
+      const lineIndent = getIndentLevel(allLines[i])
+      if (lineIndent === -1) continue // Skip non-bullet lines
+      if (lineIndent <= clickedIndent) break // Same or less indent = sibling/parent
+      endIndex = i
+    }
+
+    return { start: lineIndex, end: endIndex }
+  }, [getIndentLevel])
+
+  // Extract a block with all its children based on indentation
+  const getBlockWithChildren = useCallback((allLines: string[], clickedLineIndex: number) => {
+    const { start, end } = getBlockLineRange(allLines, clickedLineIndex)
+    return allLines.slice(start, end + 1).join('\n')
+  }, [getBlockLineRange])
+
+  // Handle hover on locked editor - highlight block with children
+  const handleLockedEditorHover = useCallback((event: React.MouseEvent) => {
+    if (isLocked && editorRef.current?.view) {
+      const view = editorRef.current.view
+      const pos = view.posAtCoords({ x: event.clientX, y: event.clientY })
+      if (pos !== null) {
+        const line = view.state.doc.lineAt(pos)
+        const allLines = content.split('\n')
+        const lineIndex = line.number - 1
+        const range = getBlockLineRange(allLines, lineIndex)
+        setHoveredLineRange(range)
+      }
+    }
+  }, [isLocked, content, getBlockLineRange])
+
+  const handleLockedEditorLeave = useCallback(() => {
+    setHoveredLineRange(null)
+  }, [])
+
   // Handle click on locked editor - show confirmation dialog with clicked block
   const handleLockedEditorClick = useCallback((event: React.MouseEvent) => {
     if (isLocked && !showConfirmDialog && editorRef.current?.view) {
@@ -294,15 +348,19 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
       const pos = view.posAtCoords({ x: event.clientX, y: event.clientY })
       if (pos !== null) {
         const line = view.state.doc.lineAt(pos)
-        setClickedBlockContent(line.text)
+        const allLines = content.split('\n')
+        const lineIndex = line.number - 1 // Convert to 0-based index
+        const blockWithChildren = getBlockWithChildren(allLines, lineIndex)
+        setClickedBlockContent(blockWithChildren)
       } else {
         // Fallback to first line if click position can't be determined
-        const lines = content.split('\n').filter(l => l.trim())
-        setClickedBlockContent(lines[0] || null)
+        const allLines = content.split('\n')
+        const blockWithChildren = getBlockWithChildren(allLines, 0)
+        setClickedBlockContent(blockWithChildren)
       }
       setShowConfirmDialog(true)
     }
-  }, [isLocked, showConfirmDialog, content])
+  }, [isLocked, showConfirmDialog, content, getBlockWithChildren])
 
   // Dialog callbacks
   const handleEditAnyway = useCallback(() => {
@@ -417,14 +475,26 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
         <div
           className={`max-w-3xl mx-auto relative ${isLocked ? 'editor-locked' : ''}`}
           onClick={isLocked && !isViewingHistory ? handleLockedEditorClick : undefined}
+          onMouseMove={isLocked && !isViewingHistory ? handleLockedEditorHover : undefined}
+          onMouseLeave={isLocked && !isViewingHistory ? handleLockedEditorLeave : undefined}
           style={isLocked && !isViewingHistory ? { cursor: 'pointer' } : undefined}
         >
-          <style>{`
-            .editor-locked .cm-line:hover {
-              background-color: var(--accent-subtle) !important;
-              border-radius: 4px;
-            }
-          `}</style>
+          {/* Dynamic highlighting for block with children */}
+          {hoveredLineRange && (
+            <style>{`
+              .editor-locked .cm-line:nth-child(n+${hoveredLineRange.start + 1}):nth-child(-n+${hoveredLineRange.end + 1}) {
+                background-color: var(--accent-subtle) !important;
+              }
+              .editor-locked .cm-line:nth-child(${hoveredLineRange.start + 1}) {
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+              }
+              .editor-locked .cm-line:nth-child(${hoveredLineRange.end + 1}) {
+                border-bottom-left-radius: 4px;
+                border-bottom-right-radius: 4px;
+              }
+            `}</style>
+          )}
           {isDiffMode && snapshots.length > 0 ? (
             // Diff view mode
             <DiffView oldText={diffOldText} newText={content} />

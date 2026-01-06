@@ -188,6 +188,7 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
   // Soft-lock state for past notes
   const [unlockedDays, setUnlockedDays] = useState<Set<string>>(new Set())
   const [dialogDay, setDialogDay] = useState<{ dateString: string; formattedDate: string; clickedBlockContent: string } | null>(null)
+  const [hoveredBlock, setHoveredBlock] = useState<{ dateString: string; start: number; end: number } | null>(null)
 
   // Block reference cache for ((block-id)) embeds
   const [blockCache, setBlockCache] = useState<Map<string, BlockRecord | null>>(new Map())
@@ -425,6 +426,38 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
     return !isToday(date) && !unlockedDays.has(dateString)
   }, [unlockedDays])
 
+  // Get indent level of a line (count leading spaces/tabs before "- ")
+  const getIndentLevel = useCallback((line: string) => {
+    const match = line.match(/^(\s*)- /)
+    if (!match) return -1
+    return match[1].length
+  }, [])
+
+  // Get line range (start, end) for a block with its children
+  const getBlockLineRange = useCallback((allLines: string[], lineIndex: number): { start: number; end: number } => {
+    const clickedLine = allLines[lineIndex]
+    const clickedIndent = getIndentLevel(clickedLine)
+    if (clickedIndent === -1) return { start: lineIndex, end: lineIndex }
+
+    let endIndex = lineIndex
+
+    // Find the last child line
+    for (let i = lineIndex + 1; i < allLines.length; i++) {
+      const lineIndent = getIndentLevel(allLines[i])
+      if (lineIndent === -1) continue // Skip non-bullet lines
+      if (lineIndent <= clickedIndent) break // Same or less indent = sibling/parent
+      endIndex = i
+    }
+
+    return { start: lineIndex, end: endIndex }
+  }, [getIndentLevel])
+
+  // Extract a block with all its children based on indentation
+  const getBlockWithChildren = useCallback((allLines: string[], clickedLineIndex: number) => {
+    const { start, end } = getBlockLineRange(allLines, clickedLineIndex)
+    return allLines.slice(start, end + 1).join('\n')
+  }, [getBlockLineRange])
+
   // Handle click on locked day editor - detect which block was clicked
   const handleLockedDayClick = useCallback((day: DayBlock, event: React.MouseEvent) => {
     const formatted = formatDateFromDate(day.date)
@@ -435,13 +468,15 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
       const pos = editorRef.view.posAtCoords({ x: event.clientX, y: event.clientY })
       if (pos !== null) {
         const line = editorRef.view.state.doc.lineAt(pos)
-        clickedBlockContent = line.text
+        const allLines = day.content.split('\n')
+        const lineIndex = line.number - 1 // Convert to 0-based index
+        clickedBlockContent = getBlockWithChildren(allLines, lineIndex)
       }
     }
     // Fallback to first line if click position can't be determined
     if (!clickedBlockContent) {
-      const lines = day.content.split('\n').filter(l => l.trim())
-      clickedBlockContent = lines[0] || ''
+      const allLines = day.content.split('\n')
+      clickedBlockContent = getBlockWithChildren(allLines, 0)
     }
 
     setDialogDay({
@@ -449,6 +484,25 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
       formattedDate: formatted.date,
       clickedBlockContent
     })
+  }, [getBlockWithChildren])
+
+  // Handle hover on locked day editor - highlight block with children
+  const handleLockedDayHover = useCallback((day: DayBlock, event: React.MouseEvent) => {
+    const editorRef = editorRefs.current.get(day.dateString)
+    if (editorRef?.view) {
+      const pos = editorRef.view.posAtCoords({ x: event.clientX, y: event.clientY })
+      if (pos !== null) {
+        const line = editorRef.view.state.doc.lineAt(pos)
+        const allLines = day.content.split('\n')
+        const lineIndex = line.number - 1
+        const range = getBlockLineRange(allLines, lineIndex)
+        setHoveredBlock({ dateString: day.dateString, ...range })
+      }
+    }
+  }, [getBlockLineRange])
+
+  const handleLockedDayLeave = useCallback(() => {
+    setHoveredBlock(null)
   }, [])
 
   // Dialog callbacks
@@ -528,12 +582,6 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      <style>{`
-        .editor-locked .cm-line:hover {
-          background-color: var(--accent-subtle) !important;
-          border-radius: 4px;
-        }
-      `}</style>
       {/* Header - draggable region */}
       <div
         className="px-6 pt-10 pb-3"
@@ -778,10 +826,28 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
 
                 {/* Day editor */}
                 <div
-                  className={`relative ${isLocked ? 'editor-locked' : ''}`}
+                  className={`relative ${isLocked ? `editor-locked editor-locked-${day.dateString}` : ''}`}
                   onClick={isLocked && !showingSnapshot ? (e) => handleLockedDayClick(day, e) : undefined}
+                  onMouseMove={isLocked && !showingSnapshot ? (e) => handleLockedDayHover(day, e) : undefined}
+                  onMouseLeave={isLocked && !showingSnapshot ? handleLockedDayLeave : undefined}
                   style={isLocked && !showingSnapshot ? { cursor: 'pointer' } : undefined}
                 >
+                  {/* Dynamic highlighting for block with children */}
+                  {hoveredBlock && hoveredBlock.dateString === day.dateString && (
+                    <style>{`
+                      .editor-locked-${day.dateString} .cm-line:nth-child(n+${hoveredBlock.start + 1}):nth-child(-n+${hoveredBlock.end + 1}) {
+                        background-color: var(--accent-subtle) !important;
+                      }
+                      .editor-locked-${day.dateString} .cm-line:nth-child(${hoveredBlock.start + 1}) {
+                        border-top-left-radius: 4px;
+                        border-top-right-radius: 4px;
+                      }
+                      .editor-locked-${day.dateString} .cm-line:nth-child(${hoveredBlock.end + 1}) {
+                        border-bottom-left-radius: 4px;
+                        border-bottom-right-radius: 4px;
+                      }
+                    `}</style>
+                  )}
                   {showDiff ? (
                     <DiffView oldText={diffOldText} newText={day.content} />
                   ) : (
