@@ -27,3 +27,30 @@ A timeline scrubber lets you browse through your day's edits with word-level dif
 ![Timeline scrubber](screenshots/snapshot.png)
 
 Block references show context - embed a block and you see its parent and children, not just the line. Tooltips throughout the app use a lock-on-hover pattern inspired by Paradox strategy games.
+
+Snapshots and indexes are stored in a SQLite file to keep your markdown folder clean. It's a single file, so you still own all your data.
+
+## Running it
+
+Requires [Ollama](https://ollama.com) running locally. Other local LLM providers and hosted services coming eventually.
+
+```
+git clone https://github.com/yangchenyun/chynotes.git
+cd chynotes
+npm install
+npm run electron:dev
+```
+
+## Why
+
+LogSeq is moving to a database format. I wanted to keep plain markdown files.
+
+I also wanted AI features baked in, and a flow that works better for me - soft-locked past notes and a timeline scrubber. Discarded ideas are still ideas; the scrubber lets you recover them without cluttering your notes.
+
+## Direction
+
+This will always be an outliner. Mobile is planned. AI features will expand - right now we have semantic backlinks via Ollama embeddings, with support for other embedding models coming. Tag pages may eventually support AI-generated React components via prompts, as a way to build custom views without Datalog queries.
+
+## License
+
+AGPL-3.0
