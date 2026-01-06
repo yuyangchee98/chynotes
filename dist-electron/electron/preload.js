@@ -109,4 +109,7 @@ electron_1.contextBridge.exposeInMainWorld('api', {
     getBlockById: (id) => {
         return electron_1.ipcRenderer.invoke('get-block-by-id', id);
     },
+    getBlockWithChildren: (id) => {
+        return electron_1.ipcRenderer.invoke('get-block-with-children', id);
+    },
 });

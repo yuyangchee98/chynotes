@@ -117,16 +117,17 @@ const editorTheme = EditorView.theme({
     height: '0.25em',
     opacity: '0.5',
   },
-  // Block reference styling
+  // Block reference styling - wrapper
   '.cm-block-reference': {
     backgroundColor: 'var(--bg-tertiary)',
-    borderRadius: '4px',
-    padding: '2px 6px',
+    borderRadius: '6px',
+    padding: '4px 8px',
     cursor: 'pointer',
-    fontStyle: 'italic',
     borderLeft: '2px solid var(--accent)',
-    display: 'inline',
-    color: 'var(--text-secondary)',
+    display: 'inline-block',
+    verticalAlign: 'top',
+    maxWidth: '100%',
+    margin: '2px 0',
   },
   '.cm-block-reference:hover': {
     backgroundColor: 'var(--accent-subtle)',
@@ -135,11 +136,31 @@ const editorTheme = EditorView.theme({
     color: 'var(--text-muted)',
     cursor: 'default',
     borderLeftColor: 'var(--text-muted)',
+    fontStyle: 'italic',
   },
-  '.cm-block-reference-circular': {
+  // Block reference container
+  '.cm-block-ref-container': {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+  },
+  '.cm-block-ref-parent': {
+    color: 'var(--text-secondary)',
+    fontSize: '0.95em',
+    lineHeight: '1.4',
+  },
+  '.cm-block-ref-children': {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1px',
+    marginTop: '2px',
+    paddingTop: '2px',
+    borderTop: '1px solid var(--border)',
+  },
+  '.cm-block-ref-child': {
     color: 'var(--text-muted)',
-    cursor: 'default',
-    borderLeftColor: 'var(--text-muted)',
+    fontSize: '0.9em',
+    lineHeight: '1.35',
   },
 })
 
@@ -190,8 +211,8 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
   const [dialogDay, setDialogDay] = useState<{ dateString: string; formattedDate: string; clickedBlockContent: string } | null>(null)
   const [hoveredBlock, setHoveredBlock] = useState<{ dateString: string; start: number; end: number } | null>(null)
 
-  // Block reference cache for ((block-id)) embeds
-  const [blockCache, setBlockCache] = useState<Map<string, BlockRecord | null>>(new Map())
+  // Block reference cache for ((block-id)) embeds - stores parent + children
+  const [blockCache, setBlockCache] = useState<Map<string, BlockRecord[]>>(new Map())
 
   // Track the currently active day for snapshots (for auto-save)
   const [activeDay, setActiveDay] = useState<{ dateString: string; content: string } | null>(null)
@@ -555,17 +576,18 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
 
       for (const id of allRefIds) {
         if (!newCache.has(id)) {
-          const block = await window.api.getBlockById(id)
-          newCache.set(id, block)
+          // Fetch parent block with all its children
+          const blocks = await window.api.getBlockWithChildren(id)
+          newCache.set(id, blocks)
           needsUpdate = true
 
           // Fetch nested refs too
-          if (block) {
+          for (const block of blocks) {
             const nestedIds = extractBlockRefIds(block.content)
             for (const nestedId of nestedIds) {
               if (!newCache.has(nestedId)) {
-                const nestedBlock = await window.api.getBlockById(nestedId)
-                newCache.set(nestedId, nestedBlock)
+                const nestedBlocks = await window.api.getBlockWithChildren(nestedId)
+                newCache.set(nestedId, nestedBlocks)
               }
             }
           }

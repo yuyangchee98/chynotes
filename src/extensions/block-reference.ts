@@ -2,7 +2,7 @@
  * Block Reference Extension
  *
  * Renders ((block-id)) syntax as inline embeds showing the referenced block content.
- * Supports recursive expansion up to 3 levels deep with circular reference detection.
+ * Supports parent-child relationships - shows block with all its children.
  */
 
 import {
@@ -32,7 +32,8 @@ export interface BlockRecord {
 
 // Configuration for the block reference extension
 interface BlockRefConfig {
-  blockCache: Map<string, BlockRecord | null>
+  // Cache now stores arrays of blocks (parent + children)
+  blockCache: Map<string, BlockRecord[]>
   onClick?: (noteDate: string, lineNumber: number) => void
 }
 
@@ -41,116 +42,89 @@ const blockRefConfig = Facet.define<BlockRefConfig, BlockRefConfig>({
   combine: values => values[0] ?? { blockCache: new Map() }
 })
 
-// Maximum recursion depth for nested block references
-const MAX_DEPTH = 3
-
 /**
- * Widget that displays a block reference inline
+ * Widget that displays a block reference with children
  */
 class BlockRefWidget extends WidgetType {
   constructor(
     readonly blockId: string,
-    readonly block: BlockRecord | null,
-    readonly config: BlockRefConfig,
-    readonly depth: number = 0,
-    readonly visitedIds: Set<string> = new Set()
+    readonly blocks: BlockRecord[], // Parent + children
+    readonly config: BlockRefConfig
   ) {
     super()
   }
 
   eq(other: BlockRefWidget) {
     return other.blockId === this.blockId &&
-           other.block?.content === this.block?.content &&
-           other.depth === this.depth
+           other.blocks.length === this.blocks.length &&
+           other.blocks.every((b, i) => b.content === this.blocks[i]?.content)
   }
 
   toDOM() {
     const wrapper = document.createElement('span')
     wrapper.className = 'cm-block-reference'
 
-    // Check for circular reference
-    if (this.visitedIds.has(this.blockId)) {
-      wrapper.className += ' cm-block-reference-circular'
-      wrapper.textContent = '[Circular reference]'
-      return wrapper
-    }
-
-    // Check if block exists
-    if (!this.block) {
+    // Check if blocks exist
+    if (this.blocks.length === 0) {
       wrapper.className += ' cm-block-reference-missing'
       wrapper.textContent = '[Block not found]'
       return wrapper
     }
 
-    // Strip block ID from content for display
-    let displayContent = this.block.content.replace(/\s*§[a-z0-9]+§\s*$/, '')
+    const parentBlock = this.blocks[0]
+    const children = this.blocks.slice(1)
+    const hasChildren = children.length > 0
 
-    // Strip leading bullet if present
-    displayContent = displayContent.replace(/^\s*-\s*/, '')
+    // Create container
+    const container = document.createElement('div')
+    container.className = 'cm-block-ref-container'
 
-    // Handle nested block references (recursive expansion)
-    if (this.depth < MAX_DEPTH) {
-      const newVisitedIds = new Set(this.visitedIds)
-      newVisitedIds.add(this.blockId)
+    // Parent block content
+    const parentDiv = document.createElement('div')
+    parentDiv.className = 'cm-block-ref-parent'
+    let parentContent = parentBlock.content
+      .replace(/\s*§[a-z0-9]+§\s*$/, '') // Strip block ID
+      .replace(/^\s*-\s*/, '') // Strip bullet
+    parentDiv.textContent = parentContent
+    container.appendChild(parentDiv)
 
-      // Find nested references
-      const nestedRefs = [...displayContent.matchAll(BLOCK_REF_PATTERN)]
+    // Children (if any)
+    if (hasChildren) {
+      const childrenContainer = document.createElement('div')
+      childrenContainer.className = 'cm-block-ref-children'
 
-      if (nestedRefs.length > 0) {
-        // Build content with nested widgets
-        let lastIndex = 0
-        const fragment = document.createDocumentFragment()
+      for (const child of children) {
+        const childDiv = document.createElement('div')
+        childDiv.className = 'cm-block-ref-child'
 
-        for (const match of nestedRefs) {
-          // Add text before this reference
-          if (match.index! > lastIndex) {
-            fragment.appendChild(
-              document.createTextNode(displayContent.slice(lastIndex, match.index))
-            )
-          }
+        // Calculate relative indent (relative to parent)
+        const relativeIndent = child.indent_level - parentBlock.indent_level
+        childDiv.style.paddingLeft = `${relativeIndent * 12}px`
 
-          // Create nested widget
-          const nestedId = match[1]
-          const nestedBlock = this.config.blockCache.get(nestedId) ?? null
-          const nestedWidget = new BlockRefWidget(
-            nestedId,
-            nestedBlock,
-            this.config,
-            this.depth + 1,
-            newVisitedIds
-          )
-          fragment.appendChild(nestedWidget.toDOM())
-
-          lastIndex = match.index! + match[0].length
-        }
-
-        // Add remaining text
-        if (lastIndex < displayContent.length) {
-          fragment.appendChild(
-            document.createTextNode(displayContent.slice(lastIndex))
-          )
-        }
-
-        wrapper.appendChild(fragment)
-      } else {
-        wrapper.textContent = displayContent
+        let childContent = child.content
+          .replace(/\s*§[a-z0-9]+§\s*$/, '') // Strip block ID
+          .replace(/^\s*-\s*/, '') // Strip bullet
+        childDiv.textContent = childContent
+        childrenContainer.appendChild(childDiv)
       }
-    } else {
-      // Max depth reached, show content without further expansion
-      wrapper.textContent = displayContent
+
+      container.appendChild(childrenContainer)
     }
 
+    wrapper.appendChild(container)
+
     // Add click handler for navigation
-    if (this.config.onClick && this.block) {
+    if (this.config.onClick && parentBlock) {
       wrapper.style.cursor = 'pointer'
       wrapper.addEventListener('click', (e) => {
         e.preventDefault()
         e.stopPropagation()
-        this.config.onClick!(this.block!.note_date, this.block!.line_number)
+        this.config.onClick!(parentBlock.note_date, parentBlock.line_number)
       })
 
       // Add title for hover info
-      wrapper.title = `From ${this.block.note_date} (click to navigate)`
+      const childCount = children.length
+      wrapper.title = `From ${parentBlock.note_date}${childCount > 0 ? ` (${childCount} children)` : ''} - click to navigate`
     }
 
     return wrapper
@@ -193,8 +167,8 @@ function buildDecorations(view: EditorView): DecorationSet {
   const refs = findBlockRefs(view)
 
   for (const ref of refs) {
-    const block = config.blockCache.get(ref.blockId) ?? null
-    const widget = new BlockRefWidget(ref.blockId, block, config)
+    const blocks = config.blockCache.get(ref.blockId) ?? []
+    const widget = new BlockRefWidget(ref.blockId, blocks, config)
 
     builder.add(ref.from, ref.to, Decoration.replace({ widget }))
   }

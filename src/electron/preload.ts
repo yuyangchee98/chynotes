@@ -215,4 +215,8 @@ contextBridge.exposeInMainWorld('api', {
   getBlockById: (id: string): Promise<BlockRecord | null> => {
     return ipcRenderer.invoke('get-block-by-id', id)
   },
+
+  getBlockWithChildren: (id: string): Promise<BlockRecord[]> => {
+    return ipcRenderer.invoke('get-block-with-children', id)
+  },
 })

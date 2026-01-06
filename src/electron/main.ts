@@ -55,6 +55,7 @@ import {
   getEmbeddedBlockCount,
   getTotalBlockCount,
   getBlockById,
+  getBlockWithChildren,
 } from '../core/database'
 import {
   findSemanticallySimilar,
@@ -264,6 +265,10 @@ ipcMain.handle('list-embedding-models', async () => {
 // Block operations
 ipcMain.handle('get-block-by-id', (_event, id: string) => {
   return getBlockById(id)
+})
+
+ipcMain.handle('get-block-with-children', (_event, id: string) => {
+  return getBlockWithChildren(id)
 })
 
 app.whenReady().then(async () => {

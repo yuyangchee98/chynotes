@@ -184,6 +184,9 @@ electron_1.ipcMain.handle('list-embedding-models', async () => {
 electron_1.ipcMain.handle('get-block-by-id', (_event, id) => {
     return (0, database_2.getBlockById)(id);
 });
+electron_1.ipcMain.handle('get-block-with-children', (_event, id) => {
+    return (0, database_2.getBlockWithChildren)(id);
+});
 electron_1.app.whenReady().then(async () => {
     // Initial index of all notes
     await (0, index_manager_1.reindexAll)();

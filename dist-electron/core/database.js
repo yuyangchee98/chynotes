@@ -70,6 +70,7 @@ exports.deletePage = deletePage;
 exports.pageExists = pageExists;
 exports.upsertBlock = upsertBlock;
 exports.getBlockById = getBlockById;
+exports.getBlockWithChildren = getBlockWithChildren;
 exports.getBlocksForNote = getBlocksForNote;
 exports.deleteBlocksForNote = deleteBlocksForNote;
 exports.addBlockTag = addBlockTag;
@@ -568,6 +569,31 @@ function getBlockById(id) {
     const db = getDatabase();
     const stmt = db.prepare('SELECT * FROM blocks WHERE id = ?');
     return stmt.get(id) || null;
+}
+/**
+ * Get a block with all its children (based on indent level)
+ */
+function getBlockWithChildren(id) {
+    const db = getDatabase();
+    const parent = getBlockById(id);
+    if (!parent)
+        return [];
+    // Get all blocks from the same note, ordered by line number
+    const allBlocks = getBlocksForNote(parent.note_date);
+    // Find the parent block and collect children
+    const result = [parent];
+    const parentIndex = allBlocks.findIndex(b => b.id === id);
+    if (parentIndex === -1)
+        return result;
+    const parentIndent = parent.indent_level;
+    // Collect all following blocks with higher indent (children)
+    for (let i = parentIndex + 1; i < allBlocks.length; i++) {
+        const block = allBlocks[i];
+        if (block.indent_level <= parentIndent)
+            break; // Same or less indent = sibling/parent
+        result.push(block);
+    }
+    return result;
 }
 /**
  * Get all blocks for a note date
