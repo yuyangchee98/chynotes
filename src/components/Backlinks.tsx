@@ -208,12 +208,13 @@ function SemanticBlockItem({
         {renderContent()}
       </span>
 
-      {/* Hover-revealed percentage */}
+      {/* Percentage */}
       <span
-        className="flex-shrink-0 text-xs self-center opacity-0 group-hover:opacity-60 transition-opacity duration-150"
+        className="flex-shrink-0 text-xs self-center"
         style={{
           color: 'var(--text-muted)',
           fontVariantNumeric: 'tabular-nums',
+          opacity: 0.6,
         }}
       >
         {similarityPercent}%
