@@ -414,7 +414,17 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
         className="flex-1 overflow-auto px-6 py-4"
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
-        <div className="max-w-3xl mx-auto relative">
+        <div
+          className={`max-w-3xl mx-auto relative ${isLocked ? 'editor-locked' : ''}`}
+          onClick={isLocked && !isViewingHistory ? handleLockedEditorClick : undefined}
+          style={isLocked && !isViewingHistory ? { cursor: 'pointer' } : undefined}
+        >
+          <style>{`
+            .editor-locked .cm-line:hover {
+              background-color: var(--accent-subtle) !important;
+              border-radius: 4px;
+            }
+          `}</style>
           {isDiffMode && snapshots.length > 0 ? (
             // Diff view mode
             <DiffView oldText={diffOldText} newText={content} />
@@ -460,17 +470,6 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
                     backgroundColor: 'var(--bg-secondary)',
                     opacity: 0.15,
                   }}
-                />
-              )}
-              {/* Locked overlay for past notes - clickable to show dialog */}
-              {isLocked && !isViewingHistory && (
-                <div
-                  className="absolute inset-0 rounded cursor-pointer"
-                  style={{
-                    backgroundColor: 'var(--bg-secondary)',
-                    opacity: 0.6,
-                  }}
-                  onClick={handleLockedEditorClick}
                 />
               )}
             </>

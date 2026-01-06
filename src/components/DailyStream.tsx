@@ -528,6 +528,12 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
 
   return (
     <div className="flex-1 flex flex-col h-full">
+      <style>{`
+        .editor-locked .cm-line:hover {
+          background-color: var(--accent-subtle) !important;
+          border-radius: 4px;
+        }
+      `}</style>
       {/* Header - draggable region */}
       <div
         className="px-6 pt-10 pb-3"
@@ -771,7 +777,11 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
                 </div>
 
                 {/* Day editor */}
-                <div className="relative">
+                <div
+                  className={`relative ${isLocked ? 'editor-locked' : ''}`}
+                  onClick={isLocked && !showingSnapshot ? (e) => handleLockedDayClick(day, e) : undefined}
+                  style={isLocked && !showingSnapshot ? { cursor: 'pointer' } : undefined}
+                >
                   {showDiff ? (
                     <DiffView oldText={diffOldText} newText={day.content} />
                   ) : (
@@ -814,17 +824,6 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
                             backgroundColor: 'var(--bg-secondary)',
                             opacity: 0.15,
                           }}
-                        />
-                      )}
-                      {/* Locked overlay for past notes - clickable to show dialog */}
-                      {isLocked && !showingSnapshot && (
-                        <div
-                          className="absolute inset-0 rounded cursor-pointer"
-                          style={{
-                            backgroundColor: 'var(--bg-secondary)',
-                            opacity: 0.6,
-                          }}
-                          onClick={(e) => handleLockedDayClick(day, e)}
                         />
                       )}
                     </>
