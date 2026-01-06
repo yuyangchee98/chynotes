@@ -183,10 +183,11 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
   const todayEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const saveTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map())
+  const editorRefs = useRef<Map<string, { view: EditorView } | null>>(new Map())
 
   // Soft-lock state for past notes
   const [unlockedDays, setUnlockedDays] = useState<Set<string>>(new Set())
-  const [dialogDay, setDialogDay] = useState<{ dateString: string; formattedDate: string; content: string } | null>(null)
+  const [dialogDay, setDialogDay] = useState<{ dateString: string; formattedDate: string; clickedBlockContent: string } | null>(null)
 
   // Block reference cache for ((block-id)) embeds
   const [blockCache, setBlockCache] = useState<Map<string, BlockRecord | null>>(new Map())
@@ -424,13 +425,29 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
     return !isToday(date) && !unlockedDays.has(dateString)
   }, [unlockedDays])
 
-  // Handle click on locked day editor
-  const handleLockedDayClick = useCallback((day: DayBlock) => {
+  // Handle click on locked day editor - detect which block was clicked
+  const handleLockedDayClick = useCallback((day: DayBlock, event: React.MouseEvent) => {
     const formatted = formatDateFromDate(day.date)
+    const editorRef = editorRefs.current.get(day.dateString)
+
+    let clickedBlockContent = ''
+    if (editorRef?.view) {
+      const pos = editorRef.view.posAtCoords({ x: event.clientX, y: event.clientY })
+      if (pos !== null) {
+        const line = editorRef.view.state.doc.lineAt(pos)
+        clickedBlockContent = line.text
+      }
+    }
+    // Fallback to first line if click position can't be determined
+    if (!clickedBlockContent) {
+      const lines = day.content.split('\n').filter(l => l.trim())
+      clickedBlockContent = lines[0] || ''
+    }
+
     setDialogDay({
       dateString: day.dateString,
       formattedDate: formatted.date,
-      content: day.content
+      clickedBlockContent
     })
   }, [])
 
@@ -442,14 +459,10 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
     setDialogDay(null)
   }, [dialogDay])
 
-  const handleCopyToTodayClick = useCallback(() => {
-    if (dialogDay) {
-      // Extract block ID from first line and create a reference
-      const lines = dialogDay.content.split('\n').filter(l => l.trim())
-      const firstLine = lines[0] || ''
-      const blockIdMatch = firstLine.match(/§([a-f0-9]{8})§/)
+  const handleReferenceToTodayClick = useCallback(() => {
+    if (dialogDay?.clickedBlockContent) {
+      const blockIdMatch = dialogDay.clickedBlockContent.match(/§([a-f0-9]{8})§/)
       if (blockIdMatch) {
-        // Create block reference instead of copying text
         onCopyToToday?.(`- ((${blockIdMatch[1]}))`)
       }
     }
@@ -764,6 +777,7 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
                   ) : (
                     <>
                       <CodeMirror
+                        ref={el => editorRefs.current.set(day.dateString, el)}
                         value={displayContent}
                         onChange={(value) => handleContentChange(index, value)}
                         extensions={[
@@ -808,9 +822,9 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
                           className="absolute inset-0 rounded cursor-pointer"
                           style={{
                             backgroundColor: 'var(--bg-secondary)',
-                            opacity: 0.1,
+                            opacity: 0.6,
                           }}
-                          onClick={() => handleLockedDayClick(day)}
+                          onClick={(e) => handleLockedDayClick(day, e)}
                         />
                       )}
                     </>
@@ -833,8 +847,9 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
       <EditConfirmationDialog
         isOpen={dialogDay !== null}
         dateString={dialogDay?.formattedDate ?? ''}
+        blockContent={dialogDay?.clickedBlockContent}
         onEditAnyway={handleEditAnyway}
-        onCopyToToday={handleCopyToTodayClick}
+        onReferenceToToday={handleReferenceToTodayClick}
         onCancel={handleCancelDialog}
       />
     </div>

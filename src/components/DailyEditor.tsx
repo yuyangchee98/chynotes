@@ -161,6 +161,7 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
   // Soft-lock state for non-today notes
   const [unlocked, setUnlocked] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [clickedBlockContent, setClickedBlockContent] = useState<string | null>(null)
   const todayDate = toLocalDateString(new Date())
   const isToday = noteDate === todayDate
   const isLocked = !isToday && !unlocked
@@ -286,33 +287,45 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
     setContent(value)
   }, [isViewingHistory, returnToLive])
 
-  // Handle click on locked editor - show confirmation dialog
-  const handleLockedEditorClick = useCallback(() => {
-    if (isLocked && !showConfirmDialog) {
+  // Handle click on locked editor - show confirmation dialog with clicked block
+  const handleLockedEditorClick = useCallback((event: React.MouseEvent) => {
+    if (isLocked && !showConfirmDialog && editorRef.current?.view) {
+      const view = editorRef.current.view
+      const pos = view.posAtCoords({ x: event.clientX, y: event.clientY })
+      if (pos !== null) {
+        const line = view.state.doc.lineAt(pos)
+        setClickedBlockContent(line.text)
+      } else {
+        // Fallback to first line if click position can't be determined
+        const lines = content.split('\n').filter(l => l.trim())
+        setClickedBlockContent(lines[0] || null)
+      }
       setShowConfirmDialog(true)
     }
-  }, [isLocked, showConfirmDialog])
+  }, [isLocked, showConfirmDialog, content])
 
   // Dialog callbacks
   const handleEditAnyway = useCallback(() => {
     setUnlocked(true)
     setShowConfirmDialog(false)
+    setClickedBlockContent(null)
   }, [])
 
-  const handleCopyToTodayClick = useCallback(() => {
+  const handleReferenceToTodayClick = useCallback(() => {
     setShowConfirmDialog(false)
-    // Extract block ID from first line and create a reference
-    const lines = content.split('\n').filter(l => l.trim())
-    const firstLine = lines[0] || ''
-    const blockIdMatch = firstLine.match(/§([a-f0-9]{8})§/)
-    if (blockIdMatch) {
-      // Create block reference instead of copying text
-      onCopyToToday?.(`- ((${blockIdMatch[1]}))`)
+    // Extract block ID from clicked block and create a reference
+    if (clickedBlockContent) {
+      const blockIdMatch = clickedBlockContent.match(/§([a-f0-9]{8})§/)
+      if (blockIdMatch) {
+        onCopyToToday?.(`- ((${blockIdMatch[1]}))`)
+      }
     }
-  }, [content, onCopyToToday])
+    setClickedBlockContent(null)
+  }, [clickedBlockContent, onCopyToToday])
 
   const handleCancelDialog = useCallback(() => {
     setShowConfirmDialog(false)
+    setClickedBlockContent(null)
   }, [])
 
   // Handle block reference click - navigate to source date
@@ -359,10 +372,26 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
       >
         <div className="flex items-center justify-between">
           <h1
-            className="text-xl font-semibold"
+            className="text-xl font-semibold flex items-center gap-2"
             style={{ color: 'var(--text-primary)' }}
           >
             {dateString}
+            {isLocked && (
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                />
+              </svg>
+            )}
           </h1>
 
           {/* Snapshot slider */}
@@ -439,7 +468,7 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
                   className="absolute inset-0 rounded cursor-pointer"
                   style={{
                     backgroundColor: 'var(--bg-secondary)',
-                    opacity: 0.1,
+                    opacity: 0.6,
                   }}
                   onClick={handleLockedEditorClick}
                 />
@@ -453,8 +482,9 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
       <EditConfirmationDialog
         isOpen={showConfirmDialog}
         dateString={dateString}
+        blockContent={clickedBlockContent ?? undefined}
         onEditAnyway={handleEditAnyway}
-        onCopyToToday={handleCopyToTodayClick}
+        onReferenceToToday={handleReferenceToTodayClick}
         onCancel={handleCancelDialog}
       />
     </div>
