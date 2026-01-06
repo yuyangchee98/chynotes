@@ -16,7 +16,6 @@ function App() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>('system')
-  const [contentToAppend, setContentToAppend] = useState<string | null>(null)
 
   // Load and apply theme
   useEffect(() => {
@@ -86,16 +85,17 @@ function App() {
   }, [])
 
   // Handle copying content from an old note to today
-  const handleCopyToToday = useCallback((content: string) => {
+  const handleCopyToToday = useCallback(async (content: string) => {
+    if (window.api) {
+      const todayStr = toLocalDateString(new Date())
+      const existing = await window.api.readNote(todayStr) || '- '
+      const newContent = existing.trimEnd() + '\n' + content
+      await window.api.writeNote(todayStr, newContent)
+    }
+    // Navigate to today - note is already updated
     setSelectedTag(null)
     setView('single-day')
     setCurrentDate(new Date())
-    setContentToAppend(content)
-  }, [])
-
-  // Clear appended content after it's been processed
-  const handleContentAppended = useCallback(() => {
-    setContentToAppend(null)
   }, [])
 
   return (
@@ -129,8 +129,6 @@ function App() {
             scrollToLine={scrollToLine}
             onScrollComplete={() => setScrollToLine(null)}
             onCopyToToday={handleCopyToToday}
-            contentToAppend={contentToAppend}
-            onContentAppended={handleContentAppended}
             onDateSelect={handleDateSelect}
           />
         )}

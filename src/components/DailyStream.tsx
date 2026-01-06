@@ -442,9 +442,8 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
     setDialogDay(null)
   }, [dialogDay])
 
-  const handleCopyToToday = useCallback(() => {
+  const handleCopyToTodayClick = useCallback(() => {
     if (dialogDay) {
-      // Get first meaningful line
       const lines = dialogDay.content.split('\n').filter(l => l.trim())
       const firstLine = lines[0] || '- '
       onCopyToToday?.(firstLine)
@@ -830,7 +829,7 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
         isOpen={dialogDay !== null}
         dateString={dialogDay?.formattedDate ?? ''}
         onEditAnyway={handleEditAnyway}
-        onCopyToToday={handleCopyToToday}
+        onCopyToToday={handleCopyToTodayClick}
         onCancel={handleCancelDialog}
       />
     </div>

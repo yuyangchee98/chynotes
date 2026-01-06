@@ -22,8 +22,6 @@ interface DailyEditorProps {
   scrollToLine?: number | null
   onScrollComplete?: () => void
   onCopyToToday?: (content: string) => void
-  contentToAppend?: string | null
-  onContentAppended?: () => void
   onDateSelect?: (date: Date, line?: number) => void
 }
 
@@ -155,7 +153,7 @@ const highlightStyle = HighlightStyle.define([
   { tag: t.monospace, fontFamily: 'ui-monospace, monospace', backgroundColor: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.9em' },
 ])
 
-export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, onCopyToToday, contentToAppend, onContentAppended, onDateSelect }: DailyEditorProps) {
+export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, onCopyToToday, onDateSelect }: DailyEditorProps) {
   const [content, setContent] = useState('')
   const editorRef = useRef<{ view: EditorView } | null>(null)
   const noteDate = toLocalDateString(date)
@@ -222,17 +220,6 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
     setShowConfirmDialog(false)
   }, [noteDate])
 
-  // Handle content to append (from Copy to Today)
-  useEffect(() => {
-    if (contentToAppend && isToday) {
-      setContent(prev => {
-        const trimmed = prev.trimEnd()
-        return trimmed + '\n' + contentToAppend
-      })
-      // Clear the appended content flag
-      onContentAppended?.()
-    }
-  }, [contentToAppend, isToday, onContentAppended])
 
   // Fetch block content for ((block-id)) references
   useEffect(() => {
@@ -312,9 +299,8 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
     setShowConfirmDialog(false)
   }, [])
 
-  const handleCopyToToday = useCallback(() => {
+  const handleCopyToTodayClick = useCallback(() => {
     setShowConfirmDialog(false)
-    // Get the current line or first line of content
     const lines = content.split('\n').filter(l => l.trim())
     const firstLine = lines[0] || '- '
     onCopyToToday?.(firstLine)
@@ -463,7 +449,7 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
         isOpen={showConfirmDialog}
         dateString={dateString}
         onEditAnyway={handleEditAnyway}
-        onCopyToToday={handleCopyToToday}
+        onCopyToToday={handleCopyToTodayClick}
         onCancel={handleCancelDialog}
       />
     </div>
