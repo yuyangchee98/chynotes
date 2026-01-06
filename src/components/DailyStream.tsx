@@ -444,9 +444,14 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
 
   const handleCopyToTodayClick = useCallback(() => {
     if (dialogDay) {
+      // Extract block ID from first line and create a reference
       const lines = dialogDay.content.split('\n').filter(l => l.trim())
-      const firstLine = lines[0] || '- '
-      onCopyToToday?.(firstLine)
+      const firstLine = lines[0] || ''
+      const blockIdMatch = firstLine.match(/§([a-f0-9]{8})§/)
+      if (blockIdMatch) {
+        // Create block reference instead of copying text
+        onCopyToToday?.(`- ((${blockIdMatch[1]}))`)
+      }
     }
     setDialogDay(null)
   }, [dialogDay, onCopyToToday])

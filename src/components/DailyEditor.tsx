@@ -301,9 +301,14 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
 
   const handleCopyToTodayClick = useCallback(() => {
     setShowConfirmDialog(false)
+    // Extract block ID from first line and create a reference
     const lines = content.split('\n').filter(l => l.trim())
-    const firstLine = lines[0] || '- '
-    onCopyToToday?.(firstLine)
+    const firstLine = lines[0] || ''
+    const blockIdMatch = firstLine.match(/§([a-f0-9]{8})§/)
+    if (blockIdMatch) {
+      // Create block reference instead of copying text
+      onCopyToToday?.(`- ((${blockIdMatch[1]}))`)
+    }
   }, [content, onCopyToToday])
 
   const handleCancelDialog = useCallback(() => {
