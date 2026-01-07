@@ -95,10 +95,35 @@ class GhostCloseBracketWidget extends WidgetType {
 }
 
 /**
+ * Widget for the "Tab to link" hint at end of line
+ */
+class TabHintWidget extends WidgetType {
+  toDOM() {
+    const span = document.createElement('span')
+    span.className = 'cm-tag-hint'
+    span.textContent = 'Tab to link'
+    span.title = 'Press Tab to accept suggestion, Esc to dismiss'
+    return span
+  }
+
+  eq() {
+    return true
+  }
+
+  ignoreEvent() {
+    return true
+  }
+}
+
+/**
  * Build decorations from suggestions
  */
-function buildGhostDecorations(suggestions: ResolvedSuggestion[]): DecorationSet {
+function buildGhostDecorations(suggestions: ResolvedSuggestion[], doc: { line: (n: number) => { to: number } }): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>()
+
+  if (suggestions.length === 0) {
+    return builder.finish()
+  }
 
   // Sort by position
   const sorted = [...suggestions].sort((a, b) => a.docStart - b.docStart)
@@ -125,6 +150,18 @@ function buildGhostDecorations(suggestions: ResolvedSuggestion[]): DecorationSet
     )
   }
 
+  // Add hint at end of line (use the line of the first suggestion)
+  const firstSuggestion = sorted[0]
+  const line = doc.line(firstSuggestion.lineNumber)
+  builder.add(
+    line.to,
+    line.to,
+    Decoration.widget({
+      widget: new TabHintWidget(),
+      side: 1,
+    })
+  )
+
   return builder.finish()
 }
 
@@ -137,13 +174,13 @@ const ghostDecorator = ViewPlugin.fromClass(
 
     constructor(view: EditorView) {
       const suggestions = view.state.field(suggestionState)
-      this.decorations = buildGhostDecorations(suggestions)
+      this.decorations = buildGhostDecorations(suggestions, view.state.doc)
     }
 
     update(update: ViewUpdate) {
       // Rebuild decorations when suggestions change
       const suggestions = update.state.field(suggestionState)
-      this.decorations = buildGhostDecorations(suggestions)
+      this.decorations = buildGhostDecorations(suggestions, update.state.doc)
     }
   },
   {
@@ -249,11 +286,15 @@ function debounce<T extends (...args: Parameters<T>) => void>(
 function createSuggestionFetcher() {
   let lastCursorLine = -1
 
-  const fetchSuggestions = debounce(async (view: EditorView, lineNumber: number) => {
+  const fetchSuggestions = debounce(async (view: EditorView) => {
     // Don't fetch if view is no longer valid
     if (!view.dom.isConnected) return
 
-    const line = view.state.doc.line(lineNumber)
+    // Get CURRENT cursor position (not stale)
+    const { state } = view
+    const { main } = state.selection
+    const line = state.doc.lineAt(main.from)
+    const lineNumber = line.number
     const lineText = line.text
 
     // Skip empty lines or very short lines
@@ -296,20 +337,19 @@ function createSuggestionFetcher() {
     const line = state.doc.lineAt(main.from)
     const lineNumber = line.number
 
-    // If cursor moved to a different line, clear suggestions and fetch new
+    // If cursor moved to a different line, clear suggestions
     if (lineNumber !== lastCursorLine) {
       lastCursorLine = lineNumber
-      // Clear immediately when changing lines
       update.view.dispatch({ effects: clearSuggestions.of(undefined) })
     }
 
-    // Fetch suggestions for current line (debounced)
-    fetchSuggestions(update.view, lineNumber)
+    // Fetch suggestions (debounced) - will read current position when it fires
+    fetchSuggestions(update.view)
   })
 }
 
 /**
- * CSS theme for ghost brackets
+ * CSS theme for ghost brackets and hint
  */
 const ghostTheme = EditorView.theme({
   '.cm-ghost-bracket': {
@@ -318,6 +358,18 @@ const ghostTheme = EditorView.theme({
     fontWeight: 'normal',
     pointerEvents: 'none',
     userSelect: 'none',
+  },
+  '.cm-tag-hint': {
+    marginLeft: '1em',
+    padding: '2px 6px',
+    fontSize: '0.75em',
+    color: 'var(--text-muted, #888)',
+    backgroundColor: 'var(--bg-tertiary, #f0f0f0)',
+    borderRadius: '4px',
+    opacity: '0.7',
+    pointerEvents: 'none',
+    userSelect: 'none',
+    float: 'right',
   },
 })
 
