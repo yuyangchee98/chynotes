@@ -9,6 +9,7 @@ import { outliner } from '../extensions/outliner'
 import { blockIdHider } from '../extensions/block-id-hider'
 import { blockReference, extractBlockRefIds, BlockRecord } from '../extensions/block-reference'
 import { blockContextMenu } from '../extensions/block-context-menu'
+import { formattingKeymap } from '../extensions/formatting-keymap'
 import { toLocalDateString } from '../utils/format-date'
 import { useSnapshotDebounce } from '../hooks/useSnapshotDebounce'
 import { useSnapshotViewer } from '../hooks/useSnapshotViewer'
@@ -511,6 +512,7 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
                   markdown(),
                   editorTheme,
                   syntaxHighlighting(highlightStyle),
+                  formattingKeymap,
                   tagHighlighter(onTagClick),
                   outliner(),
                   blockIdHider(),

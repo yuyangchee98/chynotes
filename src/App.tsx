@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { DailyEditor } from './components/DailyEditor'
 import { DailyStream } from './components/DailyStream'
@@ -6,6 +6,7 @@ import { PageEditor } from './components/PageEditor'
 import { SearchPage } from './components/SearchPage'
 import { SettingsModal } from './components/SettingsModal'
 import { toLocalDateString } from './utils/format-date'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
 type View = 'stream' | 'single-day' | 'tag' | 'search'
 type Theme = 'light' | 'dark' | 'system'
@@ -97,6 +98,32 @@ function App() {
     setView('single-day')
     setCurrentDate(new Date())
   }, [])
+
+  // Handle escape key navigation
+  const handleEscape = useCallback(() => {
+    // Close settings modal if open
+    if (settingsOpen) {
+      setSettingsOpen(false)
+      return
+    }
+    // Navigate back based on current view
+    if (view === 'search' || view === 'tag') {
+      handleDailyNotesSelect()
+    } else if (view === 'single-day') {
+      setView('stream')
+    }
+  }, [settingsOpen, view, handleDailyNotesSelect])
+
+  // Global keyboard shortcuts
+  const keyboardCallbacks = useMemo(
+    () => ({
+      onOpenSearch: handleSearchSelect,
+      onGoToToday: () => handleDateSelect(new Date()),
+      onEscape: handleEscape,
+    }),
+    [handleSearchSelect, handleDateSelect, handleEscape]
+  )
+  useKeyboardShortcuts(keyboardCallbacks)
 
   return (
     <div className="h-screen flex" style={{ backgroundColor: 'var(--bg-primary)' }}>

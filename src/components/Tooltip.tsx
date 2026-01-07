@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, ReactNode, useEffect } from 'react'
 import { explanations, ExplanationKey } from '../content/explanations'
+import { formatShortcut } from '../utils/platform'
 
 interface TooltipProps {
   explanationKey: ExplanationKey
@@ -232,7 +233,12 @@ export function Tooltip({
           onMouseEnter={handlePanelEnter}
           onMouseLeave={handlePanelLeave}
         >
-          <div className="tooltip-header">{explanation.title}</div>
+          <div className="tooltip-header">
+            {explanation.title}
+            {explanation.shortcut && (
+              <span className="tooltip-shortcut">{formatShortcut(explanation.shortcut)}</span>
+            )}
+          </div>
           <div className="tooltip-body">
             {parseBody(
               explanation.body,
@@ -363,6 +369,19 @@ export function Tooltip({
           color: var(--text-primary);
           margin-bottom: 8px;
           letter-spacing: 0.01em;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .tooltip-shortcut {
+          padding: 2px 6px;
+          background: var(--bg-secondary);
+          border-radius: 4px;
+          font-size: 11px;
+          font-weight: 500;
+          color: var(--text-muted);
+          font-family: ui-monospace, monospace;
         }
 
         .tooltip-body {

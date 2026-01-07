@@ -5,6 +5,7 @@ import { EditorView } from '@codemirror/view'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
 import { tagHighlighter } from '../extensions/tag-highlighter'
+import { formattingKeymap } from '../extensions/formatting-keymap'
 import { useSnapshotViewer } from '../hooks/useSnapshotViewer'
 import { SnapshotSlider } from './SnapshotSlider'
 import { DiffView } from './DiffView'
@@ -243,6 +244,7 @@ export function PageEditor({ pageName, onTagClick, onDateSelect, onBack }: PageE
                   markdown(),
                   editorTheme,
                   syntaxHighlighting(highlightStyle),
+                  formattingKeymap,
                   tagHighlighter(onTagClick),
                   EditorView.lineWrapping,
                   ...(isViewingHistory ? [EditorView.editable.of(false)] : []),

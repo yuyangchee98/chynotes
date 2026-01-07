@@ -9,6 +9,7 @@
 export const explanations = {
   dailyNotes: {
     title: 'Daily Notes',
+    shortcut: 'mod+g',
     body: `Chynotes is built around daily notes — not arbitrary pages. This is intentional.
 
 Use [[tags]] to organize. Every tag becomes a page that automatically collects all its mentions. No need to create or maintain separate pages — just write and tag.`,
@@ -24,6 +25,7 @@ Click any tag to see its page — an auto-generated view of every block that men
 
   search: {
     title: 'Search',
+    shortcut: 'mod+k',
     body: `Fuzzy search — typos and partial matches still work.
 
 Search looks through all your notes. Results are ranked by relevance.`,
@@ -80,3 +82,9 @@ Click any tag to see its page — blocks that mention it, plus semantically rela
 } as const
 
 export type ExplanationKey = keyof typeof explanations
+
+export interface Explanation {
+  title: string
+  body: string
+  shortcut?: string
+}
