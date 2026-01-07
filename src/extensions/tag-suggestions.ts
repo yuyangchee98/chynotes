@@ -703,7 +703,10 @@ function createSuggestionFetcher() {
         api: { getTagSuggestions: (text: string) => Promise<TagSuggestion[]> }
       }).api.getTagSuggestions(lineText)
 
+      console.log('[TagSuggestions] Backend returned:', suggestions)
+
       if (suggestions.length === 0) {
+        console.log('[TagSuggestions] No suggestions, clearing')
         hideCorrectionMenu()
         view.dispatch({ effects: clearSuggestions.of(undefined) })
         return
@@ -712,6 +715,7 @@ function createSuggestionFetcher() {
       // Convert to resolved suggestions and determine corrections
       const resolved: ResolvedSuggestion[] = suggestions.map(s => {
         const isCorrection = s.term.toLowerCase() !== s.tag
+        console.log(`[TagSuggestions] "${s.term}" -> "${s.tag}", reason=${s.reason}, isCorrection=${isCorrection}`)
         const suggestion: ResolvedSuggestion = {
           ...s,
           docStart: line.from + s.startIndex,
@@ -727,6 +731,7 @@ function createSuggestionFetcher() {
 
       // Separate corrections from exact matches
       const corrections = resolved.filter(s => s.isCorrection)
+      console.log('[TagSuggestions] Corrections:', corrections.length, 'Total:', resolved.length)
 
       view.dispatch({
         effects: [
@@ -741,8 +746,10 @@ function createSuggestionFetcher() {
 
       // Show correction menu if there are corrections
       if (corrections.length > 0) {
+        console.log('[TagSuggestions] Showing correction menu')
         showCorrectionMenu(view, corrections, 0)
       } else {
+        console.log('[TagSuggestions] No corrections, hiding menu (but ghost brackets should show)')
         hideCorrectionMenu()
       }
     } catch (error) {
