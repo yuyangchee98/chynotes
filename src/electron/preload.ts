@@ -75,6 +75,15 @@ interface BlockRecord {
   embedded_at: number | null
 }
 
+interface TagSuggestion {
+  term: string
+  tag: string
+  startIndex: number
+  endIndex: number
+  confidence: number
+  reason: 'exact' | 'fuzzy' | 'frequency' | 'semantic'
+}
+
 contextBridge.exposeInMainWorld('api', {
   // Note operations
   readNote: (dateISO: string): Promise<string | null> => {
@@ -218,5 +227,10 @@ contextBridge.exposeInMainWorld('api', {
 
   getBlockWithChildren: (id: string): Promise<BlockRecord[]> => {
     return ipcRenderer.invoke('get-block-with-children', id)
+  },
+
+  // Tag suggestion operations
+  getTagSuggestions: (text: string): Promise<TagSuggestion[]> => {
+    return ipcRenderer.invoke('get-tag-suggestions', text)
   },
 })

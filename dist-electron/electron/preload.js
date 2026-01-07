@@ -112,4 +112,8 @@ electron_1.contextBridge.exposeInMainWorld('api', {
     getBlockWithChildren: (id) => {
         return electron_1.ipcRenderer.invoke('get-block-with-children', id);
     },
+    // Tag suggestion operations
+    getTagSuggestions: (text) => {
+        return electron_1.ipcRenderer.invoke('get-tag-suggestions', text);
+    },
 });

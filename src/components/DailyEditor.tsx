@@ -10,6 +10,7 @@ import { blockIdHider } from '../extensions/block-id-hider'
 import { blockReference, extractBlockRefIds, BlockRecord } from '../extensions/block-reference'
 import { blockContextMenu } from '../extensions/block-context-menu'
 import { formattingKeymap } from '../extensions/formatting-keymap'
+import { tagSuggestions } from '../extensions/tag-suggestions'
 import { toLocalDateString } from '../utils/format-date'
 import { useSnapshotDebounce } from '../hooks/useSnapshotDebounce'
 import { useSnapshotViewer } from '../hooks/useSnapshotViewer'
@@ -519,7 +520,8 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
                   blockReference({ blockCache, onClick: handleBlockRefClick }),
                   blockContextMenu(),
                   EditorView.lineWrapping,
-                  ...((isViewingHistory || isLocked) ? [EditorView.editable.of(false)] : []),
+                  // Tag suggestions only when editor is editable
+                  ...((isViewingHistory || isLocked) ? [EditorView.editable.of(false)] : [tagSuggestions()]),
                 ]}
                 basicSetup={{
                   lineNumbers: false,

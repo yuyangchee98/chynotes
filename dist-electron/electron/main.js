@@ -25,6 +25,7 @@ const prompt_manager_1 = require("../core/prompt-manager");
 const database_2 = require("../core/database");
 const embeddings_1 = require("../core/embeddings");
 const embedding_queue_1 = require("../core/embedding-queue");
+const tag_suggester_1 = require("../core/tag-suggester");
 // Ensure notes and pages directories exist on startup
 (0, file_manager_1.ensureNotesDirectorySync)();
 (0, file_manager_1.ensurePagesDirectorySync)();
@@ -186,6 +187,10 @@ electron_1.ipcMain.handle('get-block-by-id', (_event, id) => {
 });
 electron_1.ipcMain.handle('get-block-with-children', (_event, id) => {
     return (0, database_2.getBlockWithChildren)(id);
+});
+// Tag suggestion IPC handler
+electron_1.ipcMain.handle('get-tag-suggestions', (_event, text) => {
+    return (0, tag_suggester_1.getSuggestionsForBlock)(text);
 });
 electron_1.app.whenReady().then(async () => {
     // Initial index of all notes

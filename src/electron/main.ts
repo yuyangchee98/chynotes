@@ -69,6 +69,7 @@ import {
   setEmbeddingEnabled,
   isEmbeddingEnabled,
 } from '../core/embedding-queue'
+import { getSuggestionsForBlock, TagSuggestion } from '../core/tag-suggester'
 
 // Ensure notes and pages directories exist on startup
 ensureNotesDirectorySync()
@@ -269,6 +270,11 @@ ipcMain.handle('get-block-by-id', (_event, id: string) => {
 
 ipcMain.handle('get-block-with-children', (_event, id: string) => {
   return getBlockWithChildren(id)
+})
+
+// Tag suggestion IPC handler
+ipcMain.handle('get-tag-suggestions', (_event, text: string): TagSuggestion[] => {
+  return getSuggestionsForBlock(text)
 })
 
 app.whenReady().then(async () => {
