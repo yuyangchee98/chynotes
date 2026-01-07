@@ -156,12 +156,14 @@ export function Sidebar({
         {/* Tags */}
         {tags.length > 0 && (
           <div className="px-3 py-2">
-            <h3
-              className="text-xs font-semibold uppercase tracking-wider mb-2"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              Tags
-            </h3>
+            <Tooltip explanationKey="tagsSection">
+              <h3
+                className="text-xs font-semibold uppercase tracking-wider mb-2"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                Tags
+              </h3>
+            </Tooltip>
             <div className="space-y-0.5">
               {tags.map(tag => renderTagNode(tag))}
             </div>

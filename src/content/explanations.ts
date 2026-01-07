@@ -70,6 +70,13 @@ Past notes are soft-locked — you'll be asked before editing.`,
 
 Click any block to jump to it in context.`,
   },
+
+  tagsSection: {
+    title: 'Tags',
+    body: `All your [[tags]] across every note.
+
+Click any tag to see its page — blocks that mention it, plus semantically related ideas.`,
+  },
 } as const
 
 export type ExplanationKey = keyof typeof explanations

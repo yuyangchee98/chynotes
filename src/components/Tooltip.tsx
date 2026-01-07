@@ -72,6 +72,7 @@ export function Tooltip({
   const [isHovering, setIsHovering] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
   const [position, setPosition] = useState({ x: 0, y: 0 })
+  const [isLeftSide, setIsLeftSide] = useState(false)
 
   // Nested tooltip state
   const [nestedTag, setNestedTag] = useState<string | null>(null)
@@ -96,10 +97,27 @@ export function Tooltip({
   const showTooltip = useCallback(() => {
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect()
-      setPosition({
-        x: rect.right + 12,
-        y: rect.top,
-      })
+      const tooltipWidth = 320 // max-width of tooltip
+      const viewportWidth = window.innerWidth
+
+      // Check if tooltip would overflow right side
+      const wouldOverflowRight = rect.right + 12 + tooltipWidth > viewportWidth
+
+      if (wouldOverflowRight) {
+        // Position to the left of trigger
+        setPosition({
+          x: rect.left - 12,
+          y: rect.top,
+        })
+        setIsLeftSide(true)
+      } else {
+        // Position to the right of trigger
+        setPosition({
+          x: rect.right + 12,
+          y: rect.top,
+        })
+        setIsLeftSide(false)
+      }
     }
     setIsVisible(true)
 
@@ -206,8 +224,11 @@ export function Tooltip({
       {isVisible && (
         <div
           ref={panelRef}
-          className={`tooltip-panel ${isLocked ? 'is-locked' : ''}`}
-          style={{ left: position.x, top: position.y }}
+          className={`tooltip-panel ${isLocked ? 'is-locked' : ''} ${isLeftSide ? 'is-left' : ''}`}
+          style={isLeftSide
+            ? { right: window.innerWidth - position.x, top: position.y }
+            : { left: position.x, top: position.y }
+          }
           onMouseEnter={handlePanelEnter}
           onMouseLeave={handlePanelLeave}
         >
@@ -288,6 +309,16 @@ export function Tooltip({
           border-left-width: 3px;
         }
 
+        .tooltip-panel.is-left {
+          border-left: 1px solid var(--border);
+          border-right: 2px solid var(--accent);
+          animation: tooltipInLeft 0.15s ease-out;
+        }
+
+        .tooltip-panel.is-left.is-locked {
+          border-right-width: 3px;
+        }
+
         .tooltip-nested {
           position: absolute;
           animation: tooltipIn 0.12s ease-out;
@@ -308,6 +339,17 @@ export function Tooltip({
           from {
             opacity: 0;
             transform: translateX(-8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+
+        @keyframes tooltipInLeft {
+          from {
+            opacity: 0;
+            transform: translateX(8px);
           }
           to {
             opacity: 1;
