@@ -208,8 +208,9 @@ function dismissSuggestions(view: EditorView): boolean {
 
 /**
  * Keymap for accepting/dismissing suggestions
+ * Uses highest precedence to override outliner's Tab handler when suggestions exist
  */
-const suggestionKeymap = Prec.high(
+const suggestionKeymap = Prec.highest(
   keymap.of([
     {
       key: 'Tab',
