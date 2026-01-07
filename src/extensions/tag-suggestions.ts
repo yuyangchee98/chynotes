@@ -28,11 +28,23 @@ interface ResolvedSuggestion extends TagSuggestion {
   docStart: number
   docEnd: number
   lineNumber: number
+  isCorrection: boolean  // true if term !== tag (needs replacement)
+  correctionLabel?: string  // e.g., "(typo)", "(plural)", "(repeated)"
 }
 
-// State effect to update suggestions
+/**
+ * State for the correction menu
+ */
+interface CorrectionMenuState {
+  isOpen: boolean
+  corrections: ResolvedSuggestion[]
+  selectedIndex: number
+}
+
+// State effects
 const setSuggestions = StateEffect.define<ResolvedSuggestion[]>()
 const clearSuggestions = StateEffect.define<void>()
+const setCorrectionMenuState = StateEffect.define<Partial<CorrectionMenuState>>()
 
 // State field to track current suggestions
 const suggestionState = StateField.define<ResolvedSuggestion[]>({
@@ -53,6 +65,68 @@ const suggestionState = StateField.define<ResolvedSuggestion[]>({
     return suggestions
   }
 })
+
+// State field for correction menu
+const correctionMenuState = StateField.define<CorrectionMenuState>({
+  create: () => ({ isOpen: false, corrections: [], selectedIndex: 0 }),
+  update(state, tr) {
+    for (const effect of tr.effects) {
+      if (effect.is(setCorrectionMenuState)) {
+        return { ...state, ...effect.value }
+      }
+      if (effect.is(clearSuggestions)) {
+        return { isOpen: false, corrections: [], selectedIndex: 0 }
+      }
+    }
+    // Close menu if document changed
+    if (tr.docChanged) {
+      return { isOpen: false, corrections: [], selectedIndex: 0 }
+    }
+    return state
+  }
+})
+
+/**
+ * Determine the correction label based on suggestion properties
+ */
+function getCorrectionLabel(suggestion: ResolvedSuggestion): string {
+  const termLower = suggestion.term.toLowerCase()
+  const tag = suggestion.tag
+
+  if (suggestion.reason === 'frequency') {
+    return '(repeated)'
+  }
+
+  if (suggestion.reason === 'semantic') {
+    return '(related)'
+  }
+
+  // For fuzzy matches, try to determine if it's plural or typo
+  if (suggestion.reason === 'fuzzy' || suggestion.reason === 'exact') {
+    // Check for plural/singular: simple heuristic
+    // If one ends with 's' and the other doesn't (and they're otherwise similar)
+    const termEndsWithS = termLower.endsWith('s')
+    const tagEndsWithS = tag.endsWith('s')
+
+    if (termEndsWithS !== tagEndsWithS) {
+      // Check if removing/adding 's' makes them equal or very similar
+      const termWithoutS = termLower.endsWith('s') ? termLower.slice(0, -1) : termLower
+      const tagWithoutS = tag.endsWith('s') ? tag.slice(0, -1) : tag
+      const termWithS = termLower.endsWith('s') ? termLower : termLower + 's'
+      const tagWithS = tag.endsWith('s') ? tag : tag + 's'
+
+      if (termWithoutS === tagWithoutS || termWithS === tagWithS ||
+          termWithoutS === tag || termLower === tagWithoutS) {
+        return '(plural)'
+      }
+    }
+
+    // Otherwise it's likely a typo
+    return '(typo)'
+  }
+
+  return ''
+}
 
 /**
  * Widget for ghost opening bracket [[
@@ -95,19 +169,28 @@ class GhostCloseBracketWidget extends WidgetType {
 }
 
 /**
- * Widget for the "Tab to link" hint at end of line
+ * Widget for the hint at end of line
  */
-class TabHintWidget extends WidgetType {
+class HintWidget extends WidgetType {
+  constructor(private hasCorrections: boolean) {
+    super()
+  }
+
   toDOM() {
     const span = document.createElement('span')
     span.className = 'cm-tag-hint'
-    span.textContent = 'Tab to link'
-    span.title = 'Press Tab to accept suggestion, Esc to dismiss'
+    if (this.hasCorrections) {
+      span.textContent = '↑↓ to select, Tab to accept'
+      span.title = 'Use arrow keys to navigate corrections, Tab to accept, Esc to dismiss'
+    } else {
+      span.textContent = 'Tab to link'
+      span.title = 'Press Tab to accept suggestion, Esc to dismiss'
+    }
     return span
   }
 
-  eq() {
-    return true
+  eq(other: HintWidget) {
+    return other.hasCorrections === this.hasCorrections
   }
 
   ignoreEvent() {
@@ -118,7 +201,10 @@ class TabHintWidget extends WidgetType {
 /**
  * Build decorations from suggestions
  */
-function buildGhostDecorations(suggestions: ResolvedSuggestion[], doc: { line: (n: number) => { to: number } }): DecorationSet {
+function buildGhostDecorations(
+  suggestions: ResolvedSuggestion[],
+  doc: { line: (n: number) => { to: number } }
+): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>()
 
   if (suggestions.length === 0) {
@@ -127,6 +213,7 @@ function buildGhostDecorations(suggestions: ResolvedSuggestion[], doc: { line: (
 
   // Sort by position
   const sorted = [...suggestions].sort((a, b) => a.docStart - b.docStart)
+  const hasCorrections = sorted.some(s => s.isCorrection)
 
   for (const suggestion of sorted) {
     // Add opening [[ widget before the term
@@ -135,7 +222,7 @@ function buildGhostDecorations(suggestions: ResolvedSuggestion[], doc: { line: (
       suggestion.docStart,
       Decoration.widget({
         widget: new GhostOpenBracketWidget(),
-        side: -1, // Before the position
+        side: -1,
       })
     )
 
@@ -145,19 +232,19 @@ function buildGhostDecorations(suggestions: ResolvedSuggestion[], doc: { line: (
       suggestion.docEnd,
       Decoration.widget({
         widget: new GhostCloseBracketWidget(),
-        side: 1, // After the position
+        side: 1,
       })
     )
   }
 
-  // Add hint at end of line (use the line of the first suggestion)
+  // Add hint at end of line
   const firstSuggestion = sorted[0]
   const line = doc.line(firstSuggestion.lineNumber)
   builder.add(
     line.to,
     line.to,
     Decoration.widget({
-      widget: new TabHintWidget(),
+      widget: new HintWidget(hasCorrections),
       side: 1,
     })
   )
@@ -178,7 +265,6 @@ const ghostDecorator = ViewPlugin.fromClass(
     }
 
     update(update: ViewUpdate) {
-      // Rebuild decorations when suggestions change
       const suggestions = update.state.field(suggestionState)
       this.decorations = buildGhostDecorations(suggestions, update.state.doc)
     }
@@ -188,34 +274,206 @@ const ghostDecorator = ViewPlugin.fromClass(
   }
 )
 
-/**
- * Accept the first (leftmost) suggestion
- */
-function acceptFirstSuggestion(view: EditorView): boolean {
-  const suggestions = view.state.field(suggestionState)
+// ============================================================================
+// Correction Menu (DOM-based)
+// ============================================================================
 
-  if (suggestions.length === 0) {
-    return false // Let Tab do default behavior
+let correctionMenuElement: HTMLDivElement | null = null
+
+/**
+ * Create or update the correction menu DOM element
+ */
+function showCorrectionMenu(
+  view: EditorView,
+  corrections: ResolvedSuggestion[],
+  selectedIndex: number
+) {
+  // Remove existing menu
+  hideCorrectionMenu()
+
+  if (corrections.length === 0) return
+
+  // Create menu element
+  const menu = document.createElement('div')
+  menu.className = 'cm-correction-menu'
+
+  // Get position of the first correction in the editor
+  const firstCorrection = corrections[0]
+  const coords = view.coordsAtPos(firstCorrection.docStart)
+
+  if (!coords) return
+
+  // Position menu below the word
+  menu.style.cssText = `
+    position: fixed;
+    left: ${coords.left}px;
+    top: ${coords.bottom + 4}px;
+    background: var(--bg-primary, #fff);
+    border: 1px solid var(--border, #e5e3df);
+    border-radius: 6px;
+    padding: 4px 0;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    min-width: 200px;
+    max-width: 300px;
+    font-size: 13px;
+  `
+
+  // Add menu items
+  corrections.forEach((correction, index) => {
+    const item = document.createElement('div')
+    item.className = 'cm-correction-item'
+    if (index === selectedIndex) {
+      item.classList.add('cm-correction-selected')
+    }
+
+    // Main text: "term → tag"
+    const mainText = document.createElement('div')
+    mainText.className = 'cm-correction-main'
+    mainText.innerHTML = `<span class="cm-correction-term">${escapeHtml(correction.term)}</span> → <span class="cm-correction-tag">${escapeHtml(correction.tag)}</span>`
+
+    // Label: "(typo)", "(plural)", etc.
+    const label = document.createElement('div')
+    label.className = 'cm-correction-label'
+    label.textContent = correction.correctionLabel || ''
+
+    item.appendChild(mainText)
+    if (correction.correctionLabel) {
+      item.appendChild(label)
+    }
+
+    item.style.cssText = `
+      padding: 6px 12px;
+      cursor: pointer;
+      ${index === selectedIndex ? 'background: var(--bg-tertiary, #eeedea);' : ''}
+    `
+
+    // Click to accept this correction
+    item.addEventListener('click', () => {
+      acceptCorrection(view, correction)
+    })
+
+    // Hover effect
+    item.addEventListener('mouseenter', () => {
+      if (index !== selectedIndex) {
+        item.style.background = 'var(--bg-secondary, #f5f4f1)'
+      }
+    })
+    item.addEventListener('mouseleave', () => {
+      if (index !== selectedIndex) {
+        item.style.background = ''
+      }
+    })
+
+    menu.appendChild(item)
+  })
+
+  // Add to document
+  document.body.appendChild(menu)
+  correctionMenuElement = menu
+
+  // Check if menu goes off-screen and adjust
+  const rect = menu.getBoundingClientRect()
+  const viewportHeight = window.innerHeight
+
+  if (rect.bottom > viewportHeight) {
+    // Position above the word instead
+    menu.style.top = `${coords.top - rect.height - 4}px`
   }
 
-  const first = suggestions[0]
+  // Close on click outside
+  const closeOnClickOutside = (e: MouseEvent) => {
+    if (correctionMenuElement && !correctionMenuElement.contains(e.target as Node)) {
+      hideCorrectionMenu()
+      view.dispatch({
+        effects: setCorrectionMenuState.of({ isOpen: false })
+      })
+      document.removeEventListener('click', closeOnClickOutside)
+    }
+  }
+  setTimeout(() => {
+    document.addEventListener('click', closeOnClickOutside)
+  }, 0)
+}
 
-  // Insert [[ before and ]] after the term
+/**
+ * Hide the correction menu
+ */
+function hideCorrectionMenu() {
+  if (correctionMenuElement) {
+    correctionMenuElement.remove()
+    correctionMenuElement = null
+  }
+}
+
+/**
+ * Escape HTML for safe insertion
+ */
+function escapeHtml(text: string): string {
+  const div = document.createElement('div')
+  div.textContent = text
+  return div.innerHTML
+}
+
+/**
+ * Accept a specific correction (replace + wrap)
+ */
+function acceptCorrection(view: EditorView, correction: ResolvedSuggestion) {
+  const suggestions = view.state.field(suggestionState)
+
+  // Replace the term with the corrected tag
+  const replacement = `[[${correction.tag}]]`
+  const positionDelta = replacement.length - (correction.docEnd - correction.docStart)
+
+  // Filter out this correction and adjust positions of remaining suggestions
+  const remaining = suggestions
+    .filter(s => s.docStart !== correction.docStart)
+    .map(s => ({
+      ...s,
+      docStart: s.docStart > correction.docStart ? s.docStart + positionDelta : s.docStart,
+      docEnd: s.docEnd > correction.docStart ? s.docEnd + positionDelta : s.docEnd,
+    }))
+
+  hideCorrectionMenu()
+
+  view.dispatch({
+    changes: [{ from: correction.docStart, to: correction.docEnd, insert: replacement }],
+    selection: EditorSelection.cursor(correction.docStart + replacement.length),
+    effects: [
+      setSuggestions.of(remaining),
+      setCorrectionMenuState.of({ isOpen: false, corrections: [], selectedIndex: 0 }),
+    ],
+  })
+}
+
+/**
+ * Accept the first non-correction suggestion (wrap as-is)
+ */
+function acceptFirstWrap(view: EditorView): boolean {
+  const suggestions = view.state.field(suggestionState)
+
+  // Find first non-correction suggestion
+  const first = suggestions.find(s => !s.isCorrection)
+
+  if (!first) {
+    return false
+  }
+
+  // Just wrap the term with brackets
   const changes = [
     { from: first.docStart, insert: '[[' },
     { from: first.docEnd, insert: ']]' },
   ]
+  const newCursorPos = first.docEnd + 4
 
-  // Calculate new cursor position (after the closing brackets)
-  const newCursorPos = first.docEnd + 4 // +2 for [[ and +2 for ]]
-
-  // Remove this suggestion from state
-  const remaining = suggestions.slice(1).map(s => ({
-    ...s,
-    // Adjust positions for suggestions after this one
-    docStart: s.docStart + 4,
-    docEnd: s.docEnd + 4,
-  }))
+  // Adjust positions for remaining suggestions
+  const remaining = suggestions
+    .filter(s => s.docStart !== first.docStart)
+    .map(s => ({
+      ...s,
+      docStart: s.docStart > first.docStart ? s.docStart + 4 : s.docStart,
+      docEnd: s.docEnd > first.docStart ? s.docEnd + 4 : s.docEnd,
+    }))
 
   view.dispatch({
     changes,
@@ -226,43 +484,137 @@ function acceptFirstSuggestion(view: EditorView): boolean {
   return true
 }
 
+// ============================================================================
+// Keymap Handlers
+// ============================================================================
+
 /**
- * Dismiss all suggestions
+ * Handle Tab key
  */
-function dismissSuggestions(view: EditorView): boolean {
+function handleTab(view: EditorView): boolean {
+  const menuState = view.state.field(correctionMenuState)
   const suggestions = view.state.field(suggestionState)
 
   if (suggestions.length === 0) {
-    return false
+    return false // Let Tab do default behavior
   }
 
+  // If correction menu is open, accept selected correction
+  if (menuState.isOpen && menuState.corrections.length > 0) {
+    const selected = menuState.corrections[menuState.selectedIndex]
+    if (selected) {
+      acceptCorrection(view, selected)
+      return true
+    }
+  }
+
+  // Otherwise, accept first suggestion (corrections first, then wraps)
+  const corrections = suggestions.filter(s => s.isCorrection)
+  if (corrections.length > 0) {
+    // Accept the first (or selected) correction
+    const selected = corrections[menuState.selectedIndex] || corrections[0]
+    acceptCorrection(view, selected)
+    return true
+  }
+
+  // No corrections, wrap the first exact match
+  return acceptFirstWrap(view)
+}
+
+/**
+ * Handle Escape key
+ */
+function handleEscape(view: EditorView): boolean {
+  const menuState = view.state.field(correctionMenuState)
+  const suggestions = view.state.field(suggestionState)
+
+  // If correction menu is open, just close it (keep ghost brackets)
+  if (menuState.isOpen) {
+    hideCorrectionMenu()
+    view.dispatch({
+      effects: setCorrectionMenuState.of({ isOpen: false })
+    })
+    return true
+  }
+
+  // Otherwise dismiss all suggestions
+  if (suggestions.length > 0) {
+    hideCorrectionMenu()
+    view.dispatch({
+      effects: clearSuggestions.of(undefined),
+    })
+    return true
+  }
+
+  return false
+}
+
+/**
+ * Handle Up arrow key
+ */
+function handleArrowUp(view: EditorView): boolean {
+  const menuState = view.state.field(correctionMenuState)
+
+  if (!menuState.isOpen || menuState.corrections.length === 0) {
+    return false // Let arrow do default behavior
+  }
+
+  // Move selection up (wrap around)
+  const newIndex = menuState.selectedIndex > 0
+    ? menuState.selectedIndex - 1
+    : menuState.corrections.length - 1
+
   view.dispatch({
-    effects: clearSuggestions.of(undefined),
+    effects: setCorrectionMenuState.of({ selectedIndex: newIndex })
   })
+
+  // Update menu UI
+  showCorrectionMenu(view, menuState.corrections, newIndex)
 
   return true
 }
 
 /**
- * Keymap for accepting/dismissing suggestions
- * Uses highest precedence to override outliner's Tab handler when suggestions exist
+ * Handle Down arrow key
+ */
+function handleArrowDown(view: EditorView): boolean {
+  const menuState = view.state.field(correctionMenuState)
+
+  if (!menuState.isOpen || menuState.corrections.length === 0) {
+    return false // Let arrow do default behavior
+  }
+
+  // Move selection down (wrap around)
+  const newIndex = menuState.selectedIndex < menuState.corrections.length - 1
+    ? menuState.selectedIndex + 1
+    : 0
+
+  view.dispatch({
+    effects: setCorrectionMenuState.of({ selectedIndex: newIndex })
+  })
+
+  // Update menu UI
+  showCorrectionMenu(view, menuState.corrections, newIndex)
+
+  return true
+}
+
+/**
+ * Keymap for suggestions and corrections
  */
 const suggestionKeymap = Prec.highest(
   keymap.of([
-    {
-      key: 'Tab',
-      run: acceptFirstSuggestion,
-    },
-    {
-      key: 'Escape',
-      run: dismissSuggestions,
-    },
+    { key: 'Tab', run: handleTab },
+    { key: 'Escape', run: handleEscape },
+    { key: 'ArrowUp', run: handleArrowUp },
+    { key: 'ArrowDown', run: handleArrowDown },
   ])
 )
 
-/**
- * Debounce helper
- */
+// ============================================================================
+// Suggestion Fetcher
+// ============================================================================
+
 function debounce<T extends (...args: Parameters<T>) => void>(
   fn: T,
   delay: number
@@ -280,77 +632,98 @@ function debounce<T extends (...args: Parameters<T>) => void>(
   }
 }
 
-/**
- * Plugin that fetches suggestions after typing stops
- */
 function createSuggestionFetcher() {
   let lastCursorLine = -1
 
   const fetchSuggestions = debounce(async (view: EditorView) => {
-    // Don't fetch if view is no longer valid
     if (!view.dom.isConnected) return
 
-    // Get CURRENT cursor position (not stale)
     const { state } = view
     const { main } = state.selection
     const line = state.doc.lineAt(main.from)
     const lineNumber = line.number
     const lineText = line.text
 
-    // Skip empty lines or very short lines
     if (lineText.trim().length < 3) {
+      hideCorrectionMenu()
       view.dispatch({ effects: clearSuggestions.of(undefined) })
       return
     }
 
     try {
-      // Get suggestions from backend
-      const suggestions: TagSuggestion[] = await (window as unknown as { api: { getTagSuggestions: (text: string) => Promise<TagSuggestion[]> } }).api.getTagSuggestions(lineText)
+      const suggestions: TagSuggestion[] = await (window as unknown as {
+        api: { getTagSuggestions: (text: string) => Promise<TagSuggestion[]> }
+      }).api.getTagSuggestions(lineText)
 
       if (suggestions.length === 0) {
+        hideCorrectionMenu()
         view.dispatch({ effects: clearSuggestions.of(undefined) })
         return
       }
 
-      // Convert to resolved suggestions with document positions
-      const resolved: ResolvedSuggestion[] = suggestions.map(s => ({
-        ...s,
-        docStart: line.from + s.startIndex,
-        docEnd: line.from + s.endIndex,
-        lineNumber,
-      }))
+      // Convert to resolved suggestions and determine corrections
+      const resolved: ResolvedSuggestion[] = suggestions.map(s => {
+        const isCorrection = s.term.toLowerCase() !== s.tag
+        const suggestion: ResolvedSuggestion = {
+          ...s,
+          docStart: line.from + s.startIndex,
+          docEnd: line.from + s.endIndex,
+          lineNumber,
+          isCorrection,
+        }
+        if (isCorrection) {
+          suggestion.correctionLabel = getCorrectionLabel(suggestion)
+        }
+        return suggestion
+      })
 
-      view.dispatch({ effects: setSuggestions.of(resolved) })
+      // Separate corrections from exact matches
+      const corrections = resolved.filter(s => s.isCorrection)
+
+      view.dispatch({
+        effects: [
+          setSuggestions.of(resolved),
+          setCorrectionMenuState.of({
+            isOpen: corrections.length > 0,
+            corrections,
+            selectedIndex: 0,
+          }),
+        ],
+      })
+
+      // Show correction menu if there are corrections
+      if (corrections.length > 0) {
+        showCorrectionMenu(view, corrections, 0)
+      } else {
+        hideCorrectionMenu()
+      }
     } catch (error) {
       console.error('Failed to fetch tag suggestions:', error)
     }
-  }, 500) // 500ms debounce
+  }, 500)
 
   return EditorView.updateListener.of((update) => {
-    // Only fetch when document changes or selection changes
     if (!update.docChanged && !update.selectionSet) return
 
     const { state } = update
     const { main } = state.selection
-
-    // Get current line
     const line = state.doc.lineAt(main.from)
     const lineNumber = line.number
 
-    // If cursor moved to a different line, clear suggestions
     if (lineNumber !== lastCursorLine) {
       lastCursorLine = lineNumber
+      hideCorrectionMenu()
       update.view.dispatch({ effects: clearSuggestions.of(undefined) })
     }
 
-    // Fetch suggestions (debounced) - will read current position when it fires
     fetchSuggestions(update.view)
   })
 }
 
-/**
- * CSS theme for ghost brackets and hint
- */
+// ============================================================================
+// Theme
+// ============================================================================
+
 const ghostTheme = EditorView.theme({
   '.cm-ghost-bracket': {
     color: 'var(--text-muted, #888)',
@@ -373,12 +746,14 @@ const ghostTheme = EditorView.theme({
   },
 })
 
-/**
- * Main extension export
- */
+// ============================================================================
+// Export
+// ============================================================================
+
 export function tagSuggestions() {
   return [
     suggestionState,
+    correctionMenuState,
     ghostDecorator,
     suggestionKeymap,
     createSuggestionFetcher(),
