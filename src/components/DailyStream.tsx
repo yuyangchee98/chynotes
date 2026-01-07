@@ -10,6 +10,7 @@ import { blockIdHider } from '../extensions/block-id-hider'
 import { unsavedHighlighter } from '../extensions/unsaved-highlighter'
 import { blockReference, extractBlockRefIds, BlockRecord } from '../extensions/block-reference'
 import { blockContextMenu } from '../extensions/block-context-menu'
+import { formattingKeymap } from '../extensions/formatting-keymap'
 import { formatDateFromDate, toLocalDateString } from '../utils/format-date'
 import { useSnapshotDebounce } from '../hooks/useSnapshotDebounce'
 import { useSnapshotViewer } from '../hooks/useSnapshotViewer'
@@ -687,6 +688,7 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
                             markdown(),
                             editorTheme,
                             syntaxHighlighting(highlightStyle),
+                            formattingKeymap,
                             tagHighlighter(onTagClick),
                             outliner(),
                             blockIdHider(),
@@ -862,6 +864,7 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
                           markdown(),
                           editorTheme,
                           syntaxHighlighting(highlightStyle),
+                          formattingKeymap,
                           tagHighlighter(onTagClick),
                           outliner(),
                           blockIdHider(),

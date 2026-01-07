@@ -118,10 +118,10 @@ function App() {
   const keyboardCallbacks = useMemo(
     () => ({
       onOpenSearch: handleSearchSelect,
-      onGoToToday: () => handleDateSelect(new Date()),
+      onGoToToday: handleDailyNotesSelect,
       onEscape: handleEscape,
     }),
-    [handleSearchSelect, handleDateSelect, handleEscape]
+    [handleSearchSelect, handleDailyNotesSelect, handleEscape]
   )
   useKeyboardShortcuts(keyboardCallbacks)
 

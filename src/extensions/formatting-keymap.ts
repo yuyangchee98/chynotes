@@ -4,11 +4,13 @@
  * - Cmd/Ctrl + B → Bold (**text**)
  * - Cmd/Ctrl + I → Italic (*text*)
  * - Cmd/Ctrl + Shift + S → Strikethrough (~~text~~)
+ *
+ * Uses Prec.highest() to override CodeMirror's default bindings
+ * (e.g., Mod-i is normally selectParentSyntax for code editing)
  */
 
-import { keymap } from '@codemirror/view'
-import { EditorView } from '@codemirror/view'
-import { EditorSelection } from '@codemirror/state'
+import { keymap, EditorView } from '@codemirror/view'
+import { EditorSelection, Prec } from '@codemirror/state'
 
 /**
  * Wrap the current selection with a markdown wrapper.
@@ -39,18 +41,21 @@ function wrapSelection(view: EditorView, wrapper: string): boolean {
 
 /**
  * CodeMirror keymap extension for markdown formatting
+ * Wrapped in Prec.highest() to override default CodeMirror bindings
  */
-export const formattingKeymap = keymap.of([
-  {
-    key: 'Mod-b',
-    run: (view) => wrapSelection(view, '**'),
-  },
-  {
-    key: 'Mod-i',
-    run: (view) => wrapSelection(view, '*'),
-  },
-  {
-    key: 'Mod-Shift-s',
-    run: (view) => wrapSelection(view, '~~'),
-  },
-])
+export const formattingKeymap = Prec.highest(
+  keymap.of([
+    {
+      key: 'Mod-b',
+      run: (view) => wrapSelection(view, '**'),
+    },
+    {
+      key: 'Mod-i',
+      run: (view) => wrapSelection(view, '*'),
+    },
+    {
+      key: 'Mod-Shift-s',
+      run: (view) => wrapSelection(view, '~~'),
+    },
+  ])
+)
