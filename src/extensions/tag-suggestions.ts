@@ -281,6 +281,47 @@ const ghostDecorator = ViewPlugin.fromClass(
 let correctionMenuElement: HTMLDivElement | null = null
 
 /**
+ * Menu option type - either a correction or "keep as-is"
+ */
+interface MenuOption {
+  type: 'correction' | 'keep-original'
+  suggestion: ResolvedSuggestion
+  displayText: string
+  label: string
+}
+
+/**
+ * Build menu options from corrections
+ * First option: correction, Second option: keep original
+ */
+function buildMenuOptions(corrections: ResolvedSuggestion[]): MenuOption[] {
+  const options: MenuOption[] = []
+
+  for (const correction of corrections) {
+    // Add correction option
+    options.push({
+      type: 'correction',
+      suggestion: correction,
+      displayText: correction.tag,
+      label: correction.correctionLabel || '',
+    })
+
+    // Add "keep original" option
+    options.push({
+      type: 'keep-original',
+      suggestion: correction,
+      displayText: correction.term.toLowerCase(),
+      label: '(as typed)',
+    })
+  }
+
+  return options
+}
+
+// Store current menu options for keyboard navigation
+let currentMenuOptions: MenuOption[] = []
+
+/**
  * Create or update the correction menu DOM element
  */
 function showCorrectionMenu(
@@ -292,6 +333,9 @@ function showCorrectionMenu(
   hideCorrectionMenu()
 
   if (corrections.length === 0) return
+
+  // Build menu options (correction + keep-original for each)
+  currentMenuOptions = buildMenuOptions(corrections)
 
   // Create menu element
   const menu = document.createElement('div')
@@ -314,43 +358,46 @@ function showCorrectionMenu(
     padding: 4px 0;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
     z-index: 1000;
-    min-width: 200px;
+    min-width: 180px;
     max-width: 300px;
     font-size: 13px;
   `
 
-  // Add menu items
-  corrections.forEach((correction, index) => {
+  // Add menu items - single line format
+  currentMenuOptions.forEach((option, index) => {
     const item = document.createElement('div')
     item.className = 'cm-correction-item'
-    if (index === selectedIndex) {
-      item.classList.add('cm-correction-selected')
+
+    // Single line: "tag (label)"
+    // For corrections: "project (fix typo)" or "project (singular)"
+    // For keep: "projects (keep)"
+    let labelText = ''
+    if (option.type === 'correction') {
+      if (option.label === '(typo)') labelText = 'Fix typo'
+      else if (option.label === '(plural)') labelText = 'Singular'
+      else if (option.label === '(repeated)') labelText = 'Suggested'
+      else if (option.label === '(related)') labelText = 'Related'
+      else labelText = 'Suggested'
+    } else {
+      labelText = 'Keep'
     }
 
-    // Main text: "term → tag"
-    const mainText = document.createElement('div')
-    mainText.className = 'cm-correction-main'
-    mainText.innerHTML = `<span class="cm-correction-term">${escapeHtml(correction.term)}</span> → <span class="cm-correction-tag">${escapeHtml(correction.tag)}</span>`
-
-    // Label: "(typo)", "(plural)", etc.
-    const label = document.createElement('div')
-    label.className = 'cm-correction-label'
-    label.textContent = correction.correctionLabel || ''
-
-    item.appendChild(mainText)
-    if (correction.correctionLabel) {
-      item.appendChild(label)
-    }
+    item.innerHTML = `
+      <span style="color: var(--text-primary, #37352f);">[[${escapeHtml(option.displayText)}]]</span>
+      <span style="color: var(--text-muted, #888); margin-left: 8px; font-size: 12px;">${labelText}</span>
+    `
 
     item.style.cssText = `
       padding: 6px 12px;
       cursor: pointer;
+      display: flex;
+      align-items: center;
       ${index === selectedIndex ? 'background: var(--bg-tertiary, #eeedea);' : ''}
     `
 
-    // Click to accept this correction
+    // Click to accept this option
     item.addEventListener('click', () => {
-      acceptCorrection(view, correction)
+      acceptMenuOption(view, option)
     })
 
     // Hover effect
@@ -404,6 +451,7 @@ function hideCorrectionMenu() {
     correctionMenuElement.remove()
     correctionMenuElement = null
   }
+  currentMenuOptions = []
 }
 
 /**
@@ -416,29 +464,38 @@ function escapeHtml(text: string): string {
 }
 
 /**
- * Accept a specific correction (replace + wrap)
+ * Accept a menu option (either correction or keep-original)
  */
-function acceptCorrection(view: EditorView, correction: ResolvedSuggestion) {
+function acceptMenuOption(view: EditorView, option: MenuOption) {
   const suggestions = view.state.field(suggestionState)
+  const suggestion = option.suggestion
 
-  // Replace the term with the corrected tag
-  const replacement = `[[${correction.tag}]]`
-  const positionDelta = replacement.length - (correction.docEnd - correction.docStart)
+  let replacement: string
+  if (option.type === 'correction') {
+    // Replace with corrected tag
+    replacement = `[[${suggestion.tag}]]`
+  } else {
+    // Keep original - wrap the term as-is (lowercase)
+    replacement = `[[${suggestion.term.toLowerCase()}]]`
+  }
 
-  // Filter out this correction and adjust positions of remaining suggestions
+  const positionDelta = replacement.length - (suggestion.docEnd - suggestion.docStart)
+
+  // Filter out this suggestion and adjust positions of remaining suggestions
   const remaining = suggestions
-    .filter(s => s.docStart !== correction.docStart)
+    .filter(s => s.docStart !== suggestion.docStart)
     .map(s => ({
       ...s,
-      docStart: s.docStart > correction.docStart ? s.docStart + positionDelta : s.docStart,
-      docEnd: s.docEnd > correction.docStart ? s.docEnd + positionDelta : s.docEnd,
+      docStart: s.docStart > suggestion.docStart ? s.docStart + positionDelta : s.docStart,
+      docEnd: s.docEnd > suggestion.docStart ? s.docEnd + positionDelta : s.docEnd,
     }))
 
   hideCorrectionMenu()
+  currentMenuOptions = []
 
   view.dispatch({
-    changes: [{ from: correction.docStart, to: correction.docEnd, insert: replacement }],
-    selection: EditorSelection.cursor(correction.docStart + replacement.length),
+    changes: [{ from: suggestion.docStart, to: suggestion.docEnd, insert: replacement }],
+    selection: EditorSelection.cursor(suggestion.docStart + replacement.length),
     effects: [
       setSuggestions.of(remaining),
       setCorrectionMenuState.of({ isOpen: false, corrections: [], selectedIndex: 0 }),
@@ -499,25 +556,16 @@ function handleTab(view: EditorView): boolean {
     return false // Let Tab do default behavior
   }
 
-  // If correction menu is open, accept selected correction
-  if (menuState.isOpen && menuState.corrections.length > 0) {
-    const selected = menuState.corrections[menuState.selectedIndex]
+  // If correction menu is open, accept selected option
+  if (menuState.isOpen && currentMenuOptions.length > 0) {
+    const selected = currentMenuOptions[menuState.selectedIndex]
     if (selected) {
-      acceptCorrection(view, selected)
+      acceptMenuOption(view, selected)
       return true
     }
   }
 
-  // Otherwise, accept first suggestion (corrections first, then wraps)
-  const corrections = suggestions.filter(s => s.isCorrection)
-  if (corrections.length > 0) {
-    // Accept the first (or selected) correction
-    const selected = corrections[menuState.selectedIndex] || corrections[0]
-    acceptCorrection(view, selected)
-    return true
-  }
-
-  // No corrections, wrap the first exact match
+  // No menu open, wrap the first exact match
   return acceptFirstWrap(view)
 }
 
@@ -555,14 +603,14 @@ function handleEscape(view: EditorView): boolean {
 function handleArrowUp(view: EditorView): boolean {
   const menuState = view.state.field(correctionMenuState)
 
-  if (!menuState.isOpen || menuState.corrections.length === 0) {
+  if (!menuState.isOpen || currentMenuOptions.length === 0) {
     return false // Let arrow do default behavior
   }
 
   // Move selection up (wrap around)
   const newIndex = menuState.selectedIndex > 0
     ? menuState.selectedIndex - 1
-    : menuState.corrections.length - 1
+    : currentMenuOptions.length - 1
 
   view.dispatch({
     effects: setCorrectionMenuState.of({ selectedIndex: newIndex })
@@ -580,12 +628,12 @@ function handleArrowUp(view: EditorView): boolean {
 function handleArrowDown(view: EditorView): boolean {
   const menuState = view.state.field(correctionMenuState)
 
-  if (!menuState.isOpen || menuState.corrections.length === 0) {
+  if (!menuState.isOpen || currentMenuOptions.length === 0) {
     return false // Let arrow do default behavior
   }
 
   // Move selection down (wrap around)
-  const newIndex = menuState.selectedIndex < menuState.corrections.length - 1
+  const newIndex = menuState.selectedIndex < currentMenuOptions.length - 1
     ? menuState.selectedIndex + 1
     : 0
 
