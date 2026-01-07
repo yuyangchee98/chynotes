@@ -11,6 +11,7 @@ import { unsavedHighlighter } from '../extensions/unsaved-highlighter'
 import { blockReference, extractBlockRefIds, BlockRecord } from '../extensions/block-reference'
 import { blockContextMenu } from '../extensions/block-context-menu'
 import { formattingKeymap } from '../extensions/formatting-keymap'
+import { tagSuggestions } from '../extensions/tag-suggestions'
 import { formatDateFromDate, toLocalDateString } from '../utils/format-date'
 import { useSnapshotDebounce } from '../hooks/useSnapshotDebounce'
 import { useSnapshotViewer } from '../hooks/useSnapshotViewer'
@@ -696,7 +697,8 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
                             blockContextMenu(),
                             unsavedHighlighter(lastSnapshotContent),
                             EditorView.lineWrapping,
-                            ...(showingSnapshot ? [EditorView.editable.of(false)] : []),
+                            // Tag suggestions only when editable
+                            ...(showingSnapshot ? [EditorView.editable.of(false)] : [tagSuggestions()]),
                           ]}
                           basicSetup={{
                             lineNumbers: false,
@@ -871,7 +873,8 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
                           blockReference({ blockCache, onClick: handleBlockRefClick }),
                           blockContextMenu(),
                           EditorView.lineWrapping,
-                          ...((showingSnapshot || isLocked) ? [EditorView.editable.of(false)] : []),
+                          // Tag suggestions only when editable
+                          ...((showingSnapshot || isLocked) ? [EditorView.editable.of(false)] : [tagSuggestions()]),
                         ]}
                         basicSetup={{
                           lineNumbers: false,
