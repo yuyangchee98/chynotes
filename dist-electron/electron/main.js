@@ -26,6 +26,7 @@ const database_2 = require("../core/database");
 const embeddings_1 = require("../core/embeddings");
 const embedding_queue_1 = require("../core/embedding-queue");
 const tag_suggester_1 = require("../core/tag-suggester");
+const frequency_index_1 = require("../core/frequency-index");
 // Ensure notes and pages directories exist on startup
 (0, file_manager_1.ensureNotesDirectorySync)();
 (0, file_manager_1.ensurePagesDirectorySync)();
@@ -67,6 +68,8 @@ electron_1.ipcMain.handle('write-note', async (_event, dateStr, content) => {
     await (0, file_manager_1.writeNote)(date, content);
     // Re-index this note after writing
     await (0, index_manager_1.indexNote)(date);
+    // Update frequency index (Phase 2 tag suggestions)
+    (0, frequency_index_1.updateFrequencyIndexForNote)((0, file_manager_1.formatDateForFileName)(date), content);
 });
 electron_1.ipcMain.handle('list-notes', async () => {
     const dates = await (0, file_manager_1.listAllNotes)();
@@ -99,7 +102,10 @@ electron_1.ipcMain.handle('list-pages', async () => {
 });
 // Tag-related IPC handlers
 electron_1.ipcMain.handle('reindex-all', async () => {
-    return await (0, index_manager_1.reindexAll)();
+    const result = await (0, index_manager_1.reindexAll)();
+    // Rebuild frequency index after reindexing
+    await (0, frequency_index_1.buildFrequencyIndex)();
+    return result;
 });
 electron_1.ipcMain.handle('get-all-tags', () => {
     return (0, index_manager_1.getAllTagsWithCounts)();
@@ -195,6 +201,8 @@ electron_1.ipcMain.handle('get-tag-suggestions', (_event, text) => {
 electron_1.app.whenReady().then(async () => {
     // Initial index of all notes
     await (0, index_manager_1.reindexAll)();
+    // Build frequency index for Phase 2 tag suggestions
+    await (0, frequency_index_1.buildFrequencyIndex)();
     // Start processing any blocks that need embedding
     (0, embedding_queue_1.processBacklogOnStartup)();
     createWindow();

@@ -70,6 +70,7 @@ import {
   isEmbeddingEnabled,
 } from '../core/embedding-queue'
 import { getSuggestionsForBlock, TagSuggestion } from '../core/tag-suggester'
+import { buildFrequencyIndex, updateFrequencyIndexForNote } from '../core/frequency-index'
 
 // Ensure notes and pages directories exist on startup
 ensureNotesDirectorySync()
@@ -118,6 +119,8 @@ ipcMain.handle('write-note', async (_event, dateStr: string, content: string) =>
   await writeNote(date, content)
   // Re-index this note after writing
   await indexNote(date)
+  // Update frequency index (Phase 2 tag suggestions)
+  updateFrequencyIndexForNote(formatDateForFileName(date), content)
 })
 
 ipcMain.handle('list-notes', async () => {
@@ -158,7 +161,10 @@ ipcMain.handle('list-pages', async () => {
 
 // Tag-related IPC handlers
 ipcMain.handle('reindex-all', async () => {
-  return await reindexAll()
+  const result = await reindexAll()
+  // Rebuild frequency index after reindexing
+  await buildFrequencyIndex()
+  return result
 })
 
 ipcMain.handle('get-all-tags', () => {
@@ -280,6 +286,9 @@ ipcMain.handle('get-tag-suggestions', (_event, text: string): TagSuggestion[] =>
 app.whenReady().then(async () => {
   // Initial index of all notes
   await reindexAll()
+
+  // Build frequency index for Phase 2 tag suggestions
+  await buildFrequencyIndex()
 
   // Start processing any blocks that need embedding
   processBacklogOnStartup()

@@ -153,6 +153,18 @@ function createTables(database: Database.Database): void {
       UNIQUE(block_id, tag_name)
     );
 
+    -- Term frequency for Phase 2 tag suggestions
+    -- Tracks untagged terms that appear across multiple notes
+    CREATE TABLE IF NOT EXISTS term_frequency (
+      id INTEGER PRIMARY KEY,
+      term TEXT UNIQUE NOT NULL,
+      original_forms TEXT NOT NULL,  -- JSON array of original forms ["Sarah", "SARAH"]
+      note_count INTEGER NOT NULL DEFAULT 0,
+      total_count INTEGER NOT NULL DEFAULT 0,
+      notes TEXT NOT NULL,  -- JSON array of note dates
+      updated_at INTEGER
+    );
+
     -- Create indexes for faster queries
     CREATE INDEX IF NOT EXISTS idx_notes_date ON notes(date);
     CREATE INDEX IF NOT EXISTS idx_tag_name ON tags(name);
@@ -167,6 +179,8 @@ function createTables(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_blocks_parent ON blocks(parent_id);
     CREATE INDEX IF NOT EXISTS idx_block_tags_block ON block_tags(block_id);
     CREATE INDEX IF NOT EXISTS idx_block_tags_tag ON block_tags(tag_name);
+    CREATE INDEX IF NOT EXISTS idx_term_frequency_term ON term_frequency(term);
+    CREATE INDEX IF NOT EXISTS idx_term_frequency_note_count ON term_frequency(note_count);
   `)
 
   // Migration: Add embedded_at column if it doesn't exist (for existing databases)
@@ -908,4 +922,106 @@ export function getBlocksNeedingEmbedding(limit: number = 100): BlockRecord[] {
     ORDER BY updated_at DESC
     LIMIT ?
   `).all(limit) as BlockRecord[]
+}
+
+// ============================================================================
+// Term Frequency Table Operations (Phase 2 Tag Suggestions)
+// ============================================================================
+
+export interface TermFrequencyRecord {
+  id: number
+  term: string
+  original_forms: string  // JSON array
+  note_count: number
+  total_count: number
+  notes: string  // JSON array
+  updated_at: number
+}
+
+export interface TermFrequency {
+  term: string
+  originalForms: string[]
+  noteCount: number
+  totalCount: number
+  notes: string[]
+}
+
+/**
+ * Get term frequency by normalized term
+ */
+export function getTermFrequency(term: string): TermFrequency | null {
+  const db = getDatabase()
+  const record = db.prepare('SELECT * FROM term_frequency WHERE term = ?')
+    .get(term) as TermFrequencyRecord | undefined
+
+  if (!record) return null
+
+  return {
+    term: record.term,
+    originalForms: JSON.parse(record.original_forms),
+    noteCount: record.note_count,
+    totalCount: record.total_count,
+    notes: JSON.parse(record.notes)
+  }
+}
+
+/**
+ * Get all terms with noteCount >= minNoteCount
+ */
+export function getFrequentTerms(minNoteCount: number = 2): TermFrequency[] {
+  const db = getDatabase()
+  const records = db.prepare(`
+    SELECT * FROM term_frequency
+    WHERE note_count >= ?
+    ORDER BY note_count DESC, total_count DESC
+  `).all(minNoteCount) as TermFrequencyRecord[]
+
+  return records.map(record => ({
+    term: record.term,
+    originalForms: JSON.parse(record.original_forms),
+    noteCount: record.note_count,
+    totalCount: record.total_count,
+    notes: JSON.parse(record.notes)
+  }))
+}
+
+/**
+ * Upsert term frequency data
+ */
+export function upsertTermFrequency(
+  term: string,
+  originalForms: string[],
+  noteCount: number,
+  totalCount: number,
+  notes: string[]
+): void {
+  const db = getDatabase()
+  const now = Date.now()
+
+  db.prepare(`
+    INSERT INTO term_frequency (term, original_forms, note_count, total_count, notes, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(term) DO UPDATE SET
+      original_forms = excluded.original_forms,
+      note_count = excluded.note_count,
+      total_count = excluded.total_count,
+      notes = excluded.notes,
+      updated_at = excluded.updated_at
+  `).run(term, JSON.stringify(originalForms), noteCount, totalCount, JSON.stringify(notes), now)
+}
+
+/**
+ * Delete a term from frequency index
+ */
+export function deleteTermFrequency(term: string): void {
+  const db = getDatabase()
+  db.prepare('DELETE FROM term_frequency WHERE term = ?').run(term)
+}
+
+/**
+ * Clear all term frequency data (for full rebuild)
+ */
+export function clearTermFrequency(): void {
+  const db = getDatabase()
+  db.prepare('DELETE FROM term_frequency').run()
 }

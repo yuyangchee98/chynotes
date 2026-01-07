@@ -1,5 +1,7 @@
 import Fuse from 'fuse.js'
+import pluralize from 'pluralize'
 import { getTagsWithCounts, TagWithCount, initDatabase } from './database'
+import { queryTermFrequency } from './frequency-index'
 
 /**
  * A suggestion for wrapping a term with [[tag]] brackets
@@ -157,7 +159,54 @@ export function getSuggestionsForBlock(text: string): TagSuggestion[] {
           confidence,
           reason: 'fuzzy'
         })
+        continue
       }
+    }
+
+    // =========================================================================
+    // Pass 2: Frequency Analysis
+    // =========================================================================
+
+    // Pass 2a: Check frequency index for repeated proper nouns/phrases
+    const termFreq = queryTermFrequency(lowerWord)
+    if (termFreq && termFreq.noteCount >= 2) {
+      suggestions.push({
+        term: token.word,
+        tag: termFreq.term,
+        startIndex: token.start,
+        endIndex: token.end,
+        confidence: 0.7,
+        reason: 'frequency'
+      })
+      continue
+    }
+
+    // Pass 2b: Check for plural/singular variants of existing tags
+    const pluralMatch = findPluralSingularMatch(token.word, tags)
+    if (pluralMatch) {
+      suggestions.push({
+        term: token.word,
+        tag: pluralMatch,
+        startIndex: token.start,
+        endIndex: token.end,
+        confidence: 0.9,
+        reason: 'fuzzy'  // variant match shown as fuzzy
+      })
+      continue
+    }
+
+    // Pass 2c: Check for typos of existing tags
+    const typoMatch = findTypoMatch(token.word, tags)
+    if (typoMatch) {
+      suggestions.push({
+        term: token.word,
+        tag: typoMatch,
+        startIndex: token.start,
+        endIndex: token.end,
+        confidence: 0.85,
+        reason: 'fuzzy'  // typo correction shown as fuzzy
+      })
+      continue
     }
   }
 
@@ -188,6 +237,20 @@ export function getSuggestionsForBlock(text: string): TagSuggestion[] {
         endIndex: end,
         confidence: 0.95,
         reason: 'exact'
+      })
+      continue
+    }
+
+    // Pass 2a: Check frequency index for multi-word phrases
+    const phraseFreq = queryTermFrequency(potentialTag)
+    if (phraseFreq && phraseFreq.noteCount >= 2) {
+      suggestions.push({
+        term: phrase,
+        tag: phraseFreq.term,
+        startIndex: start,
+        endIndex: end,
+        confidence: 0.7,
+        reason: 'frequency'
       })
     }
   }
@@ -224,4 +287,104 @@ export function looksLikeProperNoun(word: string, positionInLine: number): boole
   if (positionInLine === 0) return false
 
   return firstUpper && hasLower
+}
+
+// ============================================================================
+// Phase 2: Frequency Analysis Helpers
+// ============================================================================
+
+/**
+ * Calculate Levenshtein distance between two strings
+ */
+function levenshteinDistance(a: string, b: string): number {
+  const matrix: number[][] = []
+
+  // Initialize matrix
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i]
+  }
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j
+  }
+
+  // Fill in the rest of the matrix
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1]
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1,     // insertion
+          matrix[i - 1][j] + 1      // deletion
+        )
+      }
+    }
+  }
+
+  return matrix[b.length][a.length]
+}
+
+/**
+ * Get maximum allowed Levenshtein distance based on word length
+ * - 3-7 char words: max 1 edit
+ * - 8+ char words: max 2 edits
+ */
+function getMaxTypoDistance(wordLength: number): number {
+  if (wordLength < 3) return 0
+  if (wordLength < 8) return 1
+  return 2
+}
+
+/**
+ * Check if a word is a typo of a tag
+ * Returns the matching tag name or null
+ */
+function findTypoMatch(word: string, tags: TagWithCount[]): string | null {
+  const lowerWord = word.toLowerCase()
+  const maxDistance = getMaxTypoDistance(lowerWord.length)
+
+  if (maxDistance === 0) return null
+
+  for (const tag of tags) {
+    const distance = levenshteinDistance(lowerWord, tag.name)
+
+    if (distance > 0 && distance <= maxDistance) {
+      // Bonus check: prefer matches where first letter is the same
+      // (most typos preserve the first letter)
+      if (lowerWord[0] === tag.name[0]) {
+        return tag.name
+      }
+      // Still accept if distance is just 1
+      if (distance === 1) {
+        return tag.name
+      }
+    }
+  }
+
+  return null
+}
+
+/**
+ * Find plural/singular variant match
+ * Returns the matching tag name or null
+ */
+function findPluralSingularMatch(word: string, tags: TagWithCount[]): string | null {
+  const lowerWord = word.toLowerCase()
+
+  // Get singular and plural forms
+  const singularForm = pluralize.singular(lowerWord)
+  const pluralForm = pluralize.plural(lowerWord)
+
+  // Check if any existing tag matches these forms
+  for (const tag of tags) {
+    if (tag.name === singularForm || tag.name === pluralForm) {
+      // Don't suggest if the word is already the exact tag
+      if (tag.name !== lowerWord) {
+        return tag.name
+      }
+    }
+  }
+
+  return null
 }
