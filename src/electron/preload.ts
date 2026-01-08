@@ -84,6 +84,23 @@ interface TagSuggestion {
   reason: 'exact' | 'fuzzy' | 'frequency' | 'semantic'
 }
 
+interface SystemStatus {
+  indexing: {
+    isActive: boolean
+    message: string | null
+  }
+  frequencyIndex: {
+    isActive: boolean
+    message: string | null
+  }
+  embeddings: {
+    isActive: boolean
+    queueLength: number
+    message: string | null
+  }
+  ready: boolean
+}
+
 contextBridge.exposeInMainWorld('api', {
   // Note operations
   readNote: (dateISO: string): Promise<string | null> => {
@@ -245,5 +262,10 @@ contextBridge.exposeInMainWorld('api', {
   // Retroactive tagging
   retroactiveTag: (term: string, tag: string, notes: string[]): Promise<number> => {
     return ipcRenderer.invoke('retroactive-tag', term, tag, notes)
+  },
+
+  // System status
+  getSystemStatus: (): Promise<SystemStatus> => {
+    return ipcRenderer.invoke('get-system-status')
   },
 })

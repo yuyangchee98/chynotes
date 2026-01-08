@@ -27,6 +27,7 @@ const embeddings_1 = require("../core/embeddings");
 const embedding_queue_1 = require("../core/embedding-queue");
 const tag_suggester_1 = require("../core/tag-suggester");
 const frequency_index_1 = require("../core/frequency-index");
+const system_status_1 = require("../core/system-status");
 // Ensure notes and pages directories exist on startup
 (0, file_manager_1.ensureNotesDirectorySync)();
 (0, file_manager_1.ensurePagesDirectorySync)();
@@ -224,11 +225,19 @@ electron_1.ipcMain.handle('retroactive-tag', async (_event, term, tag, notes) =>
     }
     return modifiedCount;
 });
+// System status IPC handler
+electron_1.ipcMain.handle('get-system-status', () => {
+    return (0, system_status_1.getSystemStatus)();
+});
 electron_1.app.whenReady().then(async () => {
     // Initial index of all notes
+    (0, system_status_1.setIndexingStatus)(true, 'Indexing notes...');
     await (0, index_manager_1.reindexAll)();
+    (0, system_status_1.setIndexingStatus)(false);
     // Build frequency index for Phase 2 tag suggestions
+    (0, system_status_1.setFrequencyIndexStatus)(true, 'Building frequency index...');
     await (0, frequency_index_1.buildFrequencyIndex)();
+    (0, system_status_1.setFrequencyIndexStatus)(false);
     // Cleanup old snapshots if auto-cleanup is enabled
     const deletedCount = (0, database_2.autoCleanupSnapshots)();
     if (deletedCount > 0) {
@@ -236,6 +245,8 @@ electron_1.app.whenReady().then(async () => {
     }
     // Start processing any blocks that need embedding
     (0, embedding_queue_1.processBacklogOnStartup)();
+    // Mark system as ready
+    (0, system_status_1.setSystemReady)(true);
     createWindow();
     electron_1.app.on('activate', () => {
         if (electron_1.BrowserWindow.getAllWindows().length === 0) {

@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react'
 import { formatDate } from '../utils/format-date'
 import { Tooltip } from './Tooltip'
 
+interface SystemStatus {
+  indexing: { isActive: boolean; message: string | null }
+  frequencyIndex: { isActive: boolean; message: string | null }
+  embeddings: { isActive: boolean; queueLength: number; message: string | null }
+  ready: boolean
+}
+
 interface SidebarProps {
   onTagSelect: (tag: string) => void
   onDailyNotesSelect: () => void
@@ -28,6 +35,7 @@ export function Sidebar({
   const [tags, setTags] = useState<TagTreeNode[]>([])
   const [recentDates, setRecentDates] = useState<string[]>([])
   const [expandedTags, setExpandedTags] = useState<Set<string>>(new Set())
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null)
 
   // Load tags and recent notes
   useEffect(() => {
@@ -45,6 +53,19 @@ export function Sidebar({
 
     // Refresh every 5 seconds to pick up new tags
     const interval = setInterval(loadData, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Poll system status
+  useEffect(() => {
+    const pollStatus = async () => {
+      if (window.api) {
+        const status = await window.api.getSystemStatus()
+        setSystemStatus(status)
+      }
+    }
+    pollStatus()
+    const interval = setInterval(pollStatus, 1000) // Poll every second while processing
     return () => clearInterval(interval)
   }, [])
 
@@ -220,6 +241,47 @@ export function Sidebar({
 
       {/* Footer */}
       <div className="px-3 py-2" style={{ borderTop: '1px solid var(--border)' }}>
+        {/* System status indicator */}
+        {systemStatus && (systemStatus.indexing.isActive || systemStatus.frequencyIndex.isActive || systemStatus.embeddings.isActive) && (
+          <div
+            className="flex items-center gap-2 px-3 py-1.5 mb-1 text-xs rounded-md"
+            style={{ color: 'var(--text-muted)', backgroundColor: 'var(--bg-tertiary)' }}
+            title={
+              [
+                systemStatus.indexing.message,
+                systemStatus.frequencyIndex.message,
+                systemStatus.embeddings.message,
+              ].filter(Boolean).join('\n') || 'Processing...'
+            }
+          >
+            {/* Spinning indicator */}
+            <svg
+              className="w-3 h-3 animate-spin"
+              fill="none"
+              viewBox="0 0 24 24"
+              style={{ color: 'var(--accent)' }}
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
+            <span>
+              {systemStatus.indexing.isActive && 'Indexing...'}
+              {systemStatus.frequencyIndex.isActive && 'Building index...'}
+              {systemStatus.embeddings.isActive && `Embedding (${systemStatus.embeddings.queueLength})`}
+            </span>
+          </div>
+        )}
         <button
           onClick={onSettingsClick}
           className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors hover:opacity-80"

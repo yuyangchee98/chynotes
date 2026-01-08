@@ -75,6 +75,14 @@ import {
 } from '../core/embedding-queue'
 import { getSuggestionsForBlock, TagSuggestion } from '../core/tag-suggester'
 import { buildFrequencyIndex, updateFrequencyIndexForNote } from '../core/frequency-index'
+import {
+  getSystemStatus,
+  setIndexingStatus,
+  setFrequencyIndexStatus,
+  setEmbeddingsStatus,
+  setSystemReady,
+  setSystemStatusCallback,
+} from '../core/system-status'
 
 // Ensure notes and pages directories exist on startup
 ensureNotesDirectorySync()
@@ -316,12 +324,21 @@ ipcMain.handle('retroactive-tag', async (_event, term: string, tag: string, note
   return modifiedCount
 })
 
+// System status IPC handler
+ipcMain.handle('get-system-status', () => {
+  return getSystemStatus()
+})
+
 app.whenReady().then(async () => {
   // Initial index of all notes
+  setIndexingStatus(true, 'Indexing notes...')
   await reindexAll()
+  setIndexingStatus(false)
 
   // Build frequency index for Phase 2 tag suggestions
+  setFrequencyIndexStatus(true, 'Building frequency index...')
   await buildFrequencyIndex()
+  setFrequencyIndexStatus(false)
 
   // Cleanup old snapshots if auto-cleanup is enabled
   const deletedCount = autoCleanupSnapshots()
@@ -331,6 +348,9 @@ app.whenReady().then(async () => {
 
   // Start processing any blocks that need embedding
   processBacklogOnStartup()
+
+  // Mark system as ready
+  setSystemReady(true)
 
   createWindow()
 

@@ -126,4 +126,8 @@ electron_1.contextBridge.exposeInMainWorld('api', {
     retroactiveTag: (term, tag, notes) => {
         return electron_1.ipcRenderer.invoke('retroactive-tag', term, tag, notes);
     },
+    // System status
+    getSystemStatus: () => {
+        return electron_1.ipcRenderer.invoke('get-system-status');
+    },
 });

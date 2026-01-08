@@ -1,5 +1,6 @@
 import { getBlockById, upsertBlockEmbedding, getBlocksNeedingEmbedding } from './database'
 import { generateEmbedding } from './embeddings'
+import { setEmbeddingsStatus } from './system-status'
 
 /**
  * Queue of block IDs waiting to be embedded
@@ -61,6 +62,9 @@ function notifyStatus(): void {
   if (statusCallback) {
     statusCallback(getQueueStatus())
   }
+  // Also update unified system status
+  const msg = embeddingQueue.length > 0 ? `Embedding ${embeddingQueue.length} blocks...` : null
+  setEmbeddingsStatus(isProcessing, embeddingQueue.length, msg)
 }
 
 /**

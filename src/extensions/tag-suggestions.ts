@@ -758,8 +758,14 @@ function createSuggestionFetcher() {
       }
 
       // Convert to resolved suggestions and determine corrections
+      // A suggestion needs the dropdown if:
+      // 1. It's a correction (term.toLowerCase() !== tag), OR
+      // 2. It's a frequency suggestion with otherNotes (for retroactive tagging)
       const resolved: ResolvedSuggestion[] = suggestions.map(s => {
-        const isCorrection = s.term.toLowerCase() !== s.tag
+        const termDiffersFromTag = s.term.toLowerCase() !== s.tag
+        const hasRetroactiveOption = s.reason === 'frequency' && s.otherNotes && s.otherNotes.length > 0
+        const isCorrection = termDiffersFromTag || hasRetroactiveOption
+
         const suggestion: ResolvedSuggestion = {
           ...s,
           docStart: line.from + s.startIndex,
