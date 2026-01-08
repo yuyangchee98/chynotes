@@ -7,6 +7,26 @@ interface SystemStatus {
   frequencyIndex: { isActive: boolean; message: string | null }
   embeddings: { isActive: boolean; queueLength: number; message: string | null }
   ready: boolean
+  lastActivityAt: number | null
+}
+
+interface StatusCounts {
+  notes: number
+  tags: number
+  embeddedBlocks: number
+  totalBlocks: number
+}
+
+function formatTimeAgo(timestamp: number | null): string {
+  if (!timestamp) return 'never'
+  const seconds = Math.floor((Date.now() - timestamp) / 1000)
+  if (seconds < 60) return 'just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
 }
 
 interface SidebarProps {
@@ -36,17 +56,30 @@ export function Sidebar({
   const [recentDates, setRecentDates] = useState<string[]>([])
   const [expandedTags, setExpandedTags] = useState<Set<string>>(new Set())
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null)
+  const [statusCounts, setStatusCounts] = useState<StatusCounts>({ notes: 0, tags: 0, embeddedBlocks: 0, totalBlocks: 0 })
 
   // Load tags and recent notes
   useEffect(() => {
     const loadData = async () => {
       if (window.api) {
-        const [tagTree, dates] = await Promise.all([
+        const [tagTree, dates, embeddingStats] = await Promise.all([
           window.api.getTagTree(),
           window.api.listNotes(),
+          window.api.getEmbeddingStats(),
         ])
         setTags(tagTree)
         setRecentDates(dates.slice(0, 7)) // Last 7 days
+
+        // Count total tags from tree
+        const countTags = (nodes: TagTreeNode[]): number =>
+          nodes.reduce((sum, n) => sum + 1 + countTags(n.children), 0)
+
+        setStatusCounts({
+          notes: dates.length,
+          tags: countTags(tagTree),
+          embeddedBlocks: embeddingStats.embeddedBlocks,
+          totalBlocks: embeddingStats.totalBlocks,
+        })
       }
     }
     loadData()
@@ -59,9 +92,13 @@ export function Sidebar({
   // Poll system status
   useEffect(() => {
     const pollStatus = async () => {
-      if (window.api) {
-        const status = await window.api.getSystemStatus()
-        setSystemStatus(status)
+      if (window.api?.getSystemStatus) {
+        try {
+          const status = await window.api.getSystemStatus()
+          setSystemStatus(status)
+        } catch {
+          // Handler not available yet, ignore
+        }
       }
     }
     pollStatus()
@@ -241,47 +278,46 @@ export function Sidebar({
 
       {/* Footer */}
       <div className="px-3 py-2" style={{ borderTop: '1px solid var(--border)' }}>
-        {/* System status indicator */}
-        {systemStatus && (systemStatus.indexing.isActive || systemStatus.frequencyIndex.isActive || systemStatus.embeddings.isActive) && (
-          <div
-            className="flex items-center gap-2 px-3 py-1.5 mb-1 text-xs rounded-md"
-            style={{ color: 'var(--text-muted)', backgroundColor: 'var(--bg-tertiary)' }}
-            title={
-              [
-                systemStatus.indexing.message,
-                systemStatus.frequencyIndex.message,
-                systemStatus.embeddings.message,
-              ].filter(Boolean).join('\n') || 'Processing...'
-            }
-          >
-            {/* Spinning indicator */}
-            <svg
-              className="w-3 h-3 animate-spin"
-              fill="none"
-              viewBox="0 0 24 24"
-              style={{ color: 'var(--accent)' }}
+        {/* System status indicator - always visible */}
+        {(() => {
+          const isProcessing = systemStatus?.indexing.isActive ||
+                               systemStatus?.frequencyIndex.isActive ||
+                               systemStatus?.embeddings.isActive
+
+          if (isProcessing && systemStatus) {
+            return (
+              <div
+                className="flex items-center gap-2 px-3 py-1.5 mb-1 text-xs rounded-md"
+                style={{ color: 'var(--text-muted)', backgroundColor: 'var(--bg-tertiary)' }}
+                title={[
+                  systemStatus.indexing.message,
+                  systemStatus.frequencyIndex.message,
+                  systemStatus.embeddings.message,
+                ].filter(Boolean).join('\n') || 'Processing...'}
+              >
+                <svg className="w-3 h-3 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24" style={{ color: 'var(--accent)' }}>
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                <span>
+                  {systemStatus.indexing.isActive && 'Indexing...'}
+                  {systemStatus.frequencyIndex.isActive && 'Building index...'}
+                  {systemStatus.embeddings.isActive && `Embedding (${systemStatus.embeddings.queueLength})`}
+                </span>
+              </div>
+            )
+          }
+
+          return (
+            <div
+              className="px-3 py-1.5 mb-1 text-xs rounded-md"
+              style={{ color: 'var(--text-muted)', backgroundColor: 'var(--bg-tertiary)' }}
             >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              />
-            </svg>
-            <span>
-              {systemStatus.indexing.isActive && 'Indexing...'}
-              {systemStatus.frequencyIndex.isActive && 'Building index...'}
-              {systemStatus.embeddings.isActive && `Embedding (${systemStatus.embeddings.queueLength})`}
-            </span>
-          </div>
-        )}
+              <div>{statusCounts.notes} notes · {statusCounts.tags} tags</div>
+              <div>{statusCounts.embeddedBlocks}/{statusCounts.totalBlocks} embedded · {formatTimeAgo(systemStatus?.lastActivityAt ?? null)}</div>
+            </div>
+          )
+        })()}
         <button
           onClick={onSettingsClick}
           className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors hover:opacity-80"

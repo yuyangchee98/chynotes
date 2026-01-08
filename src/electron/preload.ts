@@ -99,6 +99,7 @@ interface SystemStatus {
     message: string | null
   }
   ready: boolean
+  lastActivityAt: number | null
 }
 
 contextBridge.exposeInMainWorld('api', {

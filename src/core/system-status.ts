@@ -17,6 +17,7 @@ export interface SystemStatus {
     message: string | null
   }
   ready: boolean  // All startup tasks complete
+  lastActivityAt: number | null  // Timestamp of last completed task
 }
 
 let status: SystemStatus = {
@@ -24,6 +25,7 @@ let status: SystemStatus = {
   frequencyIndex: { isActive: false, message: null },
   embeddings: { isActive: false, queueLength: 0, message: null },
   ready: false,
+  lastActivityAt: null,
 }
 
 type StatusCallback = (status: SystemStatus) => void
@@ -53,7 +55,11 @@ function notifyChange(): void {
  * Update indexing status
  */
 export function setIndexingStatus(isActive: boolean, message: string | null = null): void {
+  const wasActive = status.indexing.isActive
   status.indexing = { isActive, message }
+  if (wasActive && !isActive) {
+    status.lastActivityAt = Date.now()
+  }
   notifyChange()
 }
 
@@ -61,7 +67,11 @@ export function setIndexingStatus(isActive: boolean, message: string | null = nu
  * Update frequency index status
  */
 export function setFrequencyIndexStatus(isActive: boolean, message: string | null = null): void {
+  const wasActive = status.frequencyIndex.isActive
   status.frequencyIndex = { isActive, message }
+  if (wasActive && !isActive) {
+    status.lastActivityAt = Date.now()
+  }
   notifyChange()
 }
 
@@ -69,7 +79,11 @@ export function setFrequencyIndexStatus(isActive: boolean, message: string | nul
  * Update embeddings status
  */
 export function setEmbeddingsStatus(isActive: boolean, queueLength: number, message: string | null = null): void {
+  const wasActive = status.embeddings.isActive
   status.embeddings = { isActive, queueLength, message }
+  if (wasActive && !isActive) {
+    status.lastActivityAt = Date.now()
+  }
   notifyChange()
 }
 
