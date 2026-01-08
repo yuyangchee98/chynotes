@@ -1,4 +1,5 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
+import { KeyBinding, loadCustomBindings, getBinding, matchesBinding } from '../core/keyboard-config'
 
 interface KeyboardShortcutCallbacks {
   onOpenSearch: () => void
@@ -9,37 +10,50 @@ interface KeyboardShortcutCallbacks {
 /**
  * Global keyboard shortcuts for app-wide navigation
  *
- * - Cmd/Ctrl + K → Open search
- * - Cmd/Ctrl + G → Go to today
- * - Escape → Close/back navigation
+ * - Cmd/Ctrl + K → Open search (customizable)
+ * - Cmd/Ctrl + G → Go to today (customizable)
+ * - Escape → Close/back navigation (fixed)
  */
 export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks) {
+  const [bindings, setBindings] = useState<Record<string, KeyBinding>>({})
+
+  // Load custom bindings from settings
+  useEffect(() => {
+    const loadBindings = async () => {
+      if (!window.api) return
+      const bindingsJson = await window.api.getSetting('keyboardBindings')
+      setBindings(loadCustomBindings(bindingsJson))
+    }
+    loadBindings()
+  }, [])
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey
+      // Get current bindings
+      const openSearchBinding = getBinding('openSearch', bindings)
+      const goToTodayBinding = getBinding('goToToday', bindings)
 
-      // Cmd/Ctrl + K → Open search
-      if (mod && e.key === 'k') {
+      // Check custom shortcuts
+      if (matchesBinding(e, openSearchBinding)) {
         e.preventDefault()
         callbacks.onOpenSearch()
         return
       }
 
-      // Cmd/Ctrl + G → Go to today
-      if (mod && e.key === 'g') {
+      if (matchesBinding(e, goToTodayBinding)) {
         e.preventDefault()
         callbacks.onGoToToday()
         return
       }
 
-      // Escape → Close/back
+      // Escape → Close/back (not customizable)
       if (e.key === 'Escape') {
         // Don't prevent default - let other handlers (modals, etc.) also respond
         callbacks.onEscape()
         return
       }
     },
-    [callbacks]
+    [callbacks, bindings]
   )
 
   useEffect(() => {

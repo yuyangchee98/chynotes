@@ -63,6 +63,9 @@ exports.saveSnapshot = saveSnapshot;
 exports.getSnapshotsForNote = getSnapshotsForNote;
 exports.getSnapshot = getSnapshot;
 exports.pruneSnapshots = pruneSnapshots;
+exports.getSnapshotCount = getSnapshotCount;
+exports.pruneSnapshotsByAge = pruneSnapshotsByAge;
+exports.autoCleanupSnapshots = autoCleanupSnapshots;
 exports.upsertPage = upsertPage;
 exports.getPageByName = getPageByName;
 exports.getAllPages = getAllPages;
@@ -514,6 +517,45 @@ function pruneSnapshots(noteDate, keepCount, documentType = 'note') {
       LIMIT ?
     )
   `).run(noteDate, documentType, noteDate, documentType, keepCount);
+}
+/**
+ * Get total count of all snapshots in the database
+ */
+function getSnapshotCount() {
+    const db = getDatabase();
+    const result = db.prepare('SELECT COUNT(*) as count FROM snapshots').get();
+    return result.count;
+}
+/**
+ * Delete snapshots older than the specified number of days
+ * Returns the number of deleted snapshots
+ */
+function pruneSnapshotsByAge(retentionDays) {
+    const db = getDatabase();
+    const cutoffTimestamp = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
+    const result = db.prepare(`
+    DELETE FROM snapshots
+    WHERE created_at < ?
+  `).run(cutoffTimestamp);
+    return result.changes;
+}
+/**
+ * Automatically cleanup snapshots based on user settings
+ * Called on app startup. Returns number of deleted snapshots.
+ */
+function autoCleanupSnapshots() {
+    const autoCleanup = getSetting('snapshotAutoCleanup');
+    // Only cleanup if explicitly enabled
+    if (autoCleanup !== 'true') {
+        return 0;
+    }
+    const retentionDays = getSetting('snapshotRetentionDays');
+    const days = retentionDays ? parseInt(retentionDays) : 0;
+    // 0 means unlimited retention
+    if (days <= 0) {
+        return 0;
+    }
+    return pruneSnapshotsByAge(days);
 }
 /**
  * Create or update a page record

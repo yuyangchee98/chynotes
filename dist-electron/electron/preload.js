@@ -86,6 +86,12 @@ electron_1.contextBridge.exposeInMainWorld('api', {
     getSnapshot: (id) => {
         return electron_1.ipcRenderer.invoke('get-snapshot', id);
     },
+    getSnapshotCount: () => {
+        return electron_1.ipcRenderer.invoke('get-snapshot-count');
+    },
+    pruneSnapshotsByAge: (retentionDays) => {
+        return electron_1.ipcRenderer.invoke('prune-snapshots-by-age', retentionDays);
+    },
     // Embedding operations
     findSemanticSimilar: (tagName, limit) => {
         return electron_1.ipcRenderer.invoke('find-semantic-similar', tagName, limit);

@@ -11,6 +11,28 @@
 
 import { keymap, EditorView } from '@codemirror/view'
 import { EditorSelection, Prec } from '@codemirror/state'
+import { KeyBinding, getBinding } from '../core/keyboard-config'
+
+/**
+ * Convert KeyBinding to CodeMirror key format
+ * Example: {key: 'b', ctrl: true, meta: true} → 'Mod-b'
+ *          {key: 's', ctrl: true, meta: true, shift: true} → 'Mod-Shift-s'
+ */
+function keyBindingToCodeMirrorKey(binding: KeyBinding): string {
+  const parts: string[] = []
+
+  // 'Mod' means Cmd on Mac, Ctrl on Windows/Linux
+  if (binding.ctrl || binding.meta) {
+    parts.push('Mod')
+  }
+
+  if (binding.shift) parts.push('Shift')
+  if (binding.alt) parts.push('Alt')
+
+  parts.push(binding.key.toLowerCase())
+
+  return parts.join('-')
+}
 
 /**
  * Wrap the current selection with a markdown wrapper.
@@ -40,22 +62,35 @@ function wrapSelection(view: EditorView, wrapper: string): boolean {
 }
 
 /**
- * CodeMirror keymap extension for markdown formatting
+ * Create CodeMirror keymap extension for markdown formatting
  * Wrapped in Prec.highest() to override default CodeMirror bindings
+ *
+ * @param customBindings - Custom keyboard bindings from settings
  */
-export const formattingKeymap = Prec.highest(
-  keymap.of([
-    {
-      key: 'Mod-b',
-      run: (view) => wrapSelection(view, '**'),
-    },
-    {
-      key: 'Mod-i',
-      run: (view) => wrapSelection(view, '*'),
-    },
-    {
-      key: 'Mod-Shift-s',
-      run: (view) => wrapSelection(view, '~~'),
-    },
-  ])
-)
+export function createFormattingKeymap(customBindings: Record<string, KeyBinding> = {}) {
+  const boldKey = keyBindingToCodeMirrorKey(getBinding('bold', customBindings))
+  const italicKey = keyBindingToCodeMirrorKey(getBinding('italic', customBindings))
+  const strikethroughKey = keyBindingToCodeMirrorKey(getBinding('strikethrough', customBindings))
+
+  return Prec.highest(
+    keymap.of([
+      {
+        key: boldKey,
+        run: (view) => wrapSelection(view, '**'),
+      },
+      {
+        key: italicKey,
+        run: (view) => wrapSelection(view, '*'),
+      },
+      {
+        key: strikethroughKey,
+        run: (view) => wrapSelection(view, '~~'),
+      },
+    ])
+  )
+}
+
+/**
+ * Default formatting keymap (backward compatibility)
+ */
+export const formattingKeymap = createFormattingKeymap()

@@ -49,6 +49,9 @@ import {
   saveSnapshot,
   getSnapshotsForNote,
   getSnapshot,
+  getSnapshotCount,
+  pruneSnapshotsByAge,
+  autoCleanupSnapshots,
   upsertPage,
   getPageByName,
   DocumentType,
@@ -237,6 +240,14 @@ ipcMain.handle('get-snapshot', (_event, id: number) => {
   return getSnapshot(id)
 })
 
+ipcMain.handle('get-snapshot-count', () => {
+  return getSnapshotCount()
+})
+
+ipcMain.handle('prune-snapshots-by-age', (_event, retentionDays: number) => {
+  return pruneSnapshotsByAge(retentionDays)
+})
+
 // Embedding IPC handlers
 ipcMain.handle('find-semantic-similar', async (_event, tagName: string, limit?: number) => {
   return await findSemanticallySimilar(tagName, limit)
@@ -289,6 +300,12 @@ app.whenReady().then(async () => {
 
   // Build frequency index for Phase 2 tag suggestions
   await buildFrequencyIndex()
+
+  // Cleanup old snapshots if auto-cleanup is enabled
+  const deletedCount = autoCleanupSnapshots()
+  if (deletedCount > 0) {
+    console.log(`Auto-cleanup: Deleted ${deletedCount} old snapshots`)
+  }
 
   // Start processing any blocks that need embedding
   processBacklogOnStartup()

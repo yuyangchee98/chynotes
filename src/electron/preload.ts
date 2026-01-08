@@ -195,6 +195,14 @@ contextBridge.exposeInMainWorld('api', {
     return ipcRenderer.invoke('get-snapshot', id)
   },
 
+  getSnapshotCount: (): Promise<number> => {
+    return ipcRenderer.invoke('get-snapshot-count')
+  },
+
+  pruneSnapshotsByAge: (retentionDays: number): Promise<number> => {
+    return ipcRenderer.invoke('prune-snapshots-by-age', retentionDays)
+  },
+
   // Embedding operations
   findSemanticSimilar: (tagName: string, limit?: number): Promise<SemanticResult[]> => {
     return ipcRenderer.invoke('find-semantic-similar', tagName, limit)

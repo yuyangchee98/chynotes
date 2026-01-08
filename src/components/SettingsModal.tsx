@@ -1,4 +1,14 @@
 import { useEffect, useState } from 'react'
+import { KeyCapture } from './KeyCapture'
+import {
+  ShortcutAction,
+  KeyBinding,
+  DEFAULT_SHORTCUTS,
+  loadCustomBindings,
+  saveCustomBindings,
+  formatKeyBinding,
+  getBinding,
+} from '../core/keyboard-config'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -18,20 +28,41 @@ export function SettingsModal({ isOpen, onClose, theme, onThemeChange }: Setting
   const [isRebuildingEmbeddings, setIsRebuildingEmbeddings] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  // Snapshot settings
+  const [snapshotInterval, setSnapshotInterval] = useState('1000')
+  const [snapshotRetentionDays, setSnapshotRetentionDays] = useState('0')
+  const [snapshotAutoCleanup, setSnapshotAutoCleanup] = useState(false)
+  const [snapshotCount, setSnapshotCount] = useState(0)
+  const [isCleaningSnapshots, setIsCleaningSnapshots] = useState(false)
+
+  // Keyboard shortcuts
+  const [customBindings, setCustomBindings] = useState<Record<string, KeyBinding>>({})
+  const [editingAction, setEditingAction] = useState<ShortcutAction | null>(null)
+
   // Load settings on mount
   useEffect(() => {
     if (!isOpen) return
 
     const loadSettings = async () => {
       if (window.api) {
-        const [endpoint, model, embedModel] = await Promise.all([
+        const [endpoint, model, embedModel, snapInterval, snapRetention, snapCleanup, snapCount, keyBindings] = await Promise.all([
           window.api.getSetting('ollamaEndpoint'),
           window.api.getSetting('ollamaModel'),
           window.api.getSetting('embeddingModel'),
+          window.api.getSetting('snapshotInterval'),
+          window.api.getSetting('snapshotRetentionDays'),
+          window.api.getSetting('snapshotAutoCleanup'),
+          window.api.getSnapshotCount(),
+          window.api.getSetting('keyboardBindings'),
         ])
         if (endpoint) setOllamaEndpoint(endpoint)
         if (model) setOllamaModel(model)
         if (embedModel) setEmbeddingModel(embedModel)
+        setSnapshotInterval(snapInterval || '1000')
+        setSnapshotRetentionDays(snapRetention || '0')
+        setSnapshotAutoCleanup(snapCleanup === 'true')
+        setSnapshotCount(snapCount)
+        setCustomBindings(loadCustomBindings(keyBindings))
 
         // Check Ollama connection
         checkOllama()
@@ -94,10 +125,51 @@ export function SettingsModal({ isOpen, onClose, theme, onThemeChange }: Setting
         window.api.setSetting('ollamaEndpoint', ollamaEndpoint),
         window.api.setSetting('ollamaModel', ollamaModel),
         window.api.setSetting('embeddingModel', embeddingModel),
+        window.api.setSetting('snapshotInterval', snapshotInterval),
+        window.api.setSetting('snapshotRetentionDays', snapshotRetentionDays),
+        window.api.setSetting('snapshotAutoCleanup', snapshotAutoCleanup ? 'true' : 'false'),
+        window.api.setSetting('keyboardBindings', saveCustomBindings(customBindings)),
       ])
     }
     setSaving(false)
     onClose()
+  }
+
+  const handleEditShortcut = (action: ShortcutAction) => {
+    setEditingAction(action)
+  }
+
+  const handleSaveShortcut = (binding: KeyBinding) => {
+    if (editingAction) {
+      setCustomBindings({
+        ...customBindings,
+        [editingAction]: binding,
+      })
+    }
+    setEditingAction(null)
+  }
+
+  const handleResetShortcuts = () => {
+    if (confirm('Reset all keyboard shortcuts to defaults?')) {
+      setCustomBindings({})
+    }
+  }
+
+  const handleCleanupSnapshots = async () => {
+    setIsCleaningSnapshots(true)
+    try {
+      if (window.api?.pruneSnapshotsByAge) {
+        const days = parseInt(snapshotRetentionDays)
+        if (days > 0) {
+          const deletedCount = await window.api.pruneSnapshotsByAge(days)
+          const newCount = await window.api.getSnapshotCount()
+          setSnapshotCount(newCount)
+          alert(`Deleted ${deletedCount} old snapshots`)
+        }
+      }
+    } finally {
+      setIsCleaningSnapshots(false)
+    }
   }
 
   if (!isOpen) return null
@@ -295,6 +367,196 @@ export function SettingsModal({ isOpen, onClose, theme, onThemeChange }: Setting
             )}
           </section>
 
+          {/* Snapshots */}
+          <section>
+            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Snapshots</h3>
+
+            {/* Auto-save interval */}
+            <div className="space-y-2 mb-4">
+              <label className="block text-sm text-gray-600 dark:text-gray-400">Auto-save delay</label>
+              <select
+                value={snapshotInterval}
+                onChange={(e) => setSnapshotInterval(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="500">0.5 seconds</option>
+                <option value="1000">1 second (default)</option>
+                <option value="2000">2 seconds</option>
+                <option value="3000">3 seconds</option>
+                <option value="5000">5 seconds</option>
+              </select>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Time to wait after typing stops before creating snapshot
+              </p>
+            </div>
+
+            {/* Retention period */}
+            <div className="space-y-2 mb-4">
+              <label className="block text-sm text-gray-600 dark:text-gray-400">Keep snapshots for</label>
+              <select
+                value={snapshotRetentionDays}
+                onChange={(e) => setSnapshotRetentionDays(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="0">All time (default)</option>
+                <option value="7">7 days</option>
+                <option value="14">14 days</option>
+                <option value="30">30 days</option>
+                <option value="60">60 days</option>
+                <option value="90">90 days</option>
+              </select>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Older snapshots will be automatically deleted if auto-cleanup is enabled
+              </p>
+            </div>
+
+            {/* Auto-cleanup toggle */}
+            <div className="flex items-center gap-2 mb-4">
+              <input
+                type="checkbox"
+                id="auto-cleanup"
+                checked={snapshotAutoCleanup}
+                onChange={(e) => setSnapshotAutoCleanup(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <label htmlFor="auto-cleanup" className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+                Enable automatic cleanup on app startup
+              </label>
+            </div>
+
+            {/* Snapshot statistics */}
+            <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-md">
+              <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                Total snapshots: <span className="font-semibold">{snapshotCount.toLocaleString()}</span>
+              </p>
+              <button
+                onClick={handleCleanupSnapshots}
+                disabled={isCleaningSnapshots || parseInt(snapshotRetentionDays) === 0}
+                className="px-3 py-1.5 text-sm text-red-600 dark:text-red-400 border border-red-300 dark:border-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isCleaningSnapshots ? 'Cleaning up...' : 'Clean up old snapshots now'}
+              </button>
+              {parseInt(snapshotRetentionDays) === 0 && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  Set a retention period to enable manual cleanup
+                </p>
+              )}
+            </div>
+          </section>
+
+          {/* Keyboard Shortcuts */}
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Keyboard Shortcuts</h3>
+              <button
+                onClick={handleResetShortcuts}
+                className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400"
+              >
+                Reset to Defaults
+              </button>
+            </div>
+
+            {/* Editable shortcuts */}
+            {DEFAULT_SHORTCUTS.filter(s => s.category === 'navigation').length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 uppercase tracking-wider">Navigation</h4>
+                <div className="space-y-2">
+                  {DEFAULT_SHORTCUTS.filter(s => s.category === 'navigation').map((shortcut) => {
+                    const binding = getBinding(shortcut.action, customBindings)
+                    return (
+                      <div key={shortcut.action} className="flex justify-between items-center py-1.5 px-3 bg-gray-50 dark:bg-gray-800 rounded">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{shortcut.label}</span>
+                        <div className="flex items-center gap-2">
+                          <kbd className="px-2 py-1 text-xs font-mono bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded shadow-sm">
+                            {formatKeyBinding(binding)}
+                          </kbd>
+                          <button
+                            onClick={() => handleEditShortcut(shortcut.action)}
+                            className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Formatting shortcuts */}
+            {DEFAULT_SHORTCUTS.filter(s => s.category === 'formatting').length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 uppercase tracking-wider">Text Formatting</h4>
+                <div className="space-y-2">
+                  {DEFAULT_SHORTCUTS.filter(s => s.category === 'formatting').map((shortcut) => {
+                    const binding = getBinding(shortcut.action, customBindings)
+                    return (
+                      <div key={shortcut.action} className="flex justify-between items-center py-1.5 px-3 bg-gray-50 dark:bg-gray-800 rounded">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{shortcut.label}</span>
+                        <div className="flex items-center gap-2">
+                          <kbd className="px-2 py-1 text-xs font-mono bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded shadow-sm">
+                            {formatKeyBinding(binding)}
+                          </kbd>
+                          <button
+                            onClick={() => handleEditShortcut(shortcut.action)}
+                            className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Non-customizable shortcuts */}
+            <div className="mb-4">
+              <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 uppercase tracking-wider">Bullet Editing (Fixed)</h4>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center py-1.5 px-3 bg-gray-50 dark:bg-gray-800 rounded opacity-75">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">New Bullet</span>
+                  <kbd className="px-2 py-1 text-xs font-mono bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded shadow-sm">Enter</kbd>
+                </div>
+                <div className="flex justify-between items-center py-1.5 px-3 bg-gray-50 dark:bg-gray-800 rounded opacity-75">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Line Break (within bullet)</span>
+                  <kbd className="px-2 py-1 text-xs font-mono bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded shadow-sm">Shift+Enter</kbd>
+                </div>
+                <div className="flex justify-between items-center py-1.5 px-3 bg-gray-50 dark:bg-gray-800 rounded opacity-75">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Indent</span>
+                  <kbd className="px-2 py-1 text-xs font-mono bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded shadow-sm">Tab</kbd>
+                </div>
+                <div className="flex justify-between items-center py-1.5 px-3 bg-gray-50 dark:bg-gray-800 rounded opacity-75">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Outdent</span>
+                  <kbd className="px-2 py-1 text-xs font-mono bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded shadow-sm">Shift+Tab</kbd>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">These shortcuts cannot be customized</p>
+            </div>
+
+            {/* Tag suggestions */}
+            <div>
+              <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 uppercase tracking-wider">Tag Suggestions (Fixed)</h4>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center py-1.5 px-3 bg-gray-50 dark:bg-gray-800 rounded opacity-75">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Accept Suggestion</span>
+                  <kbd className="px-2 py-1 text-xs font-mono bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded shadow-sm">Tab</kbd>
+                </div>
+                <div className="flex justify-between items-center py-1.5 px-3 bg-gray-50 dark:bg-gray-800 rounded opacity-75">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Navigate Suggestions</span>
+                  <kbd className="px-2 py-1 text-xs font-mono bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded shadow-sm">↑ / ↓</kbd>
+                </div>
+                <div className="flex justify-between items-center py-1.5 px-3 bg-gray-50 dark:bg-gray-800 rounded opacity-75">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Dismiss</span>
+                  <kbd className="px-2 py-1 text-xs font-mono bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded shadow-sm">Esc</kbd>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">These shortcuts cannot be customized</p>
+            </div>
+          </section>
+
           {/* Storage */}
           <section>
             <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Storage</h3>
@@ -327,6 +589,15 @@ export function SettingsModal({ isOpen, onClose, theme, onThemeChange }: Setting
           </button>
         </div>
       </div>
+
+      {/* Key capture modal */}
+      {editingAction && (
+        <KeyCapture
+          currentBinding={getBinding(editingAction, customBindings)}
+          onSave={handleSaveShortcut}
+          onCancel={() => setEditingAction(null)}
+        />
+      )}
     </div>
   )
 }

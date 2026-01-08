@@ -161,6 +161,12 @@ electron_1.ipcMain.handle('get-snapshots', (_event, noteDate, documentType = 'no
 electron_1.ipcMain.handle('get-snapshot', (_event, id) => {
     return (0, database_2.getSnapshot)(id);
 });
+electron_1.ipcMain.handle('get-snapshot-count', () => {
+    return (0, database_2.getSnapshotCount)();
+});
+electron_1.ipcMain.handle('prune-snapshots-by-age', (_event, retentionDays) => {
+    return (0, database_2.pruneSnapshotsByAge)(retentionDays);
+});
 // Embedding IPC handlers
 electron_1.ipcMain.handle('find-semantic-similar', async (_event, tagName, limit) => {
     return await (0, embeddings_1.findSemanticallySimilar)(tagName, limit);
@@ -203,6 +209,11 @@ electron_1.app.whenReady().then(async () => {
     await (0, index_manager_1.reindexAll)();
     // Build frequency index for Phase 2 tag suggestions
     await (0, frequency_index_1.buildFrequencyIndex)();
+    // Cleanup old snapshots if auto-cleanup is enabled
+    const deletedCount = (0, database_2.autoCleanupSnapshots)();
+    if (deletedCount > 0) {
+        console.log(`Auto-cleanup: Deleted ${deletedCount} old snapshots`);
+    }
     // Start processing any blocks that need embedding
     (0, embedding_queue_1.processBacklogOnStartup)();
     createWindow();

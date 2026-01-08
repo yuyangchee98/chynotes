@@ -566,6 +566,54 @@ export function pruneSnapshots(
   `).run(noteDate, documentType, noteDate, documentType, keepCount)
 }
 
+/**
+ * Get total count of all snapshots in the database
+ */
+export function getSnapshotCount(): number {
+  const db = getDatabase()
+  const result = db.prepare('SELECT COUNT(*) as count FROM snapshots').get() as { count: number }
+  return result.count
+}
+
+/**
+ * Delete snapshots older than the specified number of days
+ * Returns the number of deleted snapshots
+ */
+export function pruneSnapshotsByAge(retentionDays: number): number {
+  const db = getDatabase()
+  const cutoffTimestamp = Date.now() - (retentionDays * 24 * 60 * 60 * 1000)
+
+  const result = db.prepare(`
+    DELETE FROM snapshots
+    WHERE created_at < ?
+  `).run(cutoffTimestamp)
+
+  return result.changes
+}
+
+/**
+ * Automatically cleanup snapshots based on user settings
+ * Called on app startup. Returns number of deleted snapshots.
+ */
+export function autoCleanupSnapshots(): number {
+  const autoCleanup = getSetting('snapshotAutoCleanup')
+
+  // Only cleanup if explicitly enabled
+  if (autoCleanup !== 'true') {
+    return 0
+  }
+
+  const retentionDays = getSetting('snapshotRetentionDays')
+  const days = retentionDays ? parseInt(retentionDays) : 0
+
+  // 0 means unlimited retention
+  if (days <= 0) {
+    return 0
+  }
+
+  return pruneSnapshotsByAge(days)
+}
+
 // ============================================================================
 // Pages Table Operations
 // ============================================================================

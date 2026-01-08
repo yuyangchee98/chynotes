@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 
-const SNAPSHOT_DELAY = 1000 // 1 second of inactivity
-
 interface UseSnapshotDebounceReturn {
   // Progress from 0 to 1 for visual indicator
   snapshotProgress: number
@@ -28,10 +26,21 @@ export function useSnapshotDebounce(
   const [snapshotProgress, setSnapshotProgress] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
   const [lastSnapshotContent, setLastSnapshotContent] = useState<string | null>(null)
+  const [snapshotDelay, setSnapshotDelay] = useState(1000) // Default: 1 second
 
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const startTimeRef = useRef<number>(0)
+
+  // Load snapshot interval from settings
+  useEffect(() => {
+    const loadSnapshotInterval = async () => {
+      if (!window.api) return
+      const interval = await window.api.getSetting('snapshotInterval')
+      setSnapshotDelay(interval ? parseInt(interval) : 1000)
+    }
+    loadSnapshotInterval()
+  }, [])
 
   // Load the latest snapshot from DB on mount or when noteDate changes
   useEffect(() => {
@@ -104,7 +113,7 @@ export function useSnapshotDebounce(
     // Update progress every 100ms
     progressIntervalRef.current = setInterval(() => {
       const elapsed = Date.now() - startTimeRef.current
-      const progress = Math.min(elapsed / SNAPSHOT_DELAY, 1)
+      const progress = Math.min(elapsed / snapshotDelay, 1)
       setSnapshotProgress(progress)
     }, 100)
 
@@ -115,12 +124,12 @@ export function useSnapshotDebounce(
         progressIntervalRef.current = null
       }
       saveSnapshot()
-    }, SNAPSHOT_DELAY)
+    }, snapshotDelay)
 
     return () => {
       clearTimers()
     }
-  }, [content, noteDate, enabled, clearTimers, saveSnapshot])
+  }, [content, noteDate, enabled, snapshotDelay, clearTimers, saveSnapshot])
 
   // Cleanup on unmount
   useEffect(() => {
