@@ -851,6 +851,15 @@ export function deleteBlockTags(blockId: string): void {
   db.prepare('DELETE FROM block_tags WHERE block_id = ?').run(blockId)
 }
 
+/**
+ * Get all tags for a specific block
+ */
+export function getBlockTags(blockId: string): string[] {
+  const db = getDatabase()
+  const rows = db.prepare('SELECT tag_name FROM block_tags WHERE block_id = ?').all(blockId) as { tag_name: string }[]
+  return rows.map(r => r.tag_name)
+}
+
 // ============================================================================
 // Vector Embeddings Operations
 // ============================================================================

@@ -1,7 +1,8 @@
 import Fuse from 'fuse.js'
 import pluralize from 'pluralize'
-import { getTagsWithCounts, TagWithCount, initDatabase } from './database'
+import { getTagsWithCounts, TagWithCount, initDatabase, findSimilarBlocksKNN, getBlockTags } from './database'
 import { queryTermFrequency } from './frequency-index'
+import { generateEmbedding } from './embeddings'
 
 /**
  * A suggestion for wrapping a term with [[tag]] brackets
@@ -404,4 +405,111 @@ function findPluralSingularMatch(word: string, tags: TagWithCount[]): string | n
   }
 
   return null
+}
+
+// ============================================================================
+// Phase 3: Semantic Suggestions
+// ============================================================================
+
+/**
+ * Minimum number of similar blocks that must share a tag to suggest it
+ */
+const SEMANTIC_MIN_TAG_COUNT = 2
+
+/**
+ * Number of similar blocks to search
+ */
+const SEMANTIC_KNN_LIMIT = 10
+
+/**
+ * Minimum text length to run semantic suggestions
+ * (Short lines don't have enough context for meaningful embeddings)
+ */
+const SEMANTIC_MIN_TEXT_LENGTH = 20
+
+/**
+ * Get semantic tag suggestions for a line of text
+ *
+ * This is async because it requires calling Ollama to generate embeddings.
+ * Returns suggestions for tags that appear frequently in semantically similar blocks.
+ */
+async function getSemanticSuggestions(text: string, lineLength: number): Promise<TagSuggestion[]> {
+  // Skip if text is too short
+  if (text.length < SEMANTIC_MIN_TEXT_LENGTH) {
+    return []
+  }
+
+  // Skip if text already has tags (to avoid suggesting what's already there)
+  const existingTags = new Set<string>()
+  const tagPattern = /\[\[([\w\-\/]+)\]\]/g
+  let match
+  while ((match = tagPattern.exec(text)) !== null) {
+    existingTags.add(match[1].toLowerCase())
+  }
+
+  try {
+    // Generate embedding for the current line
+    const embedding = await generateEmbedding(text)
+
+    // Find similar blocks
+    const similar = findSimilarBlocksKNN(embedding, SEMANTIC_KNN_LIMIT)
+
+    if (similar.length === 0) {
+      return []
+    }
+
+    // Count tags from similar blocks
+    const tagCounts = new Map<string, number>()
+    for (const block of similar) {
+      const blockTags = getBlockTags(block.block_id)
+      for (const tag of blockTags) {
+        // Skip if this tag is already in the current line
+        if (existingTags.has(tag)) continue
+        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)
+      }
+    }
+
+    // Convert to suggestions, filtering by minimum count
+    const suggestions: TagSuggestion[] = []
+    for (const [tag, count] of tagCounts.entries()) {
+      if (count >= SEMANTIC_MIN_TAG_COUNT) {
+        suggestions.push({
+          term: '',  // No specific term for semantic suggestions
+          tag,
+          startIndex: lineLength,  // End of line
+          endIndex: lineLength,    // End of line (insert, not replace)
+          confidence: count / SEMANTIC_KNN_LIMIT,  // e.g., 3/10 = 0.3
+          reason: 'semantic'
+        })
+      }
+    }
+
+    // Sort by confidence (most common tag first)
+    suggestions.sort((a, b) => b.confidence - a.confidence)
+
+    // Return top 3 semantic suggestions max
+    return suggestions.slice(0, 3)
+  } catch (err) {
+    // Ollama might not be running - silently fail
+    console.log('[TagSuggester] Semantic suggestions failed:', (err as Error).message)
+    return []
+  }
+}
+
+/**
+ * Get all tag suggestions for a block (sync Phase 1/2 + async Phase 3)
+ *
+ * @param text The text to analyze
+ * @param currentNoteDate Optional note date (YYYY-MM-DD) to exclude from otherNotes
+ */
+export async function getSuggestionsForBlockAsync(text: string, currentNoteDate?: string): Promise<TagSuggestion[]> {
+  // Get sync suggestions (Phase 1/2)
+  const syncSuggestions = getSuggestionsForBlock(text, currentNoteDate)
+
+  // Get async semantic suggestions (Phase 3)
+  const semanticSuggestions = await getSemanticSuggestions(text, text.length)
+
+  // Combine, with sync suggestions first (they're position-based)
+  // Semantic suggestions go at the end since they're end-of-line
+  return [...syncSuggestions, ...semanticSuggestions]
 }

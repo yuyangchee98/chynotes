@@ -228,6 +228,12 @@ function buildGhostDecorations(
   const hasCorrections = sorted.some(s => s.isCorrection)
 
   for (const suggestion of sorted) {
+    // Skip semantic suggestions (they don't have text to wrap)
+    // Semantic suggestions have docStart === docEnd (end of line insertion)
+    if (suggestion.docStart === suggestion.docEnd) {
+      continue
+    }
+
     // Add opening [[ widget before the term
     builder.add(
       suggestion.docStart,
@@ -306,6 +312,7 @@ interface MenuOption {
 /**
  * Build menu options from corrections
  * For frequency suggestions with otherNotes: tag here, + N notes, keep
+ * For semantic suggestions: just the tag (no keep-original option)
  * For other corrections: correction, keep
  */
 function buildMenuOptions(corrections: ResolvedSuggestion[]): MenuOption[] {
@@ -314,6 +321,8 @@ function buildMenuOptions(corrections: ResolvedSuggestion[]): MenuOption[] {
   for (const correction of corrections) {
     // Check if this is a frequency suggestion with other notes
     const hasOtherNotes = correction.reason === 'frequency' && correction.otherNotes && correction.otherNotes.length > 0
+    // Check if this is a semantic suggestion (end-of-line, no term)
+    const isSemantic = correction.reason === 'semantic'
 
     // Add "tag here" option (correction)
     options.push({
@@ -334,13 +343,15 @@ function buildMenuOptions(corrections: ResolvedSuggestion[]): MenuOption[] {
       })
     }
 
-    // Add "keep original" option
-    options.push({
-      type: 'keep-original',
-      suggestion: correction,
-      displayText: correction.term.toLowerCase(),
-      label: '(as typed)',
-    })
+    // Add "keep original" option (skip for semantic - there's no original term)
+    if (!isSemantic) {
+      options.push({
+        type: 'keep-original',
+        suggestion: correction,
+        displayText: correction.term.toLowerCase(),
+        label: '(as typed)',
+      })
+    }
   }
 
   return options
@@ -503,8 +514,14 @@ function acceptMenuOption(view: EditorView, option: MenuOption) {
   const suggestions = view.state.field(suggestionState)
   const suggestion = option.suggestion
 
+  // Check if this is a semantic suggestion (end-of-line insertion)
+  const isSemantic = suggestion.docStart === suggestion.docEnd
+
   let replacement: string
-  if (option.type === 'correction' || option.type === 'retroactive') {
+  if (isSemantic) {
+    // Semantic: insert with space prefix at end of line
+    replacement = ` [[${suggestion.tag}]]`
+  } else if (option.type === 'correction' || option.type === 'retroactive') {
     // Replace with corrected tag
     replacement = `[[${suggestion.tag}]]`
   } else {

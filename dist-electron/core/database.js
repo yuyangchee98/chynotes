@@ -80,6 +80,7 @@ exports.addBlockTag = addBlockTag;
 exports.getBlocksWithTag = getBlocksWithTag;
 exports.getBlocksWithTagAndChildren = getBlocksWithTagAndChildren;
 exports.deleteBlockTags = deleteBlockTags;
+exports.getBlockTags = getBlockTags;
 exports.upsertBlockEmbedding = upsertBlockEmbedding;
 exports.getBlockEmbedding = getBlockEmbedding;
 exports.getBlockEmbeddings = getBlockEmbeddings;
@@ -730,6 +731,14 @@ function getBlocksWithTagAndChildren(tagName) {
 function deleteBlockTags(blockId) {
     const db = getDatabase();
     db.prepare('DELETE FROM block_tags WHERE block_id = ?').run(blockId);
+}
+/**
+ * Get all tags for a specific block
+ */
+function getBlockTags(blockId) {
+    const db = getDatabase();
+    const rows = db.prepare('SELECT tag_name FROM block_tags WHERE block_id = ?').all(blockId);
+    return rows.map(r => r.tag_name);
 }
 /**
  * Insert or update a block's embedding

@@ -73,7 +73,7 @@ import {
   setEmbeddingEnabled,
   isEmbeddingEnabled,
 } from '../core/embedding-queue'
-import { getSuggestionsForBlock, TagSuggestion } from '../core/tag-suggester'
+import { getSuggestionsForBlockAsync, TagSuggestion } from '../core/tag-suggester'
 import { buildFrequencyIndex, updateFrequencyIndexForNote } from '../core/frequency-index'
 import {
   getSystemStatus,
@@ -298,9 +298,9 @@ ipcMain.handle('get-block-with-children', (_event, id: string) => {
   return getBlockWithChildren(id)
 })
 
-// Tag suggestion IPC handler
-ipcMain.handle('get-tag-suggestions', (_event, text: string, currentNoteDate?: string): TagSuggestion[] => {
-  return getSuggestionsForBlock(text, currentNoteDate)
+// Tag suggestion IPC handler (async for semantic suggestions)
+ipcMain.handle('get-tag-suggestions', async (_event, text: string, currentNoteDate?: string): Promise<TagSuggestion[]> => {
+  return getSuggestionsForBlockAsync(text, currentNoteDate)
 })
 
 // Retroactive tagging IPC handler

@@ -201,9 +201,9 @@ electron_1.ipcMain.handle('get-block-by-id', (_event, id) => {
 electron_1.ipcMain.handle('get-block-with-children', (_event, id) => {
     return (0, database_2.getBlockWithChildren)(id);
 });
-// Tag suggestion IPC handler
-electron_1.ipcMain.handle('get-tag-suggestions', (_event, text, currentNoteDate) => {
-    return (0, tag_suggester_1.getSuggestionsForBlock)(text, currentNoteDate);
+// Tag suggestion IPC handler (async for semantic suggestions)
+electron_1.ipcMain.handle('get-tag-suggestions', async (_event, text, currentNoteDate) => {
+    return (0, tag_suggester_1.getSuggestionsForBlockAsync)(text, currentNoteDate);
 });
 // Retroactive tagging IPC handler
 electron_1.ipcMain.handle('retroactive-tag', async (_event, term, tag, notes) => {
