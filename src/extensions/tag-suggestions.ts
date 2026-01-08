@@ -744,9 +744,12 @@ function createSuggestionFetcher() {
     }
 
     try {
+      console.log('[TagSuggestions] Fetching for line:', lineText, 'noteDate:', currentNoteDate)
       const suggestions: TagSuggestion[] = await (window as unknown as {
         api: { getTagSuggestions: (text: string, currentNoteDate?: string) => Promise<TagSuggestion[]> }
       }).api.getTagSuggestions(lineText, currentNoteDate || undefined)
+
+      console.log('[TagSuggestions] Backend returned:', suggestions)
 
       if (suggestions.length === 0) {
         hideCorrectionMenu()

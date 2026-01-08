@@ -103,7 +103,9 @@ function isInsideExistingTag(text: string, start: number, end: number): boolean 
  * @param currentNoteDate Optional note date (YYYY-MM-DD) to exclude from otherNotes
  */
 export function getSuggestionsForBlock(text: string, currentNoteDate?: string): TagSuggestion[] {
+  console.log('[TagSuggester] getSuggestionsForBlock called with:', { text: text.substring(0, 50), currentNoteDate })
   const tags = getCachedTags()
+  console.log('[TagSuggester] Cached tags count:', tags.length)
 
   if (tags.length === 0) {
     return []
@@ -173,6 +175,7 @@ export function getSuggestionsForBlock(text: string, currentNoteDate?: string): 
 
     // Pass 2a: Check frequency index for repeated proper nouns/phrases
     const termFreq = queryTermFrequency(lowerWord)
+    console.log('[TagSuggester] Frequency check for', lowerWord, ':', termFreq)
     if (termFreq && termFreq.noteCount >= 2) {
       // Filter out current note from otherNotes
       const otherNotes = currentNoteDate
