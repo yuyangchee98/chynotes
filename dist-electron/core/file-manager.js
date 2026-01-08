@@ -58,6 +58,7 @@ exports.pageFileExists = pageFileExists;
 exports.createPageIfNotExists = createPageIfNotExists;
 exports.listAllPages = listAllPages;
 exports.deletePageFile = deletePageFile;
+exports.replaceTermWithTag = replaceTermWithTag;
 const fs = __importStar(require("fs/promises"));
 const path = __importStar(require("path"));
 const fs_1 = require("fs");
@@ -411,4 +412,80 @@ async function deletePageFile(name) {
             throw error;
         }
     }
+}
+// ============================================================================
+// Retroactive Tagging
+// ============================================================================
+/**
+ * Escape special regex characters in a string
+ */
+function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+/**
+ * Replace untagged occurrences of a term with [[tag]] in a note
+ *
+ * @param noteDate The note date (YYYY-MM-DD)
+ * @param term The term to find (case-insensitive)
+ * @param tag The tag to wrap it with
+ * @returns true if any replacements were made, false otherwise
+ */
+async function replaceTermWithTag(noteDate, term, tag) {
+    // Parse date string to Date object
+    const [year, month, day] = noteDate.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    const content = await readNote(date);
+    if (!content) {
+        return false;
+    }
+    // Build regex to match term NOT inside [[...]]
+    // We need to handle this carefully to avoid matching inside existing tags
+    // Strategy: Match the term with word boundaries, then filter out matches inside [[...]]
+    const escapedTerm = escapeRegex(term);
+    // For multi-word terms (with hyphens or spaces), handle both formats
+    // e.g., "new-york" should match "New York" and "new-york"
+    const termPattern = term.includes('-')
+        ? escapedTerm.replace(/-/g, '[\\s-]') // Match both space and hyphen
+        : escapedTerm;
+    const regex = new RegExp(`\\b${termPattern}\\b`, 'gi');
+    let modified = false;
+    let result = '';
+    let lastIndex = 0;
+    let match;
+    // Find all [[...]] ranges first
+    const tagRanges = [];
+    const tagRegex = /\[\[[^\]]+\]\]/g;
+    let tagMatch;
+    while ((tagMatch = tagRegex.exec(content)) !== null) {
+        tagRanges.push({
+            start: tagMatch.index,
+            end: tagMatch.index + tagMatch[0].length
+        });
+    }
+    // Check if a position is inside any tag range
+    const isInsideTag = (pos, endPos) => {
+        return tagRanges.some(range => (pos >= range.start && pos < range.end) ||
+            (endPos > range.start && endPos <= range.end));
+    };
+    // Process matches
+    while ((match = regex.exec(content)) !== null) {
+        const matchStart = match.index;
+        const matchEnd = matchStart + match[0].length;
+        // Skip if this match is inside an existing [[tag]]
+        if (isInsideTag(matchStart, matchEnd)) {
+            continue;
+        }
+        // Add content before this match
+        result += content.slice(lastIndex, matchStart);
+        // Add the tagged version
+        result += `[[${tag}]]`;
+        lastIndex = matchEnd;
+        modified = true;
+    }
+    // Add remaining content
+    result += content.slice(lastIndex);
+    if (modified) {
+        await writeNote(date, result);
+    }
+    return modified;
 }

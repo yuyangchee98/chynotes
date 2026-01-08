@@ -13,6 +13,7 @@ import {
   pageFileExists,
   createPageIfNotExists,
   listAllPages,
+  replaceTermWithTag,
 } from '../core/file-manager'
 
 /**
@@ -290,8 +291,29 @@ ipcMain.handle('get-block-with-children', (_event, id: string) => {
 })
 
 // Tag suggestion IPC handler
-ipcMain.handle('get-tag-suggestions', (_event, text: string): TagSuggestion[] => {
-  return getSuggestionsForBlock(text)
+ipcMain.handle('get-tag-suggestions', (_event, text: string, currentNoteDate?: string): TagSuggestion[] => {
+  return getSuggestionsForBlock(text, currentNoteDate)
+})
+
+// Retroactive tagging IPC handler
+ipcMain.handle('retroactive-tag', async (_event, term: string, tag: string, notes: string[]): Promise<number> => {
+  let modifiedCount = 0
+  for (const noteDate of notes) {
+    const modified = await replaceTermWithTag(noteDate, term, tag)
+    if (modified) {
+      // Re-index the note after modification
+      const [year, month, day] = noteDate.split('-').map(Number)
+      const date = new Date(year, month - 1, day)
+      await indexNote(date)
+      // Update frequency index
+      const content = await readNote(date)
+      if (content) {
+        updateFrequencyIndexForNote(noteDate, content)
+      }
+      modifiedCount++
+    }
+  }
+  return modifiedCount
 })
 
 app.whenReady().then(async () => {

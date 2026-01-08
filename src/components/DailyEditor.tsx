@@ -10,7 +10,7 @@ import { blockIdHider } from '../extensions/block-id-hider'
 import { blockReference, extractBlockRefIds, BlockRecord } from '../extensions/block-reference'
 import { blockContextMenu } from '../extensions/block-context-menu'
 import { formattingKeymap } from '../extensions/formatting-keymap'
-import { tagSuggestions } from '../extensions/tag-suggestions'
+import { tagSuggestions, setCurrentNoteDate } from '../extensions/tag-suggestions'
 import { toLocalDateString } from '../utils/format-date'
 import { useSnapshotDebounce } from '../hooks/useSnapshotDebounce'
 import { useSnapshotViewer } from '../hooks/useSnapshotViewer'
@@ -224,6 +224,11 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
     setShowConfirmDialog(false)
   }, [noteDate])
 
+  // Set current note date for tag suggestions
+  useEffect(() => {
+    setCurrentNoteDate(noteDate)
+    return () => setCurrentNoteDate(null)
+  }, [noteDate])
 
   // Fetch block content for ((block-id)) references
   useEffect(() => {

@@ -119,7 +119,11 @@ electron_1.contextBridge.exposeInMainWorld('api', {
         return electron_1.ipcRenderer.invoke('get-block-with-children', id);
     },
     // Tag suggestion operations
-    getTagSuggestions: (text) => {
-        return electron_1.ipcRenderer.invoke('get-tag-suggestions', text);
+    getTagSuggestions: (text, currentNoteDate) => {
+        return electron_1.ipcRenderer.invoke('get-tag-suggestions', text, currentNoteDate);
+    },
+    // Retroactive tagging
+    retroactiveTag: (term, tag, notes) => {
+        return electron_1.ipcRenderer.invoke('retroactive-tag', term, tag, notes);
     },
 });

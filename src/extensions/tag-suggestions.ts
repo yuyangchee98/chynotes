@@ -19,6 +19,7 @@ interface TagSuggestion {
   endIndex: number
   confidence: number
   reason: 'exact' | 'fuzzy' | 'frequency' | 'semantic'
+  otherNotes?: string[]  // For frequency suggestions: other notes containing this term
 }
 
 /**
@@ -45,6 +46,17 @@ interface CorrectionMenuState {
 const setSuggestions = StateEffect.define<ResolvedSuggestion[]>()
 const clearSuggestions = StateEffect.define<void>()
 const setCorrectionMenuState = StateEffect.define<Partial<CorrectionMenuState>>()
+
+// Module-level state for current note date (set by editor component)
+let currentNoteDate: string | null = null
+
+/**
+ * Set the current note date for tag suggestions
+ * Call this from the editor component when the note changes
+ */
+export function setCurrentNoteDate(date: string | null): void {
+  currentNoteDate = date
+}
 
 // State field to track current suggestions
 const suggestionState = StateField.define<ResolvedSuggestion[]>({
@@ -281,30 +293,46 @@ const ghostDecorator = ViewPlugin.fromClass(
 let correctionMenuElement: HTMLDivElement | null = null
 
 /**
- * Menu option type - either a correction or "keep as-is"
+ * Menu option type - correction, retroactive (frequency), or "keep as-is"
  */
 interface MenuOption {
-  type: 'correction' | 'keep-original'
+  type: 'correction' | 'retroactive' | 'keep-original'
   suggestion: ResolvedSuggestion
   displayText: string
   label: string
+  notes?: string[]  // For retroactive: list of other notes to tag
 }
 
 /**
  * Build menu options from corrections
- * First option: correction, Second option: keep original
+ * For frequency suggestions with otherNotes: tag here, + N notes, keep
+ * For other corrections: correction, keep
  */
 function buildMenuOptions(corrections: ResolvedSuggestion[]): MenuOption[] {
   const options: MenuOption[] = []
 
   for (const correction of corrections) {
-    // Add correction option
+    // Check if this is a frequency suggestion with other notes
+    const hasOtherNotes = correction.reason === 'frequency' && correction.otherNotes && correction.otherNotes.length > 0
+
+    // Add "tag here" option (correction)
     options.push({
       type: 'correction',
       suggestion: correction,
       displayText: correction.tag,
       label: correction.correctionLabel || '',
     })
+
+    // For frequency suggestions with other notes, add retroactive option
+    if (hasOtherNotes) {
+      options.push({
+        type: 'retroactive',
+        suggestion: correction,
+        displayText: correction.tag,
+        label: `+ ${correction.otherNotes!.length} notes`,
+        notes: correction.otherNotes,
+      })
+    }
 
     // Add "keep original" option
     options.push({
@@ -368,16 +396,16 @@ function showCorrectionMenu(
     const item = document.createElement('div')
     item.className = 'cm-correction-item'
 
-    // Single line: "tag (label)"
-    // For corrections: "project (fix typo)" or "project (singular)"
-    // For keep: "projects (keep)"
+    // Determine label text based on option type
     let labelText = ''
     if (option.type === 'correction') {
       if (option.label === '(typo)') labelText = 'Fix typo'
       else if (option.label === '(plural)') labelText = 'Singular'
-      else if (option.label === '(repeated)') labelText = 'Suggested'
+      else if (option.label === '(repeated)') labelText = 'Tag here'
       else if (option.label === '(related)') labelText = 'Related'
       else labelText = 'Suggested'
+    } else if (option.type === 'retroactive') {
+      labelText = option.label  // e.g., "+ 3 notes"
     } else {
       labelText = 'Keep'
     }
@@ -394,6 +422,11 @@ function showCorrectionMenu(
       align-items: center;
       ${index === selectedIndex ? 'background: var(--bg-tertiary, #eeedea);' : ''}
     `
+
+    // Add tooltip for retroactive option showing note dates
+    if (option.type === 'retroactive' && option.notes && option.notes.length > 0) {
+      item.title = option.notes.join(', ')
+    }
 
     // Click to accept this option
     item.addEventListener('click', () => {
@@ -464,14 +497,14 @@ function escapeHtml(text: string): string {
 }
 
 /**
- * Accept a menu option (either correction or keep-original)
+ * Accept a menu option (correction, retroactive, or keep-original)
  */
 function acceptMenuOption(view: EditorView, option: MenuOption) {
   const suggestions = view.state.field(suggestionState)
   const suggestion = option.suggestion
 
   let replacement: string
-  if (option.type === 'correction') {
+  if (option.type === 'correction' || option.type === 'retroactive') {
     // Replace with corrected tag
     replacement = `[[${suggestion.tag}]]`
   } else {
@@ -501,6 +534,18 @@ function acceptMenuOption(view: EditorView, option: MenuOption) {
       setCorrectionMenuState.of({ isOpen: false, corrections: [], selectedIndex: 0 }),
     ],
   })
+
+  // For retroactive option, also tag other notes
+  if (option.type === 'retroactive' && option.notes && option.notes.length > 0) {
+    // Call the API to retroactively tag other notes
+    const api = (window as unknown as {
+      api: { retroactiveTag: (term: string, tag: string, notes: string[]) => Promise<number> }
+    }).api
+    api.retroactiveTag(suggestion.term, suggestion.tag, option.notes)
+      .catch((err) => {
+        console.error('[TagSuggestions] Failed to retroactively tag:', err)
+      })
+  }
 }
 
 /**
@@ -700,13 +745,10 @@ function createSuggestionFetcher() {
 
     try {
       const suggestions: TagSuggestion[] = await (window as unknown as {
-        api: { getTagSuggestions: (text: string) => Promise<TagSuggestion[]> }
-      }).api.getTagSuggestions(lineText)
-
-      console.log('[TagSuggestions] Backend returned:', suggestions)
+        api: { getTagSuggestions: (text: string, currentNoteDate?: string) => Promise<TagSuggestion[]> }
+      }).api.getTagSuggestions(lineText, currentNoteDate || undefined)
 
       if (suggestions.length === 0) {
-        console.log('[TagSuggestions] No suggestions, clearing')
         hideCorrectionMenu()
         view.dispatch({ effects: clearSuggestions.of(undefined) })
         return
@@ -715,7 +757,6 @@ function createSuggestionFetcher() {
       // Convert to resolved suggestions and determine corrections
       const resolved: ResolvedSuggestion[] = suggestions.map(s => {
         const isCorrection = s.term.toLowerCase() !== s.tag
-        console.log(`[TagSuggestions] "${s.term}" -> "${s.tag}", reason=${s.reason}, isCorrection=${isCorrection}`)
         const suggestion: ResolvedSuggestion = {
           ...s,
           docStart: line.from + s.startIndex,
@@ -731,7 +772,6 @@ function createSuggestionFetcher() {
 
       // Separate corrections from exact matches
       const corrections = resolved.filter(s => s.isCorrection)
-      console.log('[TagSuggestions] Corrections:', corrections.length, 'Total:', resolved.length)
 
       view.dispatch({
         effects: [
@@ -746,10 +786,8 @@ function createSuggestionFetcher() {
 
       // Show correction menu if there are corrections
       if (corrections.length > 0) {
-        console.log('[TagSuggestions] Showing correction menu')
         showCorrectionMenu(view, corrections, 0)
       } else {
-        console.log('[TagSuggestions] No corrections, hiding menu (but ghost brackets should show)')
         hideCorrectionMenu()
       }
     } catch (error) {

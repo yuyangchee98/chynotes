@@ -13,6 +13,7 @@ export interface TagSuggestion {
   endIndex: number       // End position in the input text
   confidence: number     // 0-1, higher = more confident
   reason: 'exact' | 'fuzzy' | 'frequency' | 'semantic'
+  otherNotes?: string[]  // For frequency suggestions: other notes containing this term (excluding current)
 }
 
 /**
@@ -97,8 +98,11 @@ function isInsideExistingTag(text: string, start: number, end: number): boolean 
  * 2. For each word, check for fuzzy matches against existing tags
  * 3. Filter out words that are already inside [[tags]]
  * 4. Return suggestions sorted by confidence and position
+ *
+ * @param text The text to analyze
+ * @param currentNoteDate Optional note date (YYYY-MM-DD) to exclude from otherNotes
  */
-export function getSuggestionsForBlock(text: string): TagSuggestion[] {
+export function getSuggestionsForBlock(text: string, currentNoteDate?: string): TagSuggestion[] {
   const tags = getCachedTags()
 
   if (tags.length === 0) {
@@ -170,13 +174,18 @@ export function getSuggestionsForBlock(text: string): TagSuggestion[] {
     // Pass 2a: Check frequency index for repeated proper nouns/phrases
     const termFreq = queryTermFrequency(lowerWord)
     if (termFreq && termFreq.noteCount >= 2) {
+      // Filter out current note from otherNotes
+      const otherNotes = currentNoteDate
+        ? termFreq.notes.filter(n => n !== currentNoteDate)
+        : termFreq.notes
       suggestions.push({
         term: token.word,
         tag: termFreq.term,
         startIndex: token.start,
         endIndex: token.end,
         confidence: 0.7,
-        reason: 'frequency'
+        reason: 'frequency',
+        otherNotes: otherNotes.length > 0 ? otherNotes : undefined
       })
       continue
     }
@@ -244,13 +253,18 @@ export function getSuggestionsForBlock(text: string): TagSuggestion[] {
     // Pass 2a: Check frequency index for multi-word phrases
     const phraseFreq = queryTermFrequency(potentialTag)
     if (phraseFreq && phraseFreq.noteCount >= 2) {
+      // Filter out current note from otherNotes
+      const otherNotes = currentNoteDate
+        ? phraseFreq.notes.filter(n => n !== currentNoteDate)
+        : phraseFreq.notes
       suggestions.push({
         term: phrase,
         tag: phraseFreq.term,
         startIndex: start,
         endIndex: end,
         confidence: 0.7,
-        reason: 'frequency'
+        reason: 'frequency',
+        otherNotes: otherNotes.length > 0 ? otherNotes : undefined
       })
     }
   }

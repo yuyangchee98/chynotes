@@ -238,7 +238,12 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   // Tag suggestion operations
-  getTagSuggestions: (text: string): Promise<TagSuggestion[]> => {
-    return ipcRenderer.invoke('get-tag-suggestions', text)
+  getTagSuggestions: (text: string, currentNoteDate?: string): Promise<TagSuggestion[]> => {
+    return ipcRenderer.invoke('get-tag-suggestions', text, currentNoteDate)
+  },
+
+  // Retroactive tagging
+  retroactiveTag: (term: string, tag: string, notes: string[]): Promise<number> => {
+    return ipcRenderer.invoke('retroactive-tag', term, tag, notes)
   },
 })

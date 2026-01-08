@@ -11,7 +11,7 @@ import { unsavedHighlighter } from '../extensions/unsaved-highlighter'
 import { blockReference, extractBlockRefIds, BlockRecord } from '../extensions/block-reference'
 import { blockContextMenu } from '../extensions/block-context-menu'
 import { formattingKeymap } from '../extensions/formatting-keymap'
-import { tagSuggestions } from '../extensions/tag-suggestions'
+import { tagSuggestions, setCurrentNoteDate } from '../extensions/tag-suggestions'
 import { formatDateFromDate, toLocalDateString } from '../utils/format-date'
 import { useSnapshotDebounce } from '../hooks/useSnapshotDebounce'
 import { useSnapshotViewer } from '../hooks/useSnapshotViewer'
@@ -281,6 +281,13 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
 
     container.addEventListener('scroll', handleScroll, { passive: true })
     return () => container.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  // Set current note date for tag suggestions (default to today in stream view)
+  useEffect(() => {
+    const todayStr = toLocalDateString(new Date())
+    setCurrentNoteDate(todayStr)
+    return () => setCurrentNoteDate(null)
   }, [])
 
   // Intersection Observer for focus detection

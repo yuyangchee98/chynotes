@@ -201,8 +201,28 @@ electron_1.ipcMain.handle('get-block-with-children', (_event, id) => {
     return (0, database_2.getBlockWithChildren)(id);
 });
 // Tag suggestion IPC handler
-electron_1.ipcMain.handle('get-tag-suggestions', (_event, text) => {
-    return (0, tag_suggester_1.getSuggestionsForBlock)(text);
+electron_1.ipcMain.handle('get-tag-suggestions', (_event, text, currentNoteDate) => {
+    return (0, tag_suggester_1.getSuggestionsForBlock)(text, currentNoteDate);
+});
+// Retroactive tagging IPC handler
+electron_1.ipcMain.handle('retroactive-tag', async (_event, term, tag, notes) => {
+    let modifiedCount = 0;
+    for (const noteDate of notes) {
+        const modified = await (0, file_manager_1.replaceTermWithTag)(noteDate, term, tag);
+        if (modified) {
+            // Re-index the note after modification
+            const [year, month, day] = noteDate.split('-').map(Number);
+            const date = new Date(year, month - 1, day);
+            await (0, index_manager_1.indexNote)(date);
+            // Update frequency index
+            const content = await (0, file_manager_1.readNote)(date);
+            if (content) {
+                (0, frequency_index_1.updateFrequencyIndexForNote)(noteDate, content);
+            }
+            modifiedCount++;
+        }
+    }
+    return modifiedCount;
 });
 electron_1.app.whenReady().then(async () => {
     // Initial index of all notes
