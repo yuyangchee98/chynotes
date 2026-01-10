@@ -12,7 +12,7 @@ import {
  * Default Ollama settings
  */
 const DEFAULT_OLLAMA_ENDPOINT = 'http://localhost:11434'
-const DEFAULT_EMBEDDING_MODEL = 'nomic-embed-text'
+const DEFAULT_EMBEDDING_MODEL = 'mxbai-embed-large'
 
 /**
  * Response from Ollama /api/embed endpoint

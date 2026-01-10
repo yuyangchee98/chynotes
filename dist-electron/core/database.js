@@ -99,8 +99,8 @@ const sqliteVec = __importStar(require("sqlite-vec"));
 const path_1 = __importDefault(require("path"));
 const file_manager_1 = require("./file-manager");
 const DB_NAME = 'chynotes.db';
-// Default embedding dimension (nomic-embed-text uses 768)
-exports.EMBEDDING_DIMENSION = 768;
+// Default embedding dimension (mxbai-embed-large uses 1024)
+exports.EMBEDDING_DIMENSION = 1024;
 let db = null;
 let vecExtensionLoaded = false;
 /**

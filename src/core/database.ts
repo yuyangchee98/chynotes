@@ -5,8 +5,8 @@ import { getChynotesDirectory } from './file-manager'
 
 const DB_NAME = 'chynotes.db'
 
-// Default embedding dimension (nomic-embed-text uses 768)
-export const EMBEDDING_DIMENSION = 768
+// Default embedding dimension (mxbai-embed-large uses 1024)
+export const EMBEDDING_DIMENSION = 1024
 
 let db: Database.Database | null = null
 let vecExtensionLoaded = false

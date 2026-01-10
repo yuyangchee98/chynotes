@@ -139,12 +139,14 @@ export async function writeNote(date: Date, content: string): Promise<void> {
 /**
  * Index all blocks from content into the database
  */
-function indexBlocks(noteDate: string, content: string): void {
+export function indexBlocks(noteDate: string, content: string): void {
+  console.log('[indexBlocks] Called for', noteDate, 'content length:', content.length)
   // Clear existing blocks for this note
   deleteBlocksForNote(noteDate)
 
   // Parse blocks
   const { allBlocks } = parseBlocks(content)
+  console.log('[indexBlocks] Parsed', allBlocks.length, 'blocks')
 
   // Collect block IDs for embedding queue
   const blockIds: string[] = []

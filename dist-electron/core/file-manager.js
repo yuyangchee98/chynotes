@@ -179,10 +179,12 @@ async function writeNote(date, content) {
  * Index all blocks from content into the database
  */
 function indexBlocks(noteDate, content) {
+    console.log('[indexBlocks] Called for', noteDate, 'content length:', content.length);
     // Clear existing blocks for this note
     (0, database_1.deleteBlocksForNote)(noteDate);
     // Parse blocks
     const { allBlocks } = (0, block_parser_1.parseBlocks)(content);
+    console.log('[indexBlocks] Parsed', allBlocks.length, 'blocks');
     // Collect block IDs for embedding queue
     const blockIds = [];
     // Insert each block
