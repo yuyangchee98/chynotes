@@ -67,6 +67,9 @@ export async function indexNote(date: Date): Promise<boolean> {
     addTagOccurrence(tagRecord.id, noteRecord.id, occurrence.line, occurrence.context)
   }
 
+  // Index blocks and queue for embedding
+  indexBlocks(dateStr, content)
+
   return true
 }
 
