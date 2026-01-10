@@ -44,6 +44,7 @@ exports.getTodayFileName = getTodayFileName;
 exports.parseDateFromFileName = parseDateFromFileName;
 exports.readNote = readNote;
 exports.writeNote = writeNote;
+exports.indexBlocks = indexBlocks;
 exports.noteExists = noteExists;
 exports.listAllNotes = listAllNotes;
 exports.deleteNote = deleteNote;

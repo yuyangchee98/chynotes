@@ -82,6 +82,8 @@ async function indexNote(date) {
         const tagRecord = (0, database_1.getOrCreateTag)(occurrence.tag);
         (0, database_1.addTagOccurrence)(tagRecord.id, noteRecord.id, occurrence.line, occurrence.context);
     }
+    // Index blocks and queue for embedding
+    (0, file_manager_1.indexBlocks)(dateStr, content);
     return true;
 }
 /**
