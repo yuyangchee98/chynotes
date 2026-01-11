@@ -192,28 +192,13 @@ function handleEnter(view: EditorView): boolean {
   return true
 }
 
-// Shift+Enter: Soft line break within block
+// Shift+Enter: Create child bullet (indented)
 function handleShiftEnter(view: EditorView): boolean {
-  const { state } = view
-  const { from, to } = state.selection.main
-
-  const line = state.doc.lineAt(from)
-  const bulletMatch = line.text.match(/^(\s*)- /)
-
-  if (!bulletMatch) {
-    return false
+  const result = handleEnter(view)
+  if (result) {
+    handleTab(view)
   }
-
-  const indent = bulletMatch[1]
-  // Add newline with indentation matching content position
-  const contentIndent = indent + INDENT_UNIT
-
-  view.dispatch({
-    changes: { from, to, insert: '\n' + contentIndent },
-    selection: { anchor: from + 1 + contentIndent.length },
-  })
-
-  return true
+  return result
 }
 
 // Tab: Indent block
