@@ -559,8 +559,8 @@ function acceptMenuOption(view: EditorView, option: MenuOption) {
       api: { retroactiveTag: (term: string, tag: string, notes: string[]) => Promise<number> }
     }).api
     api.retroactiveTag(suggestion.term, suggestion.tag, option.notes)
-      .catch((err) => {
-        console.error('[TagSuggestions] Failed to retroactively tag:', err)
+      .catch(() => {
+        // Silently handle retroactive tag failure
       })
   }
 }
@@ -761,12 +761,9 @@ function createSuggestionFetcher() {
     }
 
     try {
-      console.log('[TagSuggestions] Fetching for line:', lineText, 'noteDate:', currentNoteDate)
       const suggestions: TagSuggestion[] = await (window as unknown as {
         api: { getTagSuggestions: (text: string, currentNoteDate?: string) => Promise<TagSuggestion[]> }
       }).api.getTagSuggestions(lineText, currentNoteDate || undefined)
-
-      console.log('[TagSuggestions] Backend returned:', suggestions)
 
       if (suggestions.length === 0) {
         hideCorrectionMenu()

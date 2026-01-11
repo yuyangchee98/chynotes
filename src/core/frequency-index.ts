@@ -193,8 +193,6 @@ function aggregateOccurrences(occurrences: TermOccurrence[]): Map<string, TermAg
  * Called on app startup
  */
 export async function buildFrequencyIndex(): Promise<void> {
-  console.log('[FrequencyIndex] Building full index...')
-  const startTime = Date.now()
 
   // Clear existing data
   clearTermFrequency()
@@ -233,9 +231,6 @@ export async function buildFrequencyIndex(): Promise<void> {
       savedCount++
     }
   }
-
-  const elapsed = Date.now() - startTime
-  console.log(`[FrequencyIndex] Built index: ${savedCount} terms from ${noteDateObjs.length} notes in ${elapsed}ms`)
 }
 
 /**

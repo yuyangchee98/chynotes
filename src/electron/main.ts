@@ -341,10 +341,7 @@ app.whenReady().then(async () => {
   setFrequencyIndexStatus(false)
 
   // Cleanup old snapshots if auto-cleanup is enabled
-  const deletedCount = autoCleanupSnapshots()
-  if (deletedCount > 0) {
-    console.log(`Auto-cleanup: Deleted ${deletedCount} old snapshots`)
-  }
+  autoCleanupSnapshots()
 
   // Start processing any blocks that need embedding
   processBacklogOnStartup()
