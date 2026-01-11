@@ -87,7 +87,6 @@ export function queueBlockForEmbedding(blockId: string): void {
  * Add multiple block IDs to the queue
  */
 export function queueBlocksForEmbedding(blockIds: string[]): void {
-  console.log('[EmbeddingQueue] queueBlocksForEmbedding called with', blockIds.length, 'blocks, enabled:', embeddingEnabled)
   if (!embeddingEnabled) return
 
   for (const blockId of blockIds) {
@@ -95,7 +94,6 @@ export function queueBlocksForEmbedding(blockIds: string[]): void {
       embeddingQueue.push(blockId)
     }
   }
-  console.log('[EmbeddingQueue] Queue size now:', embeddingQueue.length)
   notifyStatus()
   processQueue()
 }
@@ -105,9 +103,7 @@ export function queueBlocksForEmbedding(blockIds: string[]): void {
  * Runs asynchronously, one block at a time
  */
 async function processQueue(): Promise<void> {
-  console.log('[EmbeddingQueue] processQueue called, isProcessing:', isProcessing, 'queueLength:', embeddingQueue.length, 'enabled:', embeddingEnabled)
   if (isProcessing || embeddingQueue.length === 0 || !embeddingEnabled) {
-    console.log('[EmbeddingQueue] processQueue early return')
     return
   }
 
@@ -116,17 +112,15 @@ async function processQueue(): Promise<void> {
 
   while (embeddingQueue.length > 0 && embeddingEnabled) {
     const blockId = embeddingQueue.shift()!
-    console.log('[EmbeddingQueue] Processing block:', blockId)
     notifyStatus()
 
     try {
       await embedSingleBlock(blockId)
       processedCount++
-      console.log('[EmbeddingQueue] Successfully embedded block:', blockId)
       lastError = null
     } catch (err) {
       lastError = (err as Error).message
-      console.error(`[EmbeddingQueue] Failed to embed block ${blockId}:`, err)
+      console.error(`Failed to embed block ${blockId}:`, err)
 
       // If we get too many errors, pause embedding
       if (lastError.includes('connection refused') || lastError.includes('ECONNREFUSED')) {
@@ -211,9 +205,7 @@ export async function rebuildAllEmbeddings(): Promise<void> {
  * Process any blocks that need embedding on startup
  */
 export function processBacklogOnStartup(): void {
-  console.log('[EmbeddingQueue] processBacklogOnStartup called')
   const blocks = getBlocksNeedingEmbedding(100)
-  console.log('[EmbeddingQueue] Found', blocks.length, 'blocks needing embedding')
   if (blocks.length > 0) {
     queueBlocksForEmbedding(blocks.map((b) => b.id))
   }

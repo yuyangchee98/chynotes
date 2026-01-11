@@ -91,16 +91,13 @@ async function indexNote(date) {
  * Returns the number of notes indexed
  */
 async function reindexAll() {
-    console.log('[reindexAll] Starting full reindex');
     (0, database_1.initDatabase)();
     const dates = await (0, file_manager_1.listAllNotes)();
-    console.log('[reindexAll] Found', dates.length, 'notes to index');
     let count = 0;
     for (const date of dates) {
         await indexNote(date);
         count++;
     }
-    console.log('[reindexAll] Completed, indexed', count, 'notes');
     return count;
 }
 /**

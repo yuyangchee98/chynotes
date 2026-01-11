@@ -78,11 +78,9 @@ export async function indexNote(date: Date): Promise<boolean> {
  * Returns the number of notes indexed
  */
 export async function reindexAll(): Promise<number> {
-  console.log('[reindexAll] Starting full reindex')
   initDatabase()
 
   const dates = await listAllNotes()
-  console.log('[reindexAll] Found', dates.length, 'notes to index')
   let count = 0
 
   for (const date of dates) {
@@ -90,7 +88,6 @@ export async function reindexAll(): Promise<number> {
     count++
   }
 
-  console.log('[reindexAll] Completed, indexed', count, 'notes')
   return count
 }
 
