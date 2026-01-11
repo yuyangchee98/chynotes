@@ -314,7 +314,7 @@ export function Sidebar({
               style={{ color: 'var(--text-muted)', backgroundColor: 'var(--bg-tertiary)' }}
             >
               <div>{statusCounts.notes} notes · {statusCounts.tags} tags</div>
-              <div>{statusCounts.embeddedBlocks}/{statusCounts.totalBlocks} embedded · {formatTimeAgo(systemStatus?.lastActivityAt ?? null)}</div>
+              <div>{statusCounts.embeddedBlocks} embedded · {formatTimeAgo(systemStatus?.lastActivityAt ?? null)}</div>
             </div>
           )
         })()}
