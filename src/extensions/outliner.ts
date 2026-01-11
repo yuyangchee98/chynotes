@@ -9,6 +9,11 @@ import {
 } from '@codemirror/view'
 import { RangeSetBuilder, Prec, EditorSelection, EditorState } from '@codemirror/state'
 
+// Constants
+const BULLET_MARKER = '- '
+const INDENT_UNIT = '    '
+const INDENT_SIZE = INDENT_UNIT.length // 4
+
 // Bullet widget that replaces "- " with a styled dot
 class BulletWidget extends WidgetType {
   constructor(readonly indentLevel: number) {
@@ -48,9 +53,9 @@ function buildBulletDecorations(view: EditorView): DecorationSet {
     if (match) {
       const indentLength = match[1].length
       const bulletStart = line.from + indentLength
-      const bulletEnd = bulletStart + 2 // "- " is 2 chars
+      const bulletEnd = bulletStart + BULLET_MARKER.length
 
-      const indentLevel = Math.floor(indentLength / 4)
+      const indentLevel = Math.floor(indentLength / INDENT_SIZE)
 
       const decoration = Decoration.replace({
         widget: new BulletWidget(indentLevel),
@@ -125,8 +130,8 @@ function handleEnter(view: EditorView): boolean {
     if (lineText === '') {
       // Empty line: just insert bullet
       view.dispatch({
-        changes: { from: line.from, to: line.to, insert: '- ' },
-        selection: { anchor: line.from + 2 },
+        changes: { from: line.from, to: line.to, insert: BULLET_MARKER },
+        selection: { anchor: line.from + BULLET_MARKER.length },
       })
     } else {
       // Line has content: prepend bullet to current line, create new bullet below
@@ -134,12 +139,13 @@ function handleEnter(view: EditorView): boolean {
       const contentBeforeCursor = lineText.slice(0, cursorPosInLine)
       const contentAfterCursor = lineText.slice(cursorPosInLine)
 
-      // Replace line with: "- contentBefore" + newline + "- " + contentAfter
-      const newText = '- ' + contentBeforeCursor + '\n- ' + contentAfterCursor
+      // Replace line with: "- contentBefore" + newline + "- contentAfter"
+      const newText = BULLET_MARKER + contentBeforeCursor + '\n' + BULLET_MARKER + contentAfterCursor
+      const newCursorPos = line.from + BULLET_MARKER.length + contentBeforeCursor.length + 1 + BULLET_MARKER.length
 
       view.dispatch({
         changes: { from: line.from, to: line.to, insert: newText },
-        selection: { anchor: line.from + 2 + contentBeforeCursor.length + 3 }, // after "- content\n- "
+        selection: { anchor: newCursorPos },
       })
     }
     return true
@@ -147,7 +153,7 @@ function handleEnter(view: EditorView): boolean {
 
   const [, indent, content] = bulletMatch
   const cursorPosInLine = from - line.from
-  const bulletPrefix = indent + '- '
+  const bulletPrefix = indent + BULLET_MARKER
 
   // If cursor is at start of empty bullet content, delete the bullet
   if (content === '' && cursorPosInLine === bulletPrefix.length) {
@@ -168,7 +174,7 @@ function handleEnter(view: EditorView): boolean {
   }
 
   // Insert new line with same indentation + bullet
-  const newLinePrefix = '\n' + indent + '- '
+  const newLinePrefix = '\n' + indent + BULLET_MARKER
 
   view.dispatch({
     changes: {
@@ -195,8 +201,8 @@ function handleShiftEnter(view: EditorView): boolean {
   }
 
   const indent = bulletMatch[1]
-  // Add newline with indentation matching content position (indent + 4 for "- ")
-  const contentIndent = indent + '    '
+  // Add newline with indentation matching content position
+  const contentIndent = indent + INDENT_UNIT
 
   view.dispatch({
     changes: { from, to, insert: '\n' + contentIndent },
@@ -218,10 +224,10 @@ function handleTab(view: EditorView): boolean {
     return false
   }
 
-  // Add 4 spaces at start of line
+  // Add indent at start of line
   view.dispatch({
-    changes: { from: line.from, insert: '    ' },
-    selection: { anchor: from + 4 },
+    changes: { from: line.from, insert: INDENT_UNIT },
+    selection: { anchor: from + INDENT_SIZE },
   })
 
   return true
@@ -240,14 +246,14 @@ function handleShiftTab(view: EditorView): boolean {
   }
 
   const currentIndent = bulletMatch[1]
-  if (currentIndent.length < 4) {
+  if (currentIndent.length < INDENT_SIZE) {
     return true // Already at minimum indent, do nothing but consume the key
   }
 
-  // Remove 4 spaces from start of line
+  // Remove indent from start of line
   view.dispatch({
-    changes: { from: line.from, to: line.from + 4, insert: '' },
-    selection: { anchor: Math.max(line.from, from - 4) },
+    changes: { from: line.from, to: line.from + INDENT_SIZE, insert: '' },
+    selection: { anchor: Math.max(line.from, from - INDENT_SIZE) },
   })
 
   return true
@@ -274,7 +280,7 @@ function handleBackspace(view: EditorView): boolean {
   }
 
   const [, indent, content] = bulletMatch
-  const bulletPrefix = indent + '- '
+  const bulletPrefix = indent + BULLET_MARKER
   const cursorAtContentStart = from === line.from + bulletPrefix.length
 
   if (!cursorAtContentStart) {
@@ -320,8 +326,8 @@ function handleBackspace(view: EditorView): boolean {
   const prevBlockId = prevIdMatch ? ' ' + prevIdMatch[1] : ''
 
   // Merge: prev content + current content + prev block ID
-  const mergedContent = prevIndent + '- ' + prevContentWithoutId + currentContentWithoutId + prevBlockId
-  const cursorPosition = prevLine.from + prevIndent.length + 2 + prevContentWithoutId.length
+  const mergedContent = prevIndent + BULLET_MARKER + prevContentWithoutId + currentContentWithoutId + prevBlockId
+  const cursorPosition = prevLine.from + prevIndent.length + BULLET_MARKER.length + prevContentWithoutId.length
 
   view.dispatch({
     changes: { from: prevLine.from, to: line.to, insert: mergedContent },
@@ -351,17 +357,17 @@ const ensureBullet = EditorState.transactionFilter.of((tr) => {
   // Empty doc: add bullet
   if (newDoc.length === 0) {
     return [tr, {
-      changes: { from: 0, insert: '- ' },
-      selection: { anchor: 2 },
+      changes: { from: 0, insert: BULLET_MARKER },
+      selection: { anchor: BULLET_MARKER.length },
     }]
   }
 
-  // First line not a bullet: prepend "- "
+  // First line not a bullet: prepend bullet
   const firstLine = newDoc.line(1)
   if (!firstLine.text.match(/^(\s*)- /)) {
     return [tr, {
-      changes: { from: 0, insert: '- ' },
-      selection: { anchor: tr.newSelection.main.anchor + 2 },
+      changes: { from: 0, insert: BULLET_MARKER },
+      selection: { anchor: tr.newSelection.main.anchor + BULLET_MARKER.length },
     }]
   }
 
@@ -384,9 +390,9 @@ const pasteHandler = EditorView.domEventHandlers({
       const trimmed = line.trim()
       if (trimmed === '') return ''
       // If already a bullet, keep it
-      if (trimmed.startsWith('- ')) return line
+      if (trimmed.startsWith(BULLET_MARKER)) return line
       // Otherwise, add bullet
-      return '- ' + line
+      return BULLET_MARKER + line
     })
 
     const bulletedText = bulletedLines.join('\n')
