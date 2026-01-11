@@ -7,7 +7,7 @@ import {
   WidgetType,
   keymap,
 } from '@codemirror/view'
-import { RangeSetBuilder, Prec, EditorSelection } from '@codemirror/state'
+import { RangeSetBuilder, Prec, EditorSelection, EditorState } from '@codemirror/state'
 
 // Bullet widget that replaces "- " with a styled dot
 class BulletWidget extends WidgetType {
@@ -284,10 +284,8 @@ function handleBackspace(view: EditorView): boolean {
   // Case 1: Empty bullet (just "- " with optional whitespace)
   if (content.trim() === '' || content.match(/^§[a-z0-9]+§\s*$/)) {
     if (line.number === 1) {
-      // First line - just remove bullet prefix
-      view.dispatch({
-        changes: { from: line.from, to: line.to, insert: '' },
-      })
+      // First line - keep the bullet, just consume the keypress
+      return true
     } else {
       // Delete entire line including preceding newline
       const prevLine = state.doc.line(line.number - 1)
@@ -344,42 +342,30 @@ const outlinerKeymap = Prec.high(
   ])
 )
 
-// --- Auto-insert bullet on empty doc ---
-const autoInsertBullet = EditorView.updateListener.of((update) => {
-  if (!update.docChanged) return
+// --- Ensure document always has a bullet on line 1 ---
+const ensureBullet = EditorState.transactionFilter.of((tr) => {
+  if (!tr.docChanged) return tr
 
-  const { state } = update
-  const doc = state.doc
+  const newDoc = tr.newDoc
 
-  // Check if this is the first character being typed on an empty doc
-  // and it's not already a bullet
-  if (doc.lines === 1) {
-    const line = doc.line(1)
-    const text = line.text
-
-    // If user typed something that's not starting with "- " and not empty
-    if (text.length > 0 && !text.startsWith('- ') && !text.startsWith(' ')) {
-      // We need to prepend "- "
-      // But we need to be careful not to create infinite loop
-      // Check if the change was us adding "- "
-      const lastChange = update.changes
-      let wasAutoInsert = false
-
-      lastChange.iterChanges((fromA, toA, fromB, toB, inserted) => {
-        if (inserted.toString() === '- ') {
-          wasAutoInsert = true
-        }
-      })
-
-      if (!wasAutoInsert && text.length === 1) {
-        // First character typed, prepend bullet
-        update.view.dispatch({
-          changes: { from: 0, insert: '- ' },
-          selection: { anchor: state.selection.main.anchor + 2 },
-        })
-      }
-    }
+  // Empty doc: add bullet
+  if (newDoc.length === 0) {
+    return [tr, {
+      changes: { from: 0, insert: '- ' },
+      selection: { anchor: 2 },
+    }]
   }
+
+  // First line not a bullet: prepend "- "
+  const firstLine = newDoc.line(1)
+  if (!firstLine.text.match(/^(\s*)- /)) {
+    return [tr, {
+      changes: { from: 0, insert: '- ' },
+      selection: { anchor: tr.newSelection.main.anchor + 2 },
+    }]
+  }
+
+  return tr
 })
 
 
@@ -422,7 +408,7 @@ export function outliner() {
     bulletDecorator,
     cursorGuard,
     outlinerKeymap,
-    autoInsertBullet,
+    ensureBullet,
     pasteHandler,
   ]
 }
