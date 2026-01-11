@@ -89,27 +89,31 @@ const bulletDecorator = ViewPlugin.fromClass(
 )
 
 // Prevent cursor from being placed before bullet content
-const cursorGuard = EditorView.updateListener.of((update) => {
-  if (!update.selectionSet) return
+const cursorGuard = EditorState.transactionFilter.of((tr) => {
+  if (!tr.selection) return tr
 
-  const { state } = update
-  const { main } = state.selection
+  const { main } = tr.newSelection
 
   // Only handle simple cursor (no selection range)
-  if (main.from !== main.to) return
+  if (main.from !== main.to) return tr
 
-  const line = state.doc.lineAt(main.from)
+  const line = tr.newDoc.lineAt(main.from)
   const match = line.text.match(/^(\s*)- /)
 
   if (match) {
     const contentStart = line.from + match[0].length
     if (main.from < contentStart) {
-      // Cursor is before content, move it after "- "
-      update.view.dispatch({
+      // Fix selection before transaction is applied
+      return [{
+        changes: tr.changes,
+        effects: tr.effects,
         selection: EditorSelection.cursor(contentStart),
-      })
+        scrollIntoView: tr.scrollIntoView,
+      }]
     }
   }
+
+  return tr
 })
 
 // --- Key Handlers ---
