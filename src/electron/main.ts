@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import path from 'path'
 import {
   readNote,
@@ -89,6 +89,13 @@ import {
   setSystemReady,
   setSystemStatusCallback,
 } from '../core/system-status'
+import {
+  analyzeVault,
+  importVault,
+  VaultAnalysis,
+  ImportOptions,
+  ImportResult,
+} from '../core/obsidian-importer'
 
 // Ensure notes and pages directories exist on startup
 ensureNotesDirectorySync()
@@ -367,6 +374,35 @@ ipcMain.handle('is-image-file', (_event, filename: string) => {
 
 ipcMain.handle('generate-image-description', async (_event, imageBase64: string) => {
   return await generateImageDescription(imageBase64)
+})
+
+// Obsidian import IPC handlers
+ipcMain.handle('select-folder-dialog', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory'],
+    title: 'Select Obsidian Vault',
+  })
+  if (result.canceled || result.filePaths.length === 0) {
+    return null
+  }
+  return result.filePaths[0]
+})
+
+ipcMain.handle('analyze-obsidian-vault', async (_event, vaultPath: string): Promise<VaultAnalysis> => {
+  return await analyzeVault(vaultPath)
+})
+
+ipcMain.handle('import-obsidian-vault', async (_event, vaultPath: string, options: ImportOptions): Promise<ImportResult> => {
+  const result = await importVault(vaultPath, options)
+  // Reindex all notes after import
+  setIndexingStatus(true, 'Reindexing after import...')
+  await reindexAll()
+  setIndexingStatus(false)
+  // Rebuild frequency index
+  setFrequencyIndexStatus(true, 'Rebuilding frequency index...')
+  await buildFrequencyIndex()
+  setFrequencyIndexStatus(false)
+  return result
 })
 
 app.whenReady().then(async () => {

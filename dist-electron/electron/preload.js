@@ -150,4 +150,14 @@ electron_1.contextBridge.exposeInMainWorld('api', {
     generateImageDescription: (imageBase64) => {
         return electron_1.ipcRenderer.invoke('generate-image-description', imageBase64);
     },
+    // Obsidian import operations
+    selectFolderDialog: () => {
+        return electron_1.ipcRenderer.invoke('select-folder-dialog');
+    },
+    analyzeObsidianVault: (vaultPath) => {
+        return electron_1.ipcRenderer.invoke('analyze-obsidian-vault', vaultPath);
+    },
+    importObsidianVault: (vaultPath, options) => {
+        return electron_1.ipcRenderer.invoke('import-obsidian-vault', vaultPath, options);
+    },
 });

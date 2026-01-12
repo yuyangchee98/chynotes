@@ -75,6 +75,41 @@ interface EmbeddingModelStatus {
   error?: string
 }
 
+interface ObsidianFile {
+  relativePath: string
+  absolutePath: string
+  name: string
+  size: number
+  modifiedAt: Date
+  isDailyNote: boolean
+  date: string | null
+  hasContent: boolean
+}
+
+interface VaultAnalysis {
+  vaultPath: string
+  dailyNotes: ObsidianFile[]
+  pagesWithContent: ObsidianFile[]
+  emptyPages: ObsidianFile[]
+  dailyNoteFormat: string
+  totalFiles: number
+  warnings: string[]
+}
+
+interface ImportOptions {
+  overwriteExisting: boolean
+  normalizeTags: boolean
+}
+
+interface ImportResult {
+  dailyNotesImported: number
+  dailyNotesSkipped: number
+  pagesImported: number
+  pagesSkipped: number
+  errors: Array<{ file: string; error: string }>
+  summary: string
+}
+
 interface Window {
   api: {
     // Note operations
@@ -124,5 +159,33 @@ interface Window {
     setEmbeddingEnabled: (enabled: boolean) => Promise<boolean>
     checkEmbeddingModel: () => Promise<EmbeddingModelStatus>
     listEmbeddingModels: () => Promise<string[]>
+
+    // Snapshot operations (additional)
+    getSnapshotCount: () => Promise<number>
+    pruneSnapshotsByAge: (retentionDays: number) => Promise<number>
+
+    // Block operations
+    getBlockById: (id: string) => Promise<unknown>
+    getBlockWithChildren: (id: string) => Promise<unknown[]>
+
+    // Tag suggestion operations
+    getTagSuggestions: (text: string, currentNoteDate?: string) => Promise<unknown[]>
+
+    // Retroactive tagging
+    retroactiveTag: (term: string, tag: string, notes: string[]) => Promise<number>
+
+    // System status
+    getSystemStatus: () => Promise<unknown>
+
+    // Asset operations
+    saveAsset: (buffer: Uint8Array, originalName: string, dateStr: string) => Promise<{ relativePath: string; absolutePath: string; hash: string; isNew: boolean }>
+    resolveAssetPath: (relativePath: string) => Promise<string>
+    isImageFile: (filename: string) => Promise<boolean>
+    generateImageDescription: (imageBase64: string) => Promise<string>
+
+    // Obsidian import operations
+    selectFolderDialog: () => Promise<string | null>
+    analyzeObsidianVault: (vaultPath: string) => Promise<VaultAnalysis>
+    importObsidianVault: (vaultPath: string, options: ImportOptions) => Promise<ImportResult>
   }
 }

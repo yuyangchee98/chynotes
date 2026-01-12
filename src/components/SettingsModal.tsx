@@ -20,7 +20,7 @@ interface SettingsModalProps {
 export function SettingsModal({ isOpen, onClose, theme, onThemeChange }: SettingsModalProps) {
   const [ollamaEndpoint, setOllamaEndpoint] = useState('http://localhost:11434')
   const [ollamaModel, setOllamaModel] = useState('llama3.2')
-  const [embeddingModel, setEmbeddingModel] = useState('nomic-embed-text')
+  const [embeddingModel, setEmbeddingModel] = useState('mxbai-embed-large')
   const [availableModels, setAvailableModels] = useState<string[]>([])
   const [availableEmbeddingModels, setAvailableEmbeddingModels] = useState<string[]>([])
   const [ollamaStatus, setOllamaStatus] = useState<'checking' | 'connected' | 'error'>('checking')
@@ -38,6 +38,22 @@ export function SettingsModal({ isOpen, onClose, theme, onThemeChange }: Setting
   // Keyboard shortcuts
   const [customBindings, setCustomBindings] = useState<Record<string, KeyBinding>>({})
   const [editingAction, setEditingAction] = useState<ShortcutAction | null>(null)
+
+  // Import state
+  const [importVaultPath, setImportVaultPath] = useState<string | null>(null)
+  const [importAnalysis, setImportAnalysis] = useState<{
+    dailyNotes: number
+    pagesWithContent: number
+    emptyPages: number
+    warnings: string[]
+  } | null>(null)
+  const [importOptions, setImportOptions] = useState({
+    overwriteExisting: false,
+    normalizeTags: true,
+  })
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
+  const [importResult, setImportResult] = useState<string | null>(null)
 
   // Load settings on mount
   useEffect(() => {
@@ -169,6 +185,53 @@ export function SettingsModal({ isOpen, onClose, theme, onThemeChange }: Setting
       }
     } finally {
       setIsCleaningSnapshots(false)
+    }
+  }
+
+  const handleSelectVault = async () => {
+    if (!window.api?.selectFolderDialog) return
+    const path = await window.api.selectFolderDialog()
+    if (path) {
+      setImportVaultPath(path)
+      setImportAnalysis(null)
+      setImportResult(null)
+      // Auto-analyze
+      handleAnalyzeVault(path)
+    }
+  }
+
+  const handleAnalyzeVault = async (path: string) => {
+    if (!window.api?.analyzeObsidianVault) return
+    setIsAnalyzing(true)
+    try {
+      const analysis = await window.api.analyzeObsidianVault(path)
+      setImportAnalysis({
+        dailyNotes: analysis.dailyNotes.length,
+        pagesWithContent: analysis.pagesWithContent.length,
+        emptyPages: analysis.emptyPages.length,
+        warnings: analysis.warnings,
+      })
+    } catch (err) {
+      alert(`Failed to analyze vault: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  const handleImportVault = async () => {
+    if (!window.api?.importObsidianVault || !importVaultPath) return
+    setIsImporting(true)
+    setImportResult(null)
+    try {
+      const result = await window.api.importObsidianVault(importVaultPath, importOptions)
+      setImportResult(result.summary)
+      if (result.errors.length > 0) {
+        console.error('Import errors:', result.errors)
+      }
+    } catch (err) {
+      setImportResult(`Error: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setIsImporting(false)
     }
   }
 
@@ -309,11 +372,11 @@ export function SettingsModal({ isOpen, onClose, theme, onThemeChange }: Setting
                   value={embeddingModel}
                   onChange={(e) => setEmbeddingModel(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="nomic-embed-text"
+                  placeholder="mxbai-embed-large"
                 />
               )}
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Run <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">ollama pull nomic-embed-text</code> to download
+                Run <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">ollama pull mxbai-embed-large</code> to download
               </p>
             </div>
 
@@ -569,6 +632,107 @@ export function SettingsModal({ isOpen, onClose, theme, onThemeChange }: Setting
                 Your notes are stored as plain markdown files
               </p>
             </div>
+          </section>
+
+          {/* Import from Obsidian */}
+          <section>
+            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Import from Obsidian</h3>
+
+            {/* Vault selector */}
+            <div className="space-y-2 mb-4">
+              <label className="block text-sm text-gray-600 dark:text-gray-400">Vault folder</label>
+              <div className="flex gap-2">
+                <div className="flex-1 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-md font-mono truncate">
+                  {importVaultPath || 'No vault selected'}
+                </div>
+                <button
+                  onClick={handleSelectVault}
+                  disabled={isAnalyzing || isImporting}
+                  className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+                >
+                  Browse...
+                </button>
+              </div>
+            </div>
+
+            {/* Analysis results */}
+            {isAnalyzing && (
+              <div className="flex items-center gap-2 mb-4 text-sm text-gray-600 dark:text-gray-400">
+                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                Analyzing vault...
+              </div>
+            )}
+
+            {importAnalysis && !isAnalyzing && (
+              <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-md space-y-2">
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="font-semibold">{importAnalysis.dailyNotes}</span> daily notes
+                </p>
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="font-semibold">{importAnalysis.pagesWithContent}</span> pages with content
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {importAnalysis.emptyPages} empty pages (will skip)
+                </p>
+                {importAnalysis.warnings.map((warning, i) => (
+                  <p key={i} className="text-xs text-yellow-600 dark:text-yellow-400">
+                    {warning}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            {/* Import options */}
+            {importAnalysis && !isAnalyzing && (
+              <div className="space-y-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="normalize-tags"
+                    checked={importOptions.normalizeTags}
+                    onChange={(e) => setImportOptions({ ...importOptions, normalizeTags: e.target.checked })}
+                    className="w-4 h-4"
+                  />
+                  <label htmlFor="normalize-tags" className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+                    Normalize tags (<code className="text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded">Page Name</code> → <code className="text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded">page-name</code>)
+                  </label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="overwrite-existing"
+                    checked={importOptions.overwriteExisting}
+                    onChange={(e) => setImportOptions({ ...importOptions, overwriteExisting: e.target.checked })}
+                    className="w-4 h-4"
+                  />
+                  <label htmlFor="overwrite-existing" className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+                    Overwrite existing notes
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {/* Import button */}
+            {importAnalysis && !isAnalyzing && (
+              <button
+                onClick={handleImportVault}
+                disabled={isImporting || (importAnalysis.dailyNotes === 0 && importAnalysis.pagesWithContent === 0)}
+                className="w-full px-4 py-2 text-sm bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white rounded-md"
+              >
+                {isImporting ? 'Importing...' : 'Import'}
+              </button>
+            )}
+
+            {/* Import result */}
+            {importResult && (
+              <div className={`mt-3 p-3 rounded-md text-sm ${
+                importResult.startsWith('Error')
+                  ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                  : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+              }`}>
+                {importResult}
+              </div>
+            )}
           </section>
         </div>
 

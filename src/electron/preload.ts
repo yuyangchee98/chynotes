@@ -121,6 +121,41 @@ interface SaveAssetResult {
   isNew: boolean
 }
 
+interface ObsidianFile {
+  relativePath: string
+  absolutePath: string
+  name: string
+  size: number
+  modifiedAt: Date
+  isDailyNote: boolean
+  date: string | null
+  hasContent: boolean
+}
+
+interface VaultAnalysis {
+  vaultPath: string
+  dailyNotes: ObsidianFile[]
+  pagesWithContent: ObsidianFile[]
+  emptyPages: ObsidianFile[]
+  dailyNoteFormat: string
+  totalFiles: number
+  warnings: string[]
+}
+
+interface ImportOptions {
+  overwriteExisting: boolean
+  normalizeTags: boolean
+}
+
+interface ImportResult {
+  dailyNotesImported: number
+  dailyNotesSkipped: number
+  pagesImported: number
+  pagesSkipped: number
+  errors: Array<{ file: string; error: string }>
+  summary: string
+}
+
 contextBridge.exposeInMainWorld('api', {
   // Note operations
   readNote: (dateISO: string): Promise<string | null> => {
@@ -313,5 +348,18 @@ contextBridge.exposeInMainWorld('api', {
 
   generateImageDescription: (imageBase64: string): Promise<string> => {
     return ipcRenderer.invoke('generate-image-description', imageBase64)
+  },
+
+  // Obsidian import operations
+  selectFolderDialog: (): Promise<string | null> => {
+    return ipcRenderer.invoke('select-folder-dialog')
+  },
+
+  analyzeObsidianVault: (vaultPath: string): Promise<VaultAnalysis> => {
+    return ipcRenderer.invoke('analyze-obsidian-vault', vaultPath)
+  },
+
+  importObsidianVault: (vaultPath: string, options: ImportOptions): Promise<ImportResult> => {
+    return ipcRenderer.invoke('import-obsidian-vault', vaultPath, options)
   },
 })

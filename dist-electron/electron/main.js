@@ -29,6 +29,7 @@ const embedding_queue_1 = require("../core/embedding-queue");
 const tag_suggester_1 = require("../core/tag-suggester");
 const frequency_index_1 = require("../core/frequency-index");
 const system_status_1 = require("../core/system-status");
+const obsidian_importer_1 = require("../core/obsidian-importer");
 // Ensure notes and pages directories exist on startup
 (0, file_manager_1.ensureNotesDirectorySync)();
 (0, file_manager_1.ensurePagesDirectorySync)();
@@ -257,6 +258,32 @@ electron_1.ipcMain.handle('is-image-file', (_event, filename) => {
 });
 electron_1.ipcMain.handle('generate-image-description', async (_event, imageBase64) => {
     return await (0, vision_1.generateImageDescription)(imageBase64);
+});
+// Obsidian import IPC handlers
+electron_1.ipcMain.handle('select-folder-dialog', async () => {
+    const result = await electron_1.dialog.showOpenDialog({
+        properties: ['openDirectory'],
+        title: 'Select Obsidian Vault',
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+        return null;
+    }
+    return result.filePaths[0];
+});
+electron_1.ipcMain.handle('analyze-obsidian-vault', async (_event, vaultPath) => {
+    return await (0, obsidian_importer_1.analyzeVault)(vaultPath);
+});
+electron_1.ipcMain.handle('import-obsidian-vault', async (_event, vaultPath, options) => {
+    const result = await (0, obsidian_importer_1.importVault)(vaultPath, options);
+    // Reindex all notes after import
+    (0, system_status_1.setIndexingStatus)(true, 'Reindexing after import...');
+    await (0, index_manager_1.reindexAll)();
+    (0, system_status_1.setIndexingStatus)(false);
+    // Rebuild frequency index
+    (0, system_status_1.setFrequencyIndexStatus)(true, 'Rebuilding frequency index...');
+    await (0, frequency_index_1.buildFrequencyIndex)();
+    (0, system_status_1.setFrequencyIndexStatus)(false);
+    return result;
 });
 electron_1.app.whenReady().then(async () => {
     // Initial index of all notes
