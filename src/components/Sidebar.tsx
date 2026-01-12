@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { formatDate } from '../utils/format-date'
 import { Tooltip } from './Tooltip'
+import { Calendar } from './ui/calendar'
 
 interface SystemStatus {
   indexing: { isActive: boolean; message: string | null }
@@ -61,6 +62,8 @@ export function Sidebar({
   const [expandedTags, setExpandedTags] = useState<Set<string>>(new Set())
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null)
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({ notes: 0, tags: 0, embeddedBlocks: 0, totalBlocks: 0 })
+  const [showCalendar, setShowCalendar] = useState(false)
+  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date())
 
   // Load tags and recent notes
   useEffect(() => {
@@ -72,7 +75,7 @@ export function Sidebar({
           window.api.getEmbeddingStats(),
         ])
         setTags(tagTree)
-        setRecentDates(dates.slice(0, 7)) // Last 7 days
+        setRecentDates(dates) // All notes
 
         // Count total tags from tree
         const countTags = (nodes: TagTreeNode[]): number =>
@@ -246,7 +249,10 @@ export function Sidebar({
                 Tags
               </h3>
             </Tooltip>
-            <div className="space-y-0.5">
+            <div
+              className="space-y-0.5 overflow-y-auto"
+              style={{ maxHeight: '200px' }}
+            >
               {tags.map(tag => renderTagNode(tag))}
             </div>
           </div>
@@ -255,47 +261,89 @@ export function Sidebar({
         {/* History */}
         {recentDates.length > 0 && (
           <div className="px-3 py-2">
-            <Tooltip explanationKey="history">
-              <h3
-                className="text-xs font-semibold uppercase tracking-wider mb-2"
-                style={{ color: 'var(--text-muted)' }}
+            <div className="flex items-center justify-between mb-2">
+              <Tooltip explanationKey="history">
+                <h3
+                  className="text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  History
+                </h3>
+              </Tooltip>
+              <button
+                onClick={() => setShowCalendar(!showCalendar)}
+                className="p-1 rounded transition-colors hover:opacity-80"
+                style={{
+                  color: showCalendar ? 'var(--accent)' : 'var(--text-muted)',
+                  backgroundColor: showCalendar ? 'var(--accent-subtle)' : 'transparent',
+                }}
+                title={showCalendar ? 'Show list' : 'Show calendar'}
               >
-                History
-              </h3>
-            </Tooltip>
-            <div className="space-y-0.5">
-              {recentDates.map(dateStr => {
-                const [year, month, day] = dateStr.split('-').map(Number)
-                const date = new Date(year, month - 1, day)
-                const formatted = formatDate(dateStr)
-                const isSelected = selectedDate === dateStr
-                return (
-                  <button
-                    key={dateStr}
-                    onClick={() => onDateSelect(date)}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors hover:opacity-80"
-                    style={{
-                      backgroundColor: isSelected ? 'var(--accent-subtle)' : 'transparent',
-                      color: isSelected ? 'var(--accent)' : 'var(--text-secondary)',
-                    }}
-                  >
-                    <span style={{ color: 'var(--text-muted)' }}>•</span>
-                    <span>{formatted.date}</span>
-                    {formatted.label && (
-                      <span
-                        className="text-xs px-1.5 py-0.5 rounded"
-                        style={{
-                          backgroundColor: 'var(--bg-tertiary)',
-                          color: 'var(--text-muted)'
-                        }}
-                      >
-                        {formatted.label}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </button>
             </div>
+
+            {showCalendar ? (
+              <div className="flex justify-center">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate ? new Date(selectedDate + 'T00:00:00') : undefined}
+                  onSelect={(date) => date && onDateSelect(date)}
+                  month={calendarMonth}
+                  onMonthChange={setCalendarMonth}
+                  modifiers={{
+                    hasNote: recentDates.map(d => new Date(d + 'T00:00:00')),
+                  }}
+                  modifiersStyles={{
+                    hasNote: {
+                      fontWeight: 'bold',
+                      textDecoration: 'underline',
+                      textDecorationColor: 'var(--accent)',
+                    },
+                  }}
+                  className="rounded-md border-0"
+                />
+              </div>
+            ) : (
+              <div
+                className="space-y-0.5 overflow-y-auto"
+                style={{ maxHeight: '200px' }}
+              >
+                {recentDates.map(dateStr => {
+                  const [year, month, day] = dateStr.split('-').map(Number)
+                  const date = new Date(year, month - 1, day)
+                  const formatted = formatDate(dateStr)
+                  const isSelected = selectedDate === dateStr
+                  return (
+                    <button
+                      key={dateStr}
+                      onClick={() => onDateSelect(date)}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors hover:opacity-80"
+                      style={{
+                        backgroundColor: isSelected ? 'var(--accent-subtle)' : 'transparent',
+                        color: isSelected ? 'var(--accent)' : 'var(--text-secondary)',
+                      }}
+                    >
+                      <span style={{ color: 'var(--text-muted)' }}>•</span>
+                      <span>{formatted.date}</span>
+                      {formatted.label && (
+                        <span
+                          className="text-xs px-1.5 py-0.5 rounded"
+                          style={{
+                            backgroundColor: 'var(--bg-tertiary)',
+                            color: 'var(--text-muted)'
+                          }}
+                        >
+                          {formatted.label}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
