@@ -96,6 +96,12 @@ import {
   ImportOptions,
   ImportResult,
 } from '../core/obsidian-importer'
+import {
+  startServer,
+  stopServer,
+  getServerStatus,
+  ServerStatus,
+} from '../server/controller'
 
 // Ensure notes and pages directories exist on startup
 ensureNotesDirectorySync()
@@ -403,6 +409,19 @@ ipcMain.handle('import-obsidian-vault', async (_event, vaultPath: string, option
   await buildFrequencyIndex()
   setFrequencyIndexStatus(false)
   return result
+})
+
+// Remote access server IPC handlers
+ipcMain.handle('start-server', async (_event, port?: number): Promise<ServerStatus> => {
+  return await startServer(port)
+})
+
+ipcMain.handle('stop-server', async (): Promise<void> => {
+  await stopServer()
+})
+
+ipcMain.handle('get-server-status', (): ServerStatus => {
+  return getServerStatus()
 })
 
 app.whenReady().then(async () => {

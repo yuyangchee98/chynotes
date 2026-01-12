@@ -156,6 +156,14 @@ interface ImportResult {
   summary: string
 }
 
+interface ServerStatus {
+  running: boolean
+  port: number
+  localUrl: string | null
+  tailscaleUrl: string | null
+  lanAddresses: string[]
+}
+
 contextBridge.exposeInMainWorld('api', {
   // Note operations
   readNote: (dateISO: string): Promise<string | null> => {
@@ -361,5 +369,18 @@ contextBridge.exposeInMainWorld('api', {
 
   importObsidianVault: (vaultPath: string, options: ImportOptions): Promise<ImportResult> => {
     return ipcRenderer.invoke('import-obsidian-vault', vaultPath, options)
+  },
+
+  // Remote access server operations
+  startServer: (port?: number): Promise<ServerStatus> => {
+    return ipcRenderer.invoke('start-server', port)
+  },
+
+  stopServer: (): Promise<void> => {
+    return ipcRenderer.invoke('stop-server')
+  },
+
+  getServerStatus: (): Promise<ServerStatus> => {
+    return ipcRenderer.invoke('get-server-status')
   },
 })

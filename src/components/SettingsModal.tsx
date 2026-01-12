@@ -17,6 +17,14 @@ interface SettingsModalProps {
   onThemeChange: (theme: 'light' | 'dark' | 'system') => void
 }
 
+interface ServerStatus {
+  running: boolean
+  port: number
+  localUrl: string | null
+  tailscaleUrl: string | null
+  lanAddresses: string[]
+}
+
 export function SettingsModal({ isOpen, onClose, theme, onThemeChange }: SettingsModalProps) {
   const [ollamaEndpoint, setOllamaEndpoint] = useState('http://localhost:11434')
   const [ollamaModel, setOllamaModel] = useState('llama3.2')
@@ -38,6 +46,10 @@ export function SettingsModal({ isOpen, onClose, theme, onThemeChange }: Setting
   // Keyboard shortcuts
   const [customBindings, setCustomBindings] = useState<Record<string, KeyBinding>>({})
   const [editingAction, setEditingAction] = useState<ShortcutAction | null>(null)
+
+  // Remote access server state
+  const [serverStatus, setServerStatus] = useState<ServerStatus | null>(null)
+  const [isTogglingServer, setIsTogglingServer] = useState(false)
 
   // Import state
   const [importVaultPath, setImportVaultPath] = useState<string | null>(null)
@@ -94,6 +106,37 @@ export function SettingsModal({ isOpen, onClose, theme, onThemeChange }: Setting
     if (window.api?.getEmbeddingStats) {
       const stats = await window.api.getEmbeddingStats()
       setEmbeddingStats(stats)
+    }
+  }
+
+  const loadServerStatus = async () => {
+    if (window.api?.getServerStatus) {
+      const status = await window.api.getServerStatus()
+      setServerStatus(status)
+    }
+  }
+
+  // Load server status on mount
+  useEffect(() => {
+    if (isOpen) {
+      loadServerStatus()
+    }
+  }, [isOpen])
+
+  const handleToggleServer = async () => {
+    if (!window.api) return
+    setIsTogglingServer(true)
+    try {
+      if (serverStatus?.running) {
+        await window.api.stopServer()
+      } else {
+        await window.api.startServer(60008)
+      }
+      await loadServerStatus()
+    } catch (err) {
+      console.error('Failed to toggle server:', err)
+    } finally {
+      setIsTogglingServer(false)
     }
   }
 
@@ -632,6 +675,91 @@ export function SettingsModal({ isOpen, onClose, theme, onThemeChange }: Setting
                 Your notes are stored as plain markdown files
               </p>
             </div>
+          </section>
+
+          {/* Remote Access */}
+          <section>
+            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Remote Access</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              Enable remote access to view and edit your notes from your phone or other devices.
+            </p>
+
+            {/* Server toggle */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${
+                  serverStatus?.running ? 'bg-green-500' : 'bg-gray-400'
+                }`} />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  {serverStatus?.running ? 'Server running' : 'Server stopped'}
+                </span>
+              </div>
+              <button
+                onClick={handleToggleServer}
+                disabled={isTogglingServer}
+                className={`px-4 py-2 text-sm rounded-md ${
+                  serverStatus?.running
+                    ? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50'
+                    : 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50'
+                } disabled:opacity-50`}
+              >
+                {isTogglingServer ? 'Please wait...' : serverStatus?.running ? 'Stop Server' : 'Start Server'}
+              </button>
+            </div>
+
+            {/* Connection URLs */}
+            {serverStatus?.running && (
+              <div className="space-y-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-md">
+                {serverStatus.tailscaleUrl && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                      Tailscale URL (use this on your phone)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 px-2 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded font-mono text-green-600 dark:text-green-400 truncate">
+                        {serverStatus.tailscaleUrl}
+                      </code>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(serverStatus.tailscaleUrl!)}
+                        className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {!serverStatus.tailscaleUrl && serverStatus.lanAddresses.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                      Local Network URL
+                    </label>
+                    <code className="block px-2 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded font-mono truncate">
+                      {serverStatus.lanAddresses[0]}
+                    </code>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                    Local URL
+                  </label>
+                  <code className="block px-2 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded font-mono truncate">
+                    {serverStatus.localUrl}
+                  </code>
+                </div>
+
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  Port: {serverStatus.port}
+                </p>
+              </div>
+            )}
+
+            {!serverStatus?.running && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Start the server to access your notes from other devices via Tailscale or your local network.
+              </p>
+            )}
           </section>
 
           {/* Import from Obsidian */}

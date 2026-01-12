@@ -160,4 +160,14 @@ electron_1.contextBridge.exposeInMainWorld('api', {
     importObsidianVault: (vaultPath, options) => {
         return electron_1.ipcRenderer.invoke('import-obsidian-vault', vaultPath, options);
     },
+    // Remote access server operations
+    startServer: (port) => {
+        return electron_1.ipcRenderer.invoke('start-server', port);
+    },
+    stopServer: () => {
+        return electron_1.ipcRenderer.invoke('stop-server');
+    },
+    getServerStatus: () => {
+        return electron_1.ipcRenderer.invoke('get-server-status');
+    },
 });

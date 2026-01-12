@@ -30,6 +30,7 @@ const tag_suggester_1 = require("../core/tag-suggester");
 const frequency_index_1 = require("../core/frequency-index");
 const system_status_1 = require("../core/system-status");
 const obsidian_importer_1 = require("../core/obsidian-importer");
+const controller_1 = require("../server/controller");
 // Ensure notes and pages directories exist on startup
 (0, file_manager_1.ensureNotesDirectorySync)();
 (0, file_manager_1.ensurePagesDirectorySync)();
@@ -284,6 +285,16 @@ electron_1.ipcMain.handle('import-obsidian-vault', async (_event, vaultPath, opt
     await (0, frequency_index_1.buildFrequencyIndex)();
     (0, system_status_1.setFrequencyIndexStatus)(false);
     return result;
+});
+// Remote access server IPC handlers
+electron_1.ipcMain.handle('start-server', async (_event, port) => {
+    return await (0, controller_1.startServer)(port);
+});
+electron_1.ipcMain.handle('stop-server', async () => {
+    await (0, controller_1.stopServer)();
+});
+electron_1.ipcMain.handle('get-server-status', () => {
+    return (0, controller_1.getServerStatus)();
 });
 electron_1.app.whenReady().then(async () => {
     // Initial index of all notes
