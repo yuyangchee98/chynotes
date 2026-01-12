@@ -33,9 +33,7 @@ Search looks through all your notes. Results are ranked by relevance.`,
 
   tagGraph: {
     title: 'Tag Graph',
-    body: `Visualize how your [[tags]] connect.
-
-Tags that appear together in the same block are linked. Thicker lines = stronger connections.`,
+    body: `A map of your [[tags]] — daily notes don't appear here, keeping the view focused. Tags are connected when they appear together in the same block. Thicker lines = more co-occurrences.`,
   },
 
   timeline: {
