@@ -94,6 +94,7 @@ exports.getFrequentTerms = getFrequentTerms;
 exports.upsertTermFrequency = upsertTermFrequency;
 exports.deleteTermFrequency = deleteTermFrequency;
 exports.clearTermFrequency = clearTermFrequency;
+exports.getTagCooccurrences = getTagCooccurrences;
 const better_sqlite3_1 = __importDefault(require("better-sqlite3"));
 const sqliteVec = __importStar(require("sqlite-vec"));
 const path_1 = __importDefault(require("path"));
@@ -902,4 +903,19 @@ function deleteTermFrequency(term) {
 function clearTermFrequency() {
     const db = getDatabase();
     db.prepare('DELETE FROM term_frequency').run();
+}
+/**
+ * Get all tag co-occurrences (tags appearing in the same block)
+ * Returns pairs of tags with their co-occurrence count
+ */
+function getTagCooccurrences() {
+    const db = getDatabase();
+    return db.prepare(`
+    SELECT bt1.tag_name as tag1, bt2.tag_name as tag2, COUNT(*) as weight
+    FROM block_tags bt1
+    JOIN block_tags bt2 ON bt1.block_id = bt2.block_id
+    WHERE bt1.tag_name < bt2.tag_name
+    GROUP BY bt1.tag_name, bt2.tag_name
+    ORDER BY weight DESC
+  `).all();
 }

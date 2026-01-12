@@ -64,6 +64,7 @@ import {
   getTotalBlockCount,
   getBlockById,
   getBlockWithChildren,
+  getTagCooccurrences,
 } from '../core/database'
 import {
   findSemanticallySimilar,
@@ -197,6 +198,10 @@ ipcMain.handle('search-tags', (_event, query: string) => {
 
 ipcMain.handle('get-tag-tree', () => {
   return buildTagTree()
+})
+
+ipcMain.handle('get-tag-cooccurrences', () => {
+  return getTagCooccurrences()
 })
 
 // AI/Code generation IPC handlers

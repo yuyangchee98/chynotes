@@ -24,6 +24,12 @@ interface TagTreeNode {
   children: TagTreeNode[]
 }
 
+interface TagCooccurrence {
+  tag1: string
+  tag2: string
+  weight: number
+}
+
 type DocumentType = 'note' | 'page'
 
 interface SnapshotRecord {
@@ -84,6 +90,7 @@ interface Window {
     getTagOccurrences: (tagName: string) => Promise<TagOccurrence[]>
     searchTags: (query: string) => Promise<TagWithCount[]>
     getTagTree: () => Promise<TagTreeNode[]>
+    getTagCooccurrences: () => Promise<TagCooccurrence[]>
 
     // AI/Code generation operations
     generateTagPage: (tagName: string) => Promise<string>

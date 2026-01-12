@@ -31,6 +31,13 @@ Click any tag to see its page — an auto-generated view of every block that men
 Search looks through all your notes. Results are ranked by relevance.`,
   },
 
+  tagGraph: {
+    title: 'Tag Graph',
+    body: `Visualize how your [[tags]] connect.
+
+Tags that appear together in the same block are linked. Thicker lines = stronger connections.`,
+  },
+
   timeline: {
     title: 'Timeline',
     body: `Drag to browse through your edits.

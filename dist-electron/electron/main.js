@@ -121,6 +121,9 @@ electron_1.ipcMain.handle('search-tags', (_event, query) => {
 electron_1.ipcMain.handle('get-tag-tree', () => {
     return (0, index_manager_1.buildTagTree)();
 });
+electron_1.ipcMain.handle('get-tag-cooccurrences', () => {
+    return (0, database_2.getTagCooccurrences)();
+});
 // AI/Code generation IPC handlers
 electron_1.ipcMain.handle('generate-tag-page', async (_event, tagName) => {
     return await (0, code_generator_1.generateTagPageCode)(tagName);

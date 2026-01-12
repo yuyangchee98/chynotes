@@ -34,10 +34,12 @@ interface SidebarProps {
   onDailyNotesSelect: () => void
   onDateSelect: (date: Date) => void
   onSearchSelect: () => void
+  onGraphSelect: () => void
   selectedTag: string | null
   selectedDate: string | null  // YYYY-MM-DD format when viewing single day
   isStreamView: boolean
   isSearchView: boolean
+  isGraphView: boolean
   onSettingsClick: () => void
 }
 
@@ -46,10 +48,12 @@ export function Sidebar({
   onDailyNotesSelect,
   onDateSelect,
   onSearchSelect,
+  onGraphSelect,
   selectedTag,
   selectedDate,
   isStreamView,
   isSearchView,
+  isGraphView,
   onSettingsClick,
 }: SidebarProps) {
   const [tags, setTags] = useState<TagTreeNode[]>([])
@@ -207,6 +211,26 @@ export function Sidebar({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <span>Search</span>
+            </button>
+          </Tooltip>
+
+          {/* Graph */}
+          <Tooltip explanationKey="tagGraph">
+            <button
+              onClick={onGraphSelect}
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-base font-medium rounded-lg transition-colors"
+              style={{
+                backgroundColor: isGraphView ? 'var(--accent-subtle)' : 'transparent',
+                color: isGraphView ? 'var(--accent)' : 'var(--text-primary)',
+              }}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="5" cy="6" r="2" strokeWidth={2} />
+                <circle cx="19" cy="6" r="2" strokeWidth={2} />
+                <circle cx="12" cy="18" r="2" strokeWidth={2} />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6.5 7.5L11 16M17.5 7.5L13 16" />
+              </svg>
+              <span>Graph</span>
             </button>
           </Tooltip>
         </div>

@@ -25,6 +25,12 @@ interface TagTreeNode {
   children: TagTreeNode[]
 }
 
+interface TagCooccurrence {
+  tag1: string
+  tag2: string
+  weight: number
+}
+
 type DocumentType = 'note' | 'page'
 
 interface SnapshotRecord {
@@ -167,6 +173,10 @@ contextBridge.exposeInMainWorld('api', {
 
   getTagTree: (): Promise<TagTreeNode[]> => {
     return ipcRenderer.invoke('get-tag-tree')
+  },
+
+  getTagCooccurrences: (): Promise<TagCooccurrence[]> => {
+    return ipcRenderer.invoke('get-tag-cooccurrences')
   },
 
   // AI/Code generation operations

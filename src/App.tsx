@@ -4,11 +4,12 @@ import { DailyEditor } from './components/DailyEditor'
 import { DailyStream } from './components/DailyStream'
 import { PageEditor } from './components/PageEditor'
 import { SearchPage } from './components/SearchPage'
+import { GraphView } from './components/GraphView'
 import { SettingsModal } from './components/SettingsModal'
 import { toLocalDateString } from './utils/format-date'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
-type View = 'stream' | 'single-day' | 'tag' | 'search'
+type View = 'stream' | 'single-day' | 'tag' | 'search' | 'graph'
 type Theme = 'light' | 'dark' | 'system'
 
 function App() {
@@ -85,6 +86,11 @@ function App() {
     setView('search')
   }, [])
 
+  const handleGraphSelect = useCallback(() => {
+    setSelectedTag(null)
+    setView('graph')
+  }, [])
+
   // Handle copying content from an old note to today
   const handleCopyToToday = useCallback(async (content: string) => {
     if (window.api) {
@@ -107,7 +113,7 @@ function App() {
       return
     }
     // Navigate back based on current view
-    if (view === 'search' || view === 'tag') {
+    if (view === 'search' || view === 'tag' || view === 'graph') {
       handleDailyNotesSelect()
     } else if (view === 'single-day') {
       setView('stream')
@@ -133,10 +139,12 @@ function App() {
         onDailyNotesSelect={handleDailyNotesSelect}
         onDateSelect={handleDateSelect}
         onSearchSelect={handleSearchSelect}
+        onGraphSelect={handleGraphSelect}
         selectedTag={selectedTag}
         selectedDate={view === 'single-day' ? toLocalDateString(currentDate) : null}
         isStreamView={view === 'stream'}
         isSearchView={view === 'search'}
+        isGraphView={view === 'graph'}
         onSettingsClick={() => setSettingsOpen(true)}
       />
 
@@ -172,6 +180,9 @@ function App() {
             onDateSelect={handleDateSelect}
             onTagClick={handleTagClick}
           />
+        )}
+        {view === 'graph' && (
+          <GraphView onTagClick={handleTagClick} />
         )}
       </div>
 
