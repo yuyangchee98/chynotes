@@ -14,7 +14,11 @@ import {
   createPageIfNotExists,
   listAllPages,
   replaceTermWithTag,
+  saveAsset,
+  resolveAssetPath,
+  isImageFile,
 } from '../core/file-manager'
+import { generateImageDescription } from '../core/vision'
 
 /**
  * Parse YYYY-MM-DD string as local date
@@ -327,6 +331,25 @@ ipcMain.handle('retroactive-tag', async (_event, term: string, tag: string, note
 // System status IPC handler
 ipcMain.handle('get-system-status', () => {
   return getSystemStatus()
+})
+
+// Asset IPC handlers
+ipcMain.handle('save-asset', async (_event, buffer: number[], originalName: string, dateStr: string) => {
+  // Convert number array back to Uint8Array (IPC serializes typed arrays as regular arrays)
+  const uint8Buffer = new Uint8Array(buffer)
+  return await saveAsset(uint8Buffer, originalName, dateStr)
+})
+
+ipcMain.handle('resolve-asset-path', (_event, relativePath: string) => {
+  return resolveAssetPath(relativePath)
+})
+
+ipcMain.handle('is-image-file', (_event, filename: string) => {
+  return isImageFile(filename)
+})
+
+ipcMain.handle('generate-image-description', async (_event, imageBase64: string) => {
+  return await generateImageDescription(imageBase64)
 })
 
 app.whenReady().then(async () => {

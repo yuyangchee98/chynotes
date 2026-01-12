@@ -2,6 +2,7 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import { existsSync, mkdirSync } from 'fs'
 import { homedir } from 'os'
+import { createHash } from 'crypto'
 import { serializeBlocks, parseBlocks } from './block-parser'
 import { parseNote } from './tag-parser'
 import {
@@ -505,4 +506,144 @@ export async function replaceTermWithTag(
   }
 
   return modified
+}
+
+// ============================================================================
+// Assets (Images & File Attachments)
+// ============================================================================
+
+const ASSETS_SUBDIR = 'assets'
+
+/**
+ * Get the base assets directory path
+ */
+export function getAssetsDirectory(): string {
+  return path.join(getChynotesDirectory(), ASSETS_SUBDIR)
+}
+
+/**
+ * Get the assets directory for a specific date
+ * @param dateStr Date string in YYYY-MM-DD format
+ */
+export function getAssetDateDirectory(dateStr: string): string {
+  return path.join(getAssetsDirectory(), dateStr)
+}
+
+/**
+ * Ensure the assets directory for a specific date exists
+ */
+export async function ensureAssetDateDirectory(dateStr: string): Promise<void> {
+  const dir = getAssetDateDirectory(dateStr)
+  if (!existsSync(dir)) {
+    await fs.mkdir(dir, { recursive: true })
+  }
+}
+
+/**
+ * Compute SHA-256 hash of file content, return first 8 characters
+ */
+export function computeFileHash(buffer: Uint8Array): string {
+  const hash = createHash('sha256')
+  hash.update(buffer)
+  return hash.digest('hex').slice(0, 8)
+}
+
+/**
+ * Get file extension from original filename
+ */
+function getFileExtension(filename: string): string {
+  const ext = path.extname(filename).toLowerCase()
+  return ext || '.bin'
+}
+
+/**
+ * Check if an asset with the given hash already exists for a date
+ * @returns The full path if exists, null otherwise
+ */
+export async function assetExists(
+  hash: string,
+  dateStr: string,
+  ext: string
+): Promise<string | null> {
+  const dir = getAssetDateDirectory(dateStr)
+  const filename = `${hash}${ext}`
+  const fullPath = path.join(dir, filename)
+
+  try {
+    await fs.access(fullPath)
+    return fullPath
+  } catch {
+    return null
+  }
+}
+
+export interface SaveAssetResult {
+  /** Relative path for markdown: assets/YYYY-MM-DD/hash.ext */
+  relativePath: string
+  /** Absolute path on filesystem */
+  absolutePath: string
+  /** Content hash (8 chars) */
+  hash: string
+  /** Whether this was a new file (false = deduplicated) */
+  isNew: boolean
+}
+
+/**
+ * Save an asset file to the assets directory
+ * Deduplicates by content hash - if same file exists, returns existing path
+ *
+ * @param buffer File content as Uint8Array
+ * @param originalName Original filename (used for extension)
+ * @param dateStr Note date in YYYY-MM-DD format
+ */
+export async function saveAsset(
+  buffer: Uint8Array,
+  originalName: string,
+  dateStr: string
+): Promise<SaveAssetResult> {
+  const hash = computeFileHash(buffer)
+  const ext = getFileExtension(originalName)
+
+  // Check if already exists (deduplication)
+  const existing = await assetExists(hash, dateStr, ext)
+  if (existing) {
+    return {
+      relativePath: `assets/${dateStr}/${hash}${ext}`,
+      absolutePath: existing,
+      hash,
+      isNew: false,
+    }
+  }
+
+  // Ensure directory exists and save
+  await ensureAssetDateDirectory(dateStr)
+  const filename = `${hash}${ext}`
+  const absolutePath = path.join(getAssetDateDirectory(dateStr), filename)
+
+  await fs.writeFile(absolutePath, buffer)
+
+  return {
+    relativePath: `assets/${dateStr}/${hash}${ext}`,
+    absolutePath,
+    hash,
+    isNew: true,
+  }
+}
+
+/**
+ * Get the absolute path for a relative asset path
+ * @param relativePath Path like "assets/2025-01-11/abc123.png"
+ */
+export function resolveAssetPath(relativePath: string): string {
+  // Remove leading "assets/" if present
+  const cleanPath = relativePath.replace(/^assets\//, '')
+  return path.join(getAssetsDirectory(), cleanPath)
+}
+
+/**
+ * Check if a file is an image based on extension
+ */
+export function isImageFile(filename: string): boolean {
+  const ext = getFileExtension(filename).toLowerCase()
+  return ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico'].includes(ext)
 }

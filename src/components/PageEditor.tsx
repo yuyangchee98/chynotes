@@ -6,6 +6,7 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
 import { tagHighlighter } from '../extensions/tag-highlighter'
 import { formattingKeymap } from '../extensions/formatting-keymap'
+import { imageAttachment, clearPathCache } from '../extensions/image-attachment'
 import { useSnapshotViewer } from '../hooks/useSnapshotViewer'
 import { SnapshotSlider } from './SnapshotSlider'
 import { DiffView } from './DiffView'
@@ -59,6 +60,39 @@ const editorTheme = EditorView.theme({
   '.cm-wikilink:hover': {
     backgroundColor: 'var(--accent-subtle)',
     filter: 'brightness(0.95)',
+  },
+  // Image attachment styling
+  '.cm-image-widget': {
+    display: 'block',
+    margin: '8px 0',
+  },
+  '.cm-inline-image': {
+    maxWidth: '100%',
+    borderRadius: '6px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+  },
+  '.cm-image-error': {
+    color: 'var(--text-muted)',
+    fontStyle: 'italic',
+    backgroundColor: 'var(--bg-secondary)',
+    padding: '8px 12px',
+    borderRadius: '4px',
+    display: 'inline-block',
+  },
+  '.cm-file-widget': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    backgroundColor: 'var(--bg-secondary)',
+    padding: '4px 8px',
+    borderRadius: '4px',
+    fontSize: '0.9em',
+  },
+  '.cm-file-icon': {
+    fontSize: '1.1em',
+  },
+  '.cm-file-link': {
+    color: 'var(--accent)',
   },
 })
 
@@ -119,6 +153,11 @@ export function PageEditor({ pageName, onTagClick, onDateSelect, onBack }: PageE
       returnToLive()
     }
   }, [pageName]) // Intentionally not including isViewingHistory/returnToLive
+
+  // Clear image path cache when page changes
+  useEffect(() => {
+    clearPathCache()
+  }, [pageName])
 
   // Debounced save
   useEffect(() => {
@@ -246,6 +285,12 @@ export function PageEditor({ pageName, onTagClick, onDateSelect, onBack }: PageE
                   syntaxHighlighting(highlightStyle),
                   formattingKeymap,
                   tagHighlighter(onTagClick),
+                  imageAttachment({
+                    noteDate: `pages-${pageName.replace(/\//g, '-')}`,
+                    resolveAssetPath: (path) => window.api.resolveAssetPath(path),
+                    saveAsset: (buffer, name, date) => window.api.saveAsset(buffer, name, date),
+                    generateImageDescription: (base64) => window.api.generateImageDescription(base64),
+                  }),
                   EditorView.lineWrapping,
                   ...(isViewingHistory ? [EditorView.editable.of(false)] : []),
                 ]}

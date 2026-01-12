@@ -102,6 +102,13 @@ interface SystemStatus {
   lastActivityAt: number | null
 }
 
+interface SaveAssetResult {
+  relativePath: string
+  absolutePath: string
+  hash: string
+  isNew: boolean
+}
+
 contextBridge.exposeInMainWorld('api', {
   // Note operations
   readNote: (dateISO: string): Promise<string | null> => {
@@ -268,5 +275,23 @@ contextBridge.exposeInMainWorld('api', {
   // System status
   getSystemStatus: (): Promise<SystemStatus> => {
     return ipcRenderer.invoke('get-system-status')
+  },
+
+  // Asset operations
+  saveAsset: (buffer: Uint8Array, originalName: string, dateStr: string): Promise<SaveAssetResult> => {
+    // Convert Uint8Array to regular array for IPC serialization
+    return ipcRenderer.invoke('save-asset', Array.from(buffer), originalName, dateStr)
+  },
+
+  resolveAssetPath: (relativePath: string): Promise<string> => {
+    return ipcRenderer.invoke('resolve-asset-path', relativePath)
+  },
+
+  isImageFile: (filename: string): Promise<boolean> => {
+    return ipcRenderer.invoke('is-image-file', filename)
+  },
+
+  generateImageDescription: (imageBase64: string): Promise<string> => {
+    return ipcRenderer.invoke('generate-image-description', imageBase64)
   },
 })

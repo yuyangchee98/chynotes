@@ -11,6 +11,7 @@ import { blockReference, extractBlockRefIds, BlockRecord } from '../extensions/b
 import { blockContextMenu } from '../extensions/block-context-menu'
 import { formattingKeymap } from '../extensions/formatting-keymap'
 import { tagSuggestions, setCurrentNoteDate } from '../extensions/tag-suggestions'
+import { imageAttachment, clearPathCache } from '../extensions/image-attachment'
 import { toLocalDateString } from '../utils/format-date'
 import { useSnapshotDebounce } from '../hooks/useSnapshotDebounce'
 import { useSnapshotViewer } from '../hooks/useSnapshotViewer'
@@ -141,6 +142,40 @@ const editorTheme = EditorView.theme({
     gap: '4px',
     lineHeight: '1.5',
   },
+  // Image attachment styling
+  '.cm-image-widget': {
+    display: 'block',
+    margin: '8px 0',
+  },
+  '.cm-inline-image': {
+    maxWidth: '100%',
+    borderRadius: '6px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+  },
+  '.cm-image-error': {
+    color: 'var(--text-muted)',
+    fontStyle: 'italic',
+    backgroundColor: 'var(--bg-secondary)',
+    padding: '8px 12px',
+    borderRadius: '4px',
+    display: 'inline-block',
+  },
+  // File attachment styling (non-images)
+  '.cm-file-widget': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    backgroundColor: 'var(--bg-secondary)',
+    padding: '4px 8px',
+    borderRadius: '4px',
+    fontSize: '0.9em',
+  },
+  '.cm-file-icon': {
+    fontSize: '1.1em',
+  },
+  '.cm-file-link': {
+    color: 'var(--accent)',
+  },
 })
 
 // Syntax highlighting colors
@@ -227,6 +262,7 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
   // Set current note date for tag suggestions
   useEffect(() => {
     setCurrentNoteDate(noteDate)
+    clearPathCache() // Clear image path cache for new note
     return () => setCurrentNoteDate(null)
   }, [noteDate])
 
@@ -524,6 +560,12 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
                   blockIdHider(),
                   blockReference({ blockCache, onClick: handleBlockRefClick }),
                   blockContextMenu(),
+                  imageAttachment({
+                    noteDate,
+                    resolveAssetPath: (path) => window.api.resolveAssetPath(path),
+                    saveAsset: (buffer, name, date) => window.api.saveAsset(buffer, name, date),
+                    generateImageDescription: (base64) => window.api.generateImageDescription(base64),
+                  }),
                   EditorView.lineWrapping,
                   // Tag suggestions only when editor is editable
                   ...((isViewingHistory || isLocked) ? [EditorView.editable.of(false)] : [tagSuggestions()]),

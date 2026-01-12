@@ -130,4 +130,18 @@ electron_1.contextBridge.exposeInMainWorld('api', {
     getSystemStatus: () => {
         return electron_1.ipcRenderer.invoke('get-system-status');
     },
+    // Asset operations
+    saveAsset: (buffer, originalName, dateStr) => {
+        // Convert Uint8Array to regular array for IPC serialization
+        return electron_1.ipcRenderer.invoke('save-asset', Array.from(buffer), originalName, dateStr);
+    },
+    resolveAssetPath: (relativePath) => {
+        return electron_1.ipcRenderer.invoke('resolve-asset-path', relativePath);
+    },
+    isImageFile: (filename) => {
+        return electron_1.ipcRenderer.invoke('is-image-file', filename);
+    },
+    generateImageDescription: (imageBase64) => {
+        return electron_1.ipcRenderer.invoke('generate-image-description', imageBase64);
+    },
 });

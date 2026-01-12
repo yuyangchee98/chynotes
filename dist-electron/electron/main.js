@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const electron_1 = require("electron");
 const path_1 = __importDefault(require("path"));
 const file_manager_1 = require("../core/file-manager");
+const vision_1 = require("../core/vision");
 /**
  * Parse YYYY-MM-DD string as local date
  */
@@ -229,6 +230,21 @@ electron_1.ipcMain.handle('retroactive-tag', async (_event, term, tag, notes) =>
 electron_1.ipcMain.handle('get-system-status', () => {
     return (0, system_status_1.getSystemStatus)();
 });
+// Asset IPC handlers
+electron_1.ipcMain.handle('save-asset', async (_event, buffer, originalName, dateStr) => {
+    // Convert number array back to Uint8Array (IPC serializes typed arrays as regular arrays)
+    const uint8Buffer = new Uint8Array(buffer);
+    return await (0, file_manager_1.saveAsset)(uint8Buffer, originalName, dateStr);
+});
+electron_1.ipcMain.handle('resolve-asset-path', (_event, relativePath) => {
+    return (0, file_manager_1.resolveAssetPath)(relativePath);
+});
+electron_1.ipcMain.handle('is-image-file', (_event, filename) => {
+    return (0, file_manager_1.isImageFile)(filename);
+});
+electron_1.ipcMain.handle('generate-image-description', async (_event, imageBase64) => {
+    return await (0, vision_1.generateImageDescription)(imageBase64);
+});
 electron_1.app.whenReady().then(async () => {
     // Initial index of all notes
     (0, system_status_1.setIndexingStatus)(true, 'Indexing notes...');
@@ -239,10 +255,7 @@ electron_1.app.whenReady().then(async () => {
     await (0, frequency_index_1.buildFrequencyIndex)();
     (0, system_status_1.setFrequencyIndexStatus)(false);
     // Cleanup old snapshots if auto-cleanup is enabled
-    const deletedCount = (0, database_2.autoCleanupSnapshots)();
-    if (deletedCount > 0) {
-        console.log(`Auto-cleanup: Deleted ${deletedCount} old snapshots`);
-    }
+    (0, database_2.autoCleanupSnapshots)();
     // Start processing any blocks that need embedding
     (0, embedding_queue_1.processBacklogOnStartup)();
     // Mark system as ready

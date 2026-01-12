@@ -60,10 +60,19 @@ exports.createPageIfNotExists = createPageIfNotExists;
 exports.listAllPages = listAllPages;
 exports.deletePageFile = deletePageFile;
 exports.replaceTermWithTag = replaceTermWithTag;
+exports.getAssetsDirectory = getAssetsDirectory;
+exports.getAssetDateDirectory = getAssetDateDirectory;
+exports.ensureAssetDateDirectory = ensureAssetDateDirectory;
+exports.computeFileHash = computeFileHash;
+exports.assetExists = assetExists;
+exports.saveAsset = saveAsset;
+exports.resolveAssetPath = resolveAssetPath;
+exports.isImageFile = isImageFile;
 const fs = __importStar(require("fs/promises"));
 const path = __importStar(require("path"));
 const fs_1 = require("fs");
 const os_1 = require("os");
+const crypto_1 = require("crypto");
 const block_parser_1 = require("./block-parser");
 const tag_parser_1 = require("./tag-parser");
 const database_1 = require("./database");
@@ -489,4 +498,110 @@ async function replaceTermWithTag(noteDate, term, tag) {
         await writeNote(date, result);
     }
     return modified;
+}
+// ============================================================================
+// Assets (Images & File Attachments)
+// ============================================================================
+const ASSETS_SUBDIR = 'assets';
+/**
+ * Get the base assets directory path
+ */
+function getAssetsDirectory() {
+    return path.join(getChynotesDirectory(), ASSETS_SUBDIR);
+}
+/**
+ * Get the assets directory for a specific date
+ * @param dateStr Date string in YYYY-MM-DD format
+ */
+function getAssetDateDirectory(dateStr) {
+    return path.join(getAssetsDirectory(), dateStr);
+}
+/**
+ * Ensure the assets directory for a specific date exists
+ */
+async function ensureAssetDateDirectory(dateStr) {
+    const dir = getAssetDateDirectory(dateStr);
+    if (!(0, fs_1.existsSync)(dir)) {
+        await fs.mkdir(dir, { recursive: true });
+    }
+}
+/**
+ * Compute SHA-256 hash of file content, return first 8 characters
+ */
+function computeFileHash(buffer) {
+    const hash = (0, crypto_1.createHash)('sha256');
+    hash.update(buffer);
+    return hash.digest('hex').slice(0, 8);
+}
+/**
+ * Get file extension from original filename
+ */
+function getFileExtension(filename) {
+    const ext = path.extname(filename).toLowerCase();
+    return ext || '.bin';
+}
+/**
+ * Check if an asset with the given hash already exists for a date
+ * @returns The full path if exists, null otherwise
+ */
+async function assetExists(hash, dateStr, ext) {
+    const dir = getAssetDateDirectory(dateStr);
+    const filename = `${hash}${ext}`;
+    const fullPath = path.join(dir, filename);
+    try {
+        await fs.access(fullPath);
+        return fullPath;
+    }
+    catch {
+        return null;
+    }
+}
+/**
+ * Save an asset file to the assets directory
+ * Deduplicates by content hash - if same file exists, returns existing path
+ *
+ * @param buffer File content as Uint8Array
+ * @param originalName Original filename (used for extension)
+ * @param dateStr Note date in YYYY-MM-DD format
+ */
+async function saveAsset(buffer, originalName, dateStr) {
+    const hash = computeFileHash(buffer);
+    const ext = getFileExtension(originalName);
+    // Check if already exists (deduplication)
+    const existing = await assetExists(hash, dateStr, ext);
+    if (existing) {
+        return {
+            relativePath: `assets/${dateStr}/${hash}${ext}`,
+            absolutePath: existing,
+            hash,
+            isNew: false,
+        };
+    }
+    // Ensure directory exists and save
+    await ensureAssetDateDirectory(dateStr);
+    const filename = `${hash}${ext}`;
+    const absolutePath = path.join(getAssetDateDirectory(dateStr), filename);
+    await fs.writeFile(absolutePath, buffer);
+    return {
+        relativePath: `assets/${dateStr}/${hash}${ext}`,
+        absolutePath,
+        hash,
+        isNew: true,
+    };
+}
+/**
+ * Get the absolute path for a relative asset path
+ * @param relativePath Path like "assets/2025-01-11/abc123.png"
+ */
+function resolveAssetPath(relativePath) {
+    // Remove leading "assets/" if present
+    const cleanPath = relativePath.replace(/^assets\//, '');
+    return path.join(getAssetsDirectory(), cleanPath);
+}
+/**
+ * Check if a file is an image based on extension
+ */
+function isImageFile(filename) {
+    const ext = getFileExtension(filename).toLowerCase();
+    return ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico'].includes(ext);
 }
