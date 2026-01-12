@@ -31,6 +31,12 @@ interface TagCooccurrence {
   weight: number
 }
 
+interface SemanticTagConnection {
+  tag1: string
+  tag2: string
+  similarity: number
+}
+
 type DocumentType = 'note' | 'page'
 
 interface SnapshotRecord {
@@ -177,6 +183,10 @@ contextBridge.exposeInMainWorld('api', {
 
   getTagCooccurrences: (): Promise<TagCooccurrence[]> => {
     return ipcRenderer.invoke('get-tag-cooccurrences')
+  },
+
+  getSemanticTagConnections: (): Promise<SemanticTagConnection[]> => {
+    return ipcRenderer.invoke('get-semantic-tag-connections')
   },
 
   // AI/Code generation operations

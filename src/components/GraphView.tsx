@@ -15,6 +15,7 @@ interface GraphLink {
   source: string
   target: string
   weight: number
+  semantic?: boolean // true for semantic connections
 }
 
 interface GraphData {
@@ -24,6 +25,10 @@ interface GraphData {
 
 export function GraphView({ onTagClick }: GraphViewProps) {
   const [graphData, setGraphData] = useState<GraphData>({ nodes: [], links: [] })
+  const [cooccurrenceLinks, setCooccurrenceLinks] = useState<GraphLink[]>([])
+  const [semanticLinks, setSemanticLinks] = useState<GraphLink[]>([])
+  const [showSemantic, setShowSemantic] = useState(false)
+  const [loadingSemantic, setLoadingSemantic] = useState(false)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
   const containerRef = useRef<HTMLDivElement>(null)
   const graphRef = useRef<ForceGraphMethods | undefined>()
@@ -66,12 +71,49 @@ export function GraphView({ onTagClick }: GraphViewProps) {
         source: c.tag1,
         target: c.tag2,
         weight: c.weight,
+        semantic: false,
       }))
 
+      setCooccurrenceLinks(links)
       setGraphData({ nodes, links })
     }
     loadGraph()
   }, [])
+
+  // Load semantic connections when toggle is enabled
+  useEffect(() => {
+    if (!showSemantic || semanticLinks.length > 0) return
+
+    async function loadSemantic() {
+      if (!window.api) return
+
+      setLoadingSemantic(true)
+      try {
+        const connections = await window.api.getSemanticTagConnections()
+        const links: GraphLink[] = connections.map(c => ({
+          source: c.tag1,
+          target: c.tag2,
+          weight: c.similarity * 2, // Scale for visibility
+          semantic: true,
+        }))
+        setSemanticLinks(links)
+      } catch (err) {
+        console.error('Failed to load semantic connections:', err)
+      } finally {
+        setLoadingSemantic(false)
+      }
+    }
+    loadSemantic()
+  }, [showSemantic, semanticLinks.length])
+
+  // Update graph data when toggle changes
+  useEffect(() => {
+    const links = showSemantic
+      ? [...cooccurrenceLinks, ...semanticLinks]
+      : cooccurrenceLinks
+
+    setGraphData(prev => ({ ...prev, links }))
+  }, [showSemantic, cooccurrenceLinks, semanticLinks])
 
   // Zoom to fit after data loads
   useEffect(() => {
@@ -80,7 +122,7 @@ export function GraphView({ onTagClick }: GraphViewProps) {
         graphRef.current?.zoomToFit(400, 50)
       }, 500)
     }
-  }, [graphData])
+  }, [graphData.nodes.length])
 
   const handleNodeClick = useCallback(
     (node: GraphNode) => {
@@ -93,6 +135,9 @@ export function GraphView({ onTagClick }: GraphViewProps) {
   const getColor = (varName: string): string => {
     return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || '#888'
   }
+
+  const semanticCount = semanticLinks.length
+  const cooccurrenceCount = cooccurrenceLinks.length
 
   if (graphData.nodes.length === 0) {
     return (
@@ -133,26 +178,58 @@ export function GraphView({ onTagClick }: GraphViewProps) {
         className="absolute top-0 left-0 right-0 z-10 px-6 py-4"
         style={{ backgroundColor: 'var(--bg-primary)', borderBottom: '1px solid var(--border)' }}
       >
-        <h1 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
-          Tag Graph
-        </h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-          {graphData.nodes.length} tags · {graphData.links.length} connections
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Tag Graph
+            </h1>
+            <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+              {graphData.nodes.length} tags · {cooccurrenceCount} co-occurrences
+              {showSemantic && semanticCount > 0 && ` · ${semanticCount} semantic`}
+            </p>
+          </div>
+
+          {/* Semantic toggle */}
+          <label
+            className="flex items-center gap-2 cursor-pointer select-none"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            <input
+              type="checkbox"
+              checked={showSemantic}
+              onChange={(e) => setShowSemantic(e.target.checked)}
+              className="w-4 h-4 rounded"
+              style={{ accentColor: 'var(--accent)' }}
+            />
+            <span className="text-sm">
+              {loadingSemantic ? 'Loading...' : 'Semantic connections'}
+            </span>
+          </label>
+        </div>
       </div>
 
       {/* Graph */}
-      <div className="absolute inset-0 pt-20">
+      <div className="absolute inset-0 pt-24">
         <ForceGraph2D
           ref={graphRef}
           graphData={graphData}
           width={dimensions.width}
-          height={dimensions.height - 80}
+          height={dimensions.height - 96}
           nodeLabel="name"
           nodeVal="val"
           nodeColor={() => getColor('--accent')}
-          linkWidth={(link) => Math.sqrt((link as GraphLink).weight) * 0.5}
-          linkColor={() => getColor('--border')}
+          linkWidth={(link) => {
+            const l = link as GraphLink
+            return l.semantic ? 1 : Math.sqrt(l.weight) * 0.5
+          }}
+          linkColor={(link) => {
+            const l = link as GraphLink
+            return l.semantic ? getColor('--text-muted') : getColor('--border')
+          }}
+          linkLineDash={(link) => {
+            const l = link as GraphLink
+            return l.semantic ? [4, 4] : null
+          }}
           onNodeClick={handleNodeClick}
           nodeCanvasObject={(node, ctx, globalScale) => {
             const n = node as GraphNode & { x: number; y: number }

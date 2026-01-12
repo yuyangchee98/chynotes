@@ -30,6 +30,12 @@ interface TagCooccurrence {
   weight: number
 }
 
+interface SemanticTagConnection {
+  tag1: string
+  tag2: string
+  similarity: number
+}
+
 type DocumentType = 'note' | 'page'
 
 interface SnapshotRecord {
@@ -91,6 +97,7 @@ interface Window {
     searchTags: (query: string) => Promise<TagWithCount[]>
     getTagTree: () => Promise<TagTreeNode[]>
     getTagCooccurrences: () => Promise<TagCooccurrence[]>
+    getSemanticTagConnections: () => Promise<SemanticTagConnection[]>
 
     // AI/Code generation operations
     generateTagPage: (tagName: string) => Promise<string>

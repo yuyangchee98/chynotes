@@ -50,6 +50,9 @@ electron_1.contextBridge.exposeInMainWorld('api', {
     getTagCooccurrences: () => {
         return electron_1.ipcRenderer.invoke('get-tag-cooccurrences');
     },
+    getSemanticTagConnections: () => {
+        return electron_1.ipcRenderer.invoke('get-semantic-tag-connections');
+    },
     // AI/Code generation operations
     generateTagPage: (tagName) => {
         return electron_1.ipcRenderer.invoke('generate-tag-page', tagName);

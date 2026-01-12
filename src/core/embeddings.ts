@@ -4,6 +4,8 @@ import {
   getBlockEmbeddings,
   findSimilarBlocksKNN,
   getBlockById,
+  getBlockTags,
+  getTagsWithCounts,
   BlockRecord,
   EMBEDDING_DIMENSION,
 } from './database'
@@ -300,4 +302,97 @@ export async function listEmbeddingModels(): Promise<string[]> {
   } catch {
     return []
   }
+}
+
+/**
+ * Semantic tag connection (tags related by embedding similarity)
+ */
+export interface SemanticTagConnection {
+  tag1: string
+  tag2: string
+  similarity: number
+}
+
+/**
+ * Find semantic connections between tags based on embedding similarity.
+ *
+ * For each tag:
+ * 1. Get blocks with that tag
+ * 2. Compute centroid of their embeddings
+ * 3. Find similar blocks via KNN
+ * 4. Get tags from those similar blocks
+ * 5. Aggregate into tag-to-tag connections
+ *
+ * Returns pairs of tags with similarity scores (excluding co-occurrence pairs
+ * which are already shown as explicit edges).
+ */
+export function getSemanticTagConnections(
+  cooccurrencePairs: Set<string>,
+  minSimilarity: number = 0.7,
+  limit: number = 20
+): SemanticTagConnection[] {
+  const allTags = getTagsWithCounts()
+  if (allTags.length === 0) return []
+
+  // Map to accumulate tag-to-tag similarities
+  const connectionMap = new Map<string, number>()
+
+  for (const tag of allTags) {
+    // Get blocks for this tag
+    const blocks = getBlocksWithTag(tag.name)
+    if (blocks.length === 0) continue
+
+    // Get embeddings for these blocks
+    const blockIds = blocks.map((b) => b.id)
+    const embeddingsMap = getBlockEmbeddings(blockIds)
+
+    const embeddings = blockIds
+      .map((id) => embeddingsMap.get(id))
+      .filter((e): e is Float32Array => e !== undefined)
+
+    if (embeddings.length === 0) continue
+
+    // Compute centroid
+    const centroid = computeCentroid(embeddings)
+
+    // Find similar blocks (more than we need to account for same-tag blocks)
+    const similar = findSimilarBlocksKNN(centroid, 30)
+
+    // For each similar block, get its tags
+    for (const result of similar) {
+      // Skip if too dissimilar
+      const similarity = 1 - result.distance
+      if (similarity < minSimilarity) continue
+
+      // Get tags from this similar block
+      const blockTags = getBlockTags(result.block_id)
+
+      for (const otherTag of blockTags) {
+        // Skip self-connections
+        if (otherTag === tag.name) continue
+
+        // Create ordered key for the pair
+        const [t1, t2] = tag.name < otherTag ? [tag.name, otherTag] : [otherTag, tag.name]
+        const key = `${t1}|${t2}`
+
+        // Skip if this is already a co-occurrence pair
+        if (cooccurrencePairs.has(key)) continue
+
+        // Accumulate similarity (take max if seen before)
+        const existing = connectionMap.get(key) || 0
+        connectionMap.set(key, Math.max(existing, similarity))
+      }
+    }
+  }
+
+  // Convert to array and sort by similarity
+  const connections: SemanticTagConnection[] = []
+  for (const [key, similarity] of connectionMap) {
+    const [tag1, tag2] = key.split('|')
+    connections.push({ tag1, tag2, similarity })
+  }
+
+  connections.sort((a, b) => b.similarity - a.similarity)
+
+  return connections.slice(0, limit)
 }

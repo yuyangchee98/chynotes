@@ -124,6 +124,16 @@ electron_1.ipcMain.handle('get-tag-tree', () => {
 electron_1.ipcMain.handle('get-tag-cooccurrences', () => {
     return (0, database_2.getTagCooccurrences)();
 });
+electron_1.ipcMain.handle('get-semantic-tag-connections', () => {
+    // Build set of co-occurrence pairs to exclude
+    const cooccurrences = (0, database_2.getTagCooccurrences)();
+    const cooccurrencePairs = new Set();
+    for (const c of cooccurrences) {
+        const [t1, t2] = c.tag1 < c.tag2 ? [c.tag1, c.tag2] : [c.tag2, c.tag1];
+        cooccurrencePairs.add(`${t1}|${t2}`);
+    }
+    return (0, embeddings_1.getSemanticTagConnections)(cooccurrencePairs);
+});
 // AI/Code generation IPC handlers
 electron_1.ipcMain.handle('generate-tag-page', async (_event, tagName) => {
     return await (0, code_generator_1.generateTagPageCode)(tagName);

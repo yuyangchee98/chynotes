@@ -70,6 +70,7 @@ import {
   findSemanticallySimilar,
   checkEmbeddingModelAvailable,
   listEmbeddingModels,
+  getSemanticTagConnections,
 } from '../core/embeddings'
 import {
   getQueueStatus,
@@ -202,6 +203,17 @@ ipcMain.handle('get-tag-tree', () => {
 
 ipcMain.handle('get-tag-cooccurrences', () => {
   return getTagCooccurrences()
+})
+
+ipcMain.handle('get-semantic-tag-connections', () => {
+  // Build set of co-occurrence pairs to exclude
+  const cooccurrences = getTagCooccurrences()
+  const cooccurrencePairs = new Set<string>()
+  for (const c of cooccurrences) {
+    const [t1, t2] = c.tag1 < c.tag2 ? [c.tag1, c.tag2] : [c.tag2, c.tag1]
+    cooccurrencePairs.add(`${t1}|${t2}`)
+  }
+  return getSemanticTagConnections(cooccurrencePairs)
 })
 
 // AI/Code generation IPC handlers
