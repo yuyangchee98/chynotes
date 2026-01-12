@@ -113,6 +113,50 @@ body {
   background: var(--text-muted);
 }
 
+/* Calendar styling - integrate with app theme */
+[data-slot="calendar"] {
+  background: transparent !important;
+}
+
+[data-slot="calendar"] button {
+  color: var(--text-secondary);
+}
+
+[data-slot="calendar"] button:hover {
+  background-color: var(--bg-tertiary) !important;
+}
+
+[data-slot="calendar"] button[data-selected="true"],
+[data-slot="calendar"] button[data-selected-single="true"] {
+  background-color: var(--accent) !important;
+  color: white !important;
+}
+
+[data-slot="calendar"] .rdp-day_today {
+  background-color: var(--accent-subtle);
+}
+
+[data-slot="calendar"] .rdp-weekday {
+  color: var(--text-muted);
+}
+
+/* Dot indicator for dates with notes */
+.has-note-indicator {
+  position: relative;
+}
+
+.has-note-indicator::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  background-color: var(--accent);
+  border-radius: 50%;
+}
+
 
 
 @layer base {

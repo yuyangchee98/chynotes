@@ -547,6 +547,7 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
             // Normal editor mode
             <>
               <CodeMirror
+                key={noteDate}
                 ref={editorRef}
                 value={displayContent}
                 onChange={handleChange}

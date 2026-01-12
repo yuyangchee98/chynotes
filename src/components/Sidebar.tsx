@@ -296,14 +296,14 @@ export function Sidebar({
                   modifiers={{
                     hasNote: recentDates.map(d => new Date(d + 'T00:00:00')),
                   }}
-                  modifiersStyles={{
-                    hasNote: {
-                      fontWeight: 'bold',
-                      textDecoration: 'underline',
-                      textDecorationColor: 'var(--accent)',
-                    },
+                  modifiersClassNames={{
+                    hasNote: 'has-note-indicator',
                   }}
-                  className="rounded-md border-0"
+                  className="rounded-md border-0 !bg-transparent"
+                  style={{
+                    '--cell-size': '1.75rem',
+                    color: 'var(--text-primary)',
+                  } as React.CSSProperties}
                 />
               </div>
             ) : (
