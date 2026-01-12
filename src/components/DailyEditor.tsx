@@ -466,7 +466,7 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
     <div className="flex-1 flex flex-col h-full">
       {/* Header - draggable region, padded for traffic lights */}
       <div
-        className="px-6 pt-10 pb-3"
+        className="pl-14 md:pl-6 pr-4 md:pr-6 pt-6 md:pt-10 pb-3"
         style={{
           WebkitAppRegion: 'drag',
           backgroundColor: 'var(--bg-primary)',
@@ -514,7 +514,7 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
 
       {/* Editor */}
       <div
-        className="flex-1 overflow-auto px-6 py-4"
+        className="flex-1 overflow-auto px-4 md:px-6 py-4"
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
         <div

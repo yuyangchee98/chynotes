@@ -175,7 +175,7 @@ export function GraphView({ onTagClick }: GraphViewProps) {
     >
       {/* Header */}
       <div
-        className="absolute top-0 left-0 right-0 z-10 px-6 py-4"
+        className="absolute top-0 left-0 right-0 z-10 pl-14 md:pl-6 pr-4 md:pr-6 py-4"
         style={{ backgroundColor: 'var(--bg-primary)', borderBottom: '1px solid var(--border)' }}
       >
         <div className="flex items-center justify-between">

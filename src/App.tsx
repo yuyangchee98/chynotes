@@ -18,6 +18,7 @@ function App() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>('system')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Load and apply theme
   useEffect(() => {
@@ -56,11 +57,13 @@ function App() {
   const handleTagSelect = useCallback((tag: string) => {
     setSelectedTag(tag)
     setView('tag')
+    setSidebarOpen(false)
   }, [])
 
   const handleDailyNotesSelect = useCallback(() => {
     setSelectedTag(null)
     setView('stream')
+    setSidebarOpen(false)
   }, [])
 
   const handleTagClick = useCallback((tag: string) => {
@@ -79,16 +82,19 @@ function App() {
     setView('single-day')
     setCurrentDate(date)
     setScrollToLine(line ?? null)
+    setSidebarOpen(false)
   }, [])
 
   const handleSearchSelect = useCallback(() => {
     setSelectedTag(null)
     setView('search')
+    setSidebarOpen(false)
   }, [])
 
   const handleGraphSelect = useCallback(() => {
     setSelectedTag(null)
     setView('graph')
+    setSidebarOpen(false)
   }, [])
 
   // Handle copying content from an old note to today
@@ -107,6 +113,11 @@ function App() {
 
   // Handle escape key navigation
   const handleEscape = useCallback(() => {
+    // Close sidebar if open on mobile
+    if (sidebarOpen) {
+      setSidebarOpen(false)
+      return
+    }
     // Close settings modal if open
     if (settingsOpen) {
       setSettingsOpen(false)
@@ -118,7 +129,7 @@ function App() {
     } else if (view === 'single-day') {
       setView('stream')
     }
-  }, [settingsOpen, view, handleDailyNotesSelect])
+  }, [sidebarOpen, settingsOpen, view, handleDailyNotesSelect])
 
   // Global keyboard shortcuts
   const keyboardCallbacks = useMemo(
@@ -132,7 +143,30 @@ function App() {
   useKeyboardShortcuts(keyboardCallbacks)
 
   return (
-    <div className="h-screen flex" style={{ backgroundColor: 'var(--bg-primary)' }}>
+    <div className="h-screen flex relative" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      {/* Mobile hamburger button */}
+      <button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="md:hidden fixed top-3 left-3 z-50 p-2 rounded-lg"
+        style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          {sidebarOpen ? (
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          ) : (
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          )}
+        </svg>
+      </button>
+
+      {/* Mobile overlay backdrop */}
+      {sidebarOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/50 z-30"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <Sidebar
         onTagSelect={handleTagSelect}
@@ -146,6 +180,8 @@ function App() {
         isSearchView={view === 'search'}
         isGraphView={view === 'graph'}
         onSettingsClick={() => setSettingsOpen(true)}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
 
       {/* Main content */}

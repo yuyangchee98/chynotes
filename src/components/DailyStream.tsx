@@ -595,7 +595,7 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
     <div className="flex-1 flex flex-col h-full">
       {/* Header - draggable region */}
       <div
-        className="px-6 pt-10 pb-3"
+        className="pl-14 md:pl-6 pr-4 md:pr-6 pt-6 md:pt-10 pb-3"
         style={{
           WebkitAppRegion: 'drag',
           backgroundColor: 'var(--bg-primary)',
@@ -648,7 +648,7 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
       {/* Scrollable stream */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-auto px-6 py-4 relative"
+        className="flex-1 overflow-auto px-4 md:px-6 py-4 relative"
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
           <div className="max-w-3xl mx-auto">

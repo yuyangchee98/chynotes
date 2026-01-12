@@ -42,6 +42,8 @@ interface SidebarProps {
   isSearchView: boolean
   isGraphView: boolean
   onSettingsClick: () => void
+  isOpen?: boolean  // For mobile sidebar state
+  onClose?: () => void  // To close sidebar on mobile
 }
 
 export function Sidebar({
@@ -56,6 +58,7 @@ export function Sidebar({
   isSearchView,
   isGraphView,
   onSettingsClick,
+  isOpen = false,
 }: SidebarProps) {
   const [tags, setTags] = useState<TagTreeNode[]>([])
   const [recentDates, setRecentDates] = useState<string[]>([])
@@ -168,7 +171,14 @@ export function Sidebar({
 
   return (
     <div
-      className="w-64 flex flex-col h-full"
+      className={`
+        w-64 flex flex-col h-full
+        fixed md:relative
+        inset-y-0 left-0
+        z-40
+        transform transition-transform duration-200 ease-in-out
+        ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}
       style={{ backgroundColor: 'var(--bg-secondary)', borderRight: '1px solid var(--border)' }}
     >
       {/* Header - draggable region for window, padded for traffic lights */}
