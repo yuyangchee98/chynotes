@@ -5,7 +5,7 @@ import type { SnapshotRecord } from '../core/types'
 interface SnapshotSliderProps {
   snapshots: SnapshotRecord[]
   currentSnapshotId: number | null // null = live
-  onSnapshotSelect: (id: number | null) => void
+  onSnapshotSelect: (id: number) => void
   onReturnToLive: () => void
   isDiffMode: boolean
   onToggleDiffMode: () => void

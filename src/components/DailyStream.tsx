@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
-import CodeMirror from '@uiw/react-codemirror'
+import CodeMirror, { ReactCodeMirrorRef } from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import { EditorView } from '@codemirror/view'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
@@ -186,7 +186,7 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
   const todayEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const saveTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map())
-  const editorRefs = useRef<Map<string, { view: EditorView } | null>>(new Map())
+  const editorRefs = useRef<Map<string, ReactCodeMirrorRef | null>>(new Map())
 
   // Soft-lock state for past notes
   const [unlockedDays, setUnlockedDays] = useState<Set<string>>(new Set())

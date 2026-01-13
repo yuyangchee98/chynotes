@@ -6,7 +6,13 @@
  * hovering shows more info, clicking navigates to the tag page.
  */
 
-export const explanations = {
+export interface Explanation {
+  title: string
+  body: string
+  shortcut?: string
+}
+
+export const explanations: Record<string, Explanation> = {
   dailyNotes: {
     title: 'Daily Notes',
     shortcut: 'mod+g',
@@ -84,12 +90,6 @@ Click any block to jump to it in context.`,
 
 Click any tag to see its page — blocks that mention it, plus semantically related ideas.`,
   },
-} as const
+}
 
 export type ExplanationKey = keyof typeof explanations
-
-export interface Explanation {
-  title: string
-  body: string
-  shortcut?: string
-}

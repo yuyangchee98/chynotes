@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import ForceGraph2D, { ForceGraphMethods } from 'react-force-graph-2d'
+import ForceGraph2D, { ForceGraphMethods, NodeObject, LinkObject } from 'react-force-graph-2d'
 
 interface GraphViewProps {
   onTagClick: (tag: string) => void
@@ -31,7 +31,7 @@ export function GraphView({ onTagClick }: GraphViewProps) {
   const [loadingSemantic, setLoadingSemantic] = useState(false)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
   const containerRef = useRef<HTMLDivElement>(null)
-  const graphRef = useRef<ForceGraphMethods | undefined>()
+  const graphRef = useRef<ForceGraphMethods<NodeObject<GraphNode>, LinkObject<GraphNode, GraphLink>> | undefined>()
 
   // Track container size
   useEffect(() => {

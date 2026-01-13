@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import Fuse from 'fuse.js'
+import Fuse, { FuseResult, FuseResultMatch } from 'fuse.js'
 import { formatDate } from '../utils/format-date'
 
 interface NoteEntry {
@@ -13,7 +13,7 @@ interface GroupedResult {
   matches: Array<{
     line: number
     content: string
-    fuseMatches: readonly Fuse.FuseResultMatch[] | undefined
+    fuseMatches: readonly FuseResultMatch[] | undefined
   }>
 }
 
@@ -26,7 +26,7 @@ interface SearchPageProps {
 export function SearchPage({ onDateSelect }: SearchPageProps) {
   const [query, setQuery] = useState('')
   const [allEntries, setAllEntries] = useState<NoteEntry[]>([])
-  const [rawResults, setRawResults] = useState<Fuse.FuseResult<NoteEntry>[]>([])
+  const [rawResults, setRawResults] = useState<FuseResult<NoteEntry>[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
   const fuseRef = useRef<Fuse<NoteEntry> | null>(null)
@@ -120,7 +120,7 @@ export function SearchPage({ onDateSelect }: SearchPageProps) {
   }, [onDateSelect])
 
   // Highlight matched text using Fuse.js match indices
-  const highlightMatch = (text: string, matches: readonly Fuse.FuseResultMatch[] | undefined) => {
+  const highlightMatch = (text: string, matches: readonly FuseResultMatch[] | undefined) => {
     if (!matches || matches.length === 0) return text
 
     const contentMatch = matches.find(m => m.key === 'content')
