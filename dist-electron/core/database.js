@@ -442,6 +442,9 @@ function deleteSetting(key) {
     const stmt = db.prepare('DELETE FROM settings WHERE key = ?');
     stmt.run(key);
 }
+// ============================================================================
+// Snapshots Table Operations
+// ============================================================================
 /**
  * Simple hash function for content comparison
  */
@@ -601,6 +604,9 @@ function pageExists(name) {
     const stmt = db.prepare('SELECT 1 FROM pages WHERE name = ?');
     return stmt.get(name) !== undefined;
 }
+// ============================================================================
+// Blocks Table Operations
+// ============================================================================
 /**
  * Upsert a block (insert or update)
  */

@@ -28,61 +28,7 @@ import type {
   ImportResult,
 } from './interface'
 
-// Type for window.api (from preload)
-declare global {
-  interface Window {
-    api: {
-      readNote: (dateISO: string) => Promise<string | null>
-      writeNote: (dateISO: string, content: string) => Promise<void>
-      listNotes: () => Promise<string[]>
-      ensureNotesDirectory: () => Promise<void>
-      readPage: (name: string) => Promise<string | null>
-      writePage: (name: string, content: string) => Promise<void>
-      pageExists: (name: string) => Promise<boolean>
-      createPage: (name: string) => Promise<boolean>
-      listPages: () => Promise<string[]>
-      reindexAll: () => Promise<number>
-      getAllTags: () => Promise<TagWithCount[]>
-      getTagOccurrences: (tagName: string) => Promise<TagOccurrence[]>
-      searchTags: (query: string) => Promise<TagWithCount[]>
-      getTagTree: () => Promise<TagTreeNode[]>
-      getTagCooccurrences: () => Promise<TagCooccurrence[]>
-      getSemanticTagConnections: () => Promise<SemanticTagConnection[]>
-      generateTagPage: (tagName: string) => Promise<string>
-      checkOllama: () => Promise<OllamaStatus>
-      listOllamaModels: () => Promise<string[]>
-      getTagPrompt: (tagName: string) => Promise<string>
-      setTagPrompt: (tagName: string, prompt: string) => Promise<void>
-      getCachedCode: (tagName: string) => Promise<string | null>
-      updateNoteLine: (dateStr: string, lineNumber: number, newContent: string) => Promise<void>
-      getSetting: (key: string) => Promise<string | null>
-      setSetting: (key: string, value: string) => Promise<void>
-      saveSnapshot: (noteDate: string, content: string, documentType?: DocumentType) => Promise<SnapshotRecord | null>
-      getSnapshots: (noteDate: string, documentType?: DocumentType) => Promise<SnapshotRecord[]>
-      getSnapshot: (id: number) => Promise<SnapshotRecord | null>
-      getSnapshotCount: () => Promise<number>
-      pruneSnapshotsByAge: (retentionDays: number) => Promise<number>
-      findSemanticSimilar: (tagName: string, limit?: number) => Promise<SemanticResult[]>
-      getEmbeddingStats: () => Promise<EmbeddingStats>
-      rebuildEmbeddings: () => Promise<EmbeddingQueueStatus>
-      setEmbeddingEnabled: (enabled: boolean) => Promise<boolean>
-      checkEmbeddingModel: () => Promise<EmbeddingModelStatus>
-      listEmbeddingModels: () => Promise<string[]>
-      getBlockById: (id: string) => Promise<BlockRecord | null>
-      getBlockWithChildren: (id: string) => Promise<BlockRecord[]>
-      getTagSuggestions: (text: string, currentNoteDate?: string) => Promise<TagSuggestion[]>
-      retroactiveTag: (term: string, tag: string, notes: string[]) => Promise<number>
-      getSystemStatus: () => Promise<SystemStatus>
-      saveAsset: (buffer: Uint8Array, originalName: string, dateStr: string) => Promise<SaveAssetResult>
-      resolveAssetPath: (relativePath: string) => Promise<string>
-      isImageFile: (filename: string) => Promise<boolean>
-      generateImageDescription: (imageBase64: string) => Promise<string>
-      selectFolderDialog: () => Promise<string | null>
-      analyzeObsidianVault: (vaultPath: string) => Promise<VaultAnalysis>
-      importObsidianVault: (vaultPath: string, options: ImportOptions) => Promise<ImportResult>
-    }
-  }
-}
+// Window.api type is declared globally in vite-env.d.ts
 
 export class ElectronBackend implements Backend {
   private get api() {

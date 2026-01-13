@@ -2,14 +2,7 @@ import { useEffect, useState } from 'react'
 import { formatDate } from '../utils/format-date'
 import { Tooltip } from './Tooltip'
 import { Calendar } from './ui/calendar'
-
-interface SystemStatus {
-  indexing: { isActive: boolean; message: string | null }
-  frequencyIndex: { isActive: boolean; message: string | null }
-  embeddings: { isActive: boolean; queueLength: number; message: string | null }
-  ready: boolean
-  lastActivityAt: number | null
-}
+import type { SystemStatus, TagTreeNode } from '../core/types'
 
 interface StatusCounts {
   notes: number

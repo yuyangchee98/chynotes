@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { formatDate } from '../utils/format-date'
 import { Tooltip } from './Tooltip'
+import type { TagOccurrence, SemanticResult } from '../core/types'
 
 interface BacklinksProps {
   pageName: string

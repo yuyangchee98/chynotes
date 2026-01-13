@@ -1,168 +1,25 @@
 import { contextBridge, ipcRenderer } from 'electron'
-
-// Type definitions for tag data
-interface TagWithCount {
-  id: number
-  name: string
-  prompt: string | null
-  count: number
-}
-
-interface TagOccurrence {
-  block_id: string
-  date: string
-  line: number
-  content: string
-  indent_level: number
-  children: TagOccurrence[]
-}
-
-interface TagTreeNode {
-  name: string
-  displayName: string
-  count: number
-  prompt: string | null
-  children: TagTreeNode[]
-}
-
-interface TagCooccurrence {
-  tag1: string
-  tag2: string
-  weight: number
-}
-
-interface SemanticTagConnection {
-  tag1: string
-  tag2: string
-  similarity: number
-}
-
-type DocumentType = 'note' | 'page'
-
-interface SnapshotRecord {
-  id: number
-  note_date: string
-  content: string
-  created_at: number
-  content_hash: string
-  document_type: DocumentType
-}
-
-interface SemanticResult {
-  block_id: string
-  note_date: string
-  content: string
-  distance: number
-  similarity: number
-}
-
-interface EmbeddingQueueStatus {
-  queueLength: number
-  isProcessing: boolean
-  lastError: string | null
-  processedCount: number
-}
-
-interface EmbeddingStats {
-  embeddedBlocks: number
-  totalBlocks: number
-  queueStatus: EmbeddingQueueStatus
-  enabled: boolean
-}
-
-interface EmbeddingModelStatus {
-  available: boolean
-  model: string
-  error?: string
-}
-
-interface BlockRecord {
-  id: string
-  note_date: string
-  content: string
-  parent_id: string | null
-  indent_level: number
-  line_number: number
-  updated_at: number
-  embedded_at: number | null
-}
-
-interface TagSuggestion {
-  term: string
-  tag: string
-  startIndex: number
-  endIndex: number
-  confidence: number
-  reason: 'exact' | 'fuzzy' | 'frequency' | 'semantic'
-}
-
-interface SystemStatus {
-  indexing: {
-    isActive: boolean
-    message: string | null
-  }
-  frequencyIndex: {
-    isActive: boolean
-    message: string | null
-  }
-  embeddings: {
-    isActive: boolean
-    queueLength: number
-    message: string | null
-  }
-  ready: boolean
-  lastActivityAt: number | null
-}
-
-interface SaveAssetResult {
-  relativePath: string
-  absolutePath: string
-  hash: string
-  isNew: boolean
-}
-
-interface ObsidianFile {
-  relativePath: string
-  absolutePath: string
-  name: string
-  size: number
-  modifiedAt: Date
-  isDailyNote: boolean
-  date: string | null
-  hasContent: boolean
-}
-
-interface VaultAnalysis {
-  vaultPath: string
-  dailyNotes: ObsidianFile[]
-  pagesWithContent: ObsidianFile[]
-  emptyPages: ObsidianFile[]
-  dailyNoteFormat: string
-  totalFiles: number
-  warnings: string[]
-}
-
-interface ImportOptions {
-  overwriteExisting: boolean
-  normalizeTags: boolean
-}
-
-interface ImportResult {
-  dailyNotesImported: number
-  dailyNotesSkipped: number
-  pagesImported: number
-  pagesSkipped: number
-  errors: Array<{ file: string; error: string }>
-  summary: string
-}
-
-interface ServerStatus {
-  running: boolean
-  port: number
-  localUrl: string | null
-  tailscaleUrl: string | null
-  lanAddresses: string[]
-}
+import type {
+  TagWithCount,
+  TagOccurrence,
+  TagTreeNode,
+  TagCooccurrence,
+  SemanticTagConnection,
+  DocumentType,
+  SnapshotRecord,
+  SemanticResult,
+  EmbeddingQueueStatus,
+  EmbeddingStats,
+  EmbeddingModelStatus,
+  BlockRecord,
+  TagSuggestion,
+  SystemStatus,
+  SaveAssetResult,
+  VaultAnalysis,
+  ImportOptions,
+  ImportResult,
+  ServerStatus,
+} from '../core/types'
 
 contextBridge.exposeInMainWorld('api', {
   // Note operations

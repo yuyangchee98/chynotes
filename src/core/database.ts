@@ -2,6 +2,10 @@ import Database from 'better-sqlite3'
 import * as sqliteVec from 'sqlite-vec'
 import path from 'path'
 import { getChynotesDirectory } from './file-manager'
+import type { DocumentType, SnapshotRecord, BlockRecord } from './types'
+
+// Re-export types for backwards compatibility
+export type { DocumentType, SnapshotRecord, BlockRecord }
 
 const DB_NAME = 'chynotes.db'
 
@@ -456,17 +460,6 @@ export function deleteSetting(key: string): void {
 // Snapshots Table Operations
 // ============================================================================
 
-export type DocumentType = 'note' | 'page'
-
-export interface SnapshotRecord {
-  id: number
-  note_date: string
-  content: string
-  created_at: number
-  content_hash: string
-  document_type: DocumentType
-}
-
 /**
  * Simple hash function for content comparison
  */
@@ -679,17 +672,6 @@ export function pageExists(name: string): boolean {
 // ============================================================================
 // Blocks Table Operations
 // ============================================================================
-
-export interface BlockRecord {
-  id: string
-  note_date: string
-  content: string
-  parent_id: string | null
-  indent_level: number
-  line_number: number
-  updated_at: number
-  embedded_at: number | null
-}
 
 /**
  * Upsert a block (insert or update)

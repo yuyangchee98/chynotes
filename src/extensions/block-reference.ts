@@ -14,21 +14,13 @@ import {
   WidgetType,
 } from '@codemirror/view'
 import { RangeSetBuilder, Facet } from '@codemirror/state'
+import type { BlockRecord } from '../core/types'
+
+// Re-export for consumers
+export type { BlockRecord }
 
 // Block reference pattern: ((8 hex characters))
 const BLOCK_REF_PATTERN = /\(\(([a-f0-9]{8})\)\)/g
-
-// Block record interface (matches database schema)
-export interface BlockRecord {
-  id: string
-  note_date: string
-  content: string
-  parent_id: string | null
-  indent_level: number
-  line_number: number
-  updated_at: number
-  embedded_at: number | null
-}
 
 // Configuration for the block reference extension
 interface BlockRefConfig {

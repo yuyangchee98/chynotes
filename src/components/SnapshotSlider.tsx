@@ -1,13 +1,6 @@
 import { useRef, useState, useCallback } from 'react'
 import { Tooltip } from './Tooltip'
-
-interface SnapshotRecord {
-  id: number
-  note_date: string
-  content: string
-  created_at: number
-  content_hash: string
-}
+import type { SnapshotRecord } from '../core/types'
 
 interface SnapshotSliderProps {
   snapshots: SnapshotRecord[]

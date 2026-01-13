@@ -1,15 +1,5 @@
 import { useState, useCallback } from 'react'
-
-type DocumentType = 'note' | 'page'
-
-interface SnapshotRecord {
-  id: number
-  note_date: string
-  content: string
-  created_at: number
-  content_hash: string
-  document_type: DocumentType
-}
+import type { DocumentType, SnapshotRecord } from '../core/types'
 
 interface UseSnapshotViewerReturn {
   // Current viewing state

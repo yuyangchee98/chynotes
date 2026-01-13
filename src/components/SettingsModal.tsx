@@ -9,20 +9,13 @@ import {
   formatKeyBinding,
   getBinding,
 } from '../core/keyboard-config'
+import type { EmbeddingStats, ServerStatus } from '../core/types'
 
 interface SettingsModalProps {
   isOpen: boolean
   onClose: () => void
   theme: 'light' | 'dark' | 'system'
   onThemeChange: (theme: 'light' | 'dark' | 'system') => void
-}
-
-interface ServerStatus {
-  running: boolean
-  port: number
-  localUrl: string | null
-  tailscaleUrl: string | null
-  lanAddresses: string[]
 }
 
 export function SettingsModal({ isOpen, onClose, theme, onThemeChange }: SettingsModalProps) {
