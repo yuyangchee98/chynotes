@@ -319,18 +319,15 @@ function deleteNote(date) {
 function getOrCreateTag(name) {
     const db = getDatabase();
     const now = Date.now();
-    // Try to get existing tag
-    let tag = db.prepare('SELECT * FROM tags WHERE name = ?').get(name);
-    if (!tag) {
-        // Create new tag
-        const stmt = db.prepare(`
-      INSERT INTO tags (name, created_at)
-      VALUES (?, ?)
-      RETURNING *
-    `);
-        tag = stmt.get(name, now);
-    }
-    return tag;
+    // Use INSERT OR IGNORE to atomically handle concurrent creates.
+    // This avoids the race where two threads both see the tag doesn't exist
+    // and both try to insert, causing a UNIQUE constraint violation.
+    db.prepare(`
+    INSERT OR IGNORE INTO tags (name, created_at)
+    VALUES (?, ?)
+  `).run(name, now);
+    // Tag is guaranteed to exist now - fetch it
+    return db.prepare('SELECT * FROM tags WHERE name = ?').get(name);
 }
 function getTagByName(name) {
     const db = getDatabase();
@@ -465,24 +462,21 @@ function saveSnapshot(noteDate, content, documentType = 'note') {
     const db = getDatabase();
     const contentHash = hashContent(content);
     const now = Date.now();
-    // Check if last snapshot has same content (for same document type)
-    const lastSnapshot = db.prepare(`
-    SELECT content_hash FROM snapshots
-    WHERE note_date = ? AND document_type = ?
-    ORDER BY created_at DESC
-    LIMIT 1
-  `).get(noteDate, documentType);
-    if (lastSnapshot?.content_hash === contentHash) {
-        // Content unchanged, skip
-        return null;
-    }
-    // Insert new snapshot
+    // Atomic insert-if-changed: only inserts if the hash differs from the most recent snapshot.
+    // This avoids the race where two concurrent calls both see "changed" and both insert.
     const stmt = db.prepare(`
     INSERT INTO snapshots (note_date, content, created_at, content_hash, document_type)
-    VALUES (?, ?, ?, ?, ?)
+    SELECT ?, ?, ?, ?, ?
+    WHERE NOT EXISTS (
+      SELECT 1 FROM snapshots
+      WHERE note_date = ? AND document_type = ? AND content_hash = ?
+      ORDER BY created_at DESC
+      LIMIT 1
+    )
     RETURNING *
   `);
-    return stmt.get(noteDate, content, now, contentHash, documentType);
+    const result = stmt.get(noteDate, content, now, contentHash, documentType, noteDate, documentType, contentHash);
+    return result ?? null;
 }
 /**
  * Get all snapshots for a document, ordered by creation time (newest first)
