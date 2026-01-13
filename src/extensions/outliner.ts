@@ -38,9 +38,6 @@ class BulletWidget extends WidgetType {
   }
 }
 
-// Pattern to match bullet lines: optional indent + "- "
-const BULLET_PATTERN = /^(\s*)- /gm
-
 // Build decorations that replace "- " with bullet widgets
 function buildBulletDecorations(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>()

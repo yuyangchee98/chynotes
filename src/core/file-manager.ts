@@ -9,7 +9,6 @@ import {
   upsertBlock,
   deleteBlocksForNote,
   addBlockTag,
-  deleteBlockTags
 } from './database'
 import { queueBlocksForEmbedding } from './embedding-queue'
 

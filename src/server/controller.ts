@@ -31,7 +31,7 @@ function getTailscaleAddress(): string | null {
 
   // Tailscale interface is usually named 'utun' on macOS or 'tailscale0' on Linux
   // or has IP in 100.x.x.x range
-  for (const [name, addrs] of Object.entries(interfaces)) {
+  for (const [_name, addrs] of Object.entries(interfaces)) {
     if (!addrs) continue
 
     for (const addr of addrs) {

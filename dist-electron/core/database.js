@@ -637,7 +637,6 @@ function getBlockById(id) {
  * Get a block with all its children (based on indent level)
  */
 function getBlockWithChildren(id) {
-    const db = getDatabase();
     const parent = getBlockById(id);
     if (!parent)
         return [];

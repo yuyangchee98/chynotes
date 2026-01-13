@@ -67,7 +67,7 @@ export function Tooltip({
   children,
   delay = 400,
   onTagClick,
-  level = 0,
+  level: _level = 0,
 }: TooltipProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [isHovering, setIsHovering] = useState(false)

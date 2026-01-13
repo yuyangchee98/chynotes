@@ -713,7 +713,6 @@ export function getBlockById(id: string): BlockRecord | null {
  * Get a block with all its children (based on indent level)
  */
 export function getBlockWithChildren(id: string): BlockRecord[] {
-  const db = getDatabase()
   const parent = getBlockById(id)
   if (!parent) return []
 

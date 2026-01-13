@@ -58,7 +58,6 @@ import {
   pruneSnapshotsByAge,
   autoCleanupSnapshots,
   upsertPage,
-  getPageByName,
   DocumentType,
   getEmbeddedBlockCount,
   getTotalBlockCount,
@@ -85,9 +84,7 @@ import {
   getSystemStatus,
   setIndexingStatus,
   setFrequencyIndexStatus,
-  setEmbeddingsStatus,
   setSystemReady,
-  setSystemStatusCallback,
 } from '../core/system-status'
 import {
   analyzeVault,

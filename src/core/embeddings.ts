@@ -6,7 +6,6 @@ import {
   getBlockById,
   getBlockTags,
   getTagsWithCounts,
-  BlockRecord,
   EMBEDDING_DIMENSION,
 } from './database'
 

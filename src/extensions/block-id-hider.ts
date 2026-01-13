@@ -15,9 +15,6 @@ import {
 } from '@codemirror/view'
 import { RangeSetBuilder } from '@codemirror/state'
 
-// Block ID pattern: §alphanumeric§ at end of line (with optional trailing whitespace)
-const BLOCK_ID_PATTERN = /§[a-z0-9]+§\s*$/g
-
 // Invisible placeholder widget
 class HiddenIdWidget extends WidgetType {
   constructor(readonly id: string) {
