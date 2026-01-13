@@ -3,9 +3,10 @@ import { generateEmbedding } from './embeddings'
 import { setEmbeddingsStatus } from './system-status'
 
 /**
- * Queue of block IDs waiting to be embedded
+ * Queue of block IDs waiting to be embedded.
+ * Using Set for O(1) lookup and automatic duplicate prevention.
  */
-const embeddingQueue: string[] = []
+const embeddingQueue = new Set<string>()
 
 /**
  * Whether the queue processor is currently running
@@ -41,7 +42,7 @@ let processedCount = 0
  */
 export function getQueueStatus(): EmbeddingQueueStatus {
   return {
-    queueLength: embeddingQueue.length,
+    queueLength: embeddingQueue.size,
     isProcessing,
     lastError,
     processedCount,
@@ -63,19 +64,21 @@ function notifyStatus(): void {
     statusCallback(getQueueStatus())
   }
   // Also update unified system status
-  const msg = embeddingQueue.length > 0 ? `Embedding ${embeddingQueue.length} blocks...` : null
-  setEmbeddingsStatus(isProcessing, embeddingQueue.length, msg)
+  const msg = embeddingQueue.size > 0 ? `Embedding ${embeddingQueue.size} blocks...` : null
+  setEmbeddingsStatus(isProcessing, embeddingQueue.size, msg)
 }
 
 /**
  * Add a block ID to the embedding queue
- * Duplicates are ignored
+ * Duplicates are automatically ignored by Set
  */
 export function queueBlockForEmbedding(blockId: string): void {
   if (!embeddingEnabled) return
 
-  if (!embeddingQueue.includes(blockId)) {
-    embeddingQueue.push(blockId)
+  const sizeBefore = embeddingQueue.size
+  embeddingQueue.add(blockId)
+
+  if (embeddingQueue.size > sizeBefore) {
     notifyStatus()
   }
 
@@ -90,9 +93,7 @@ export function queueBlocksForEmbedding(blockIds: string[]): void {
   if (!embeddingEnabled) return
 
   for (const blockId of blockIds) {
-    if (!embeddingQueue.includes(blockId)) {
-      embeddingQueue.push(blockId)
-    }
+    embeddingQueue.add(blockId)
   }
   notifyStatus()
   processQueue()
@@ -103,15 +104,17 @@ export function queueBlocksForEmbedding(blockIds: string[]): void {
  * Runs asynchronously, one block at a time
  */
 async function processQueue(): Promise<void> {
-  if (isProcessing || embeddingQueue.length === 0 || !embeddingEnabled) {
+  if (isProcessing || embeddingQueue.size === 0 || !embeddingEnabled) {
     return
   }
 
   isProcessing = true
   notifyStatus()
 
-  while (embeddingQueue.length > 0 && embeddingEnabled) {
-    const blockId = embeddingQueue.shift()!
+  while (embeddingQueue.size > 0 && embeddingEnabled) {
+    // Get first item from Set and remove it
+    const blockId = embeddingQueue.values().next().value as string
+    embeddingQueue.delete(blockId)
     notifyStatus()
 
     try {
@@ -181,7 +184,7 @@ export function isEmbeddingEnabled(): boolean {
  * Clear the queue
  */
 export function clearQueue(): void {
-  embeddingQueue.length = 0
+  embeddingQueue.clear()
   notifyStatus()
 }
 
@@ -189,7 +192,7 @@ export function clearQueue(): void {
  * Get queue length
  */
 export function getQueueLength(): number {
-  return embeddingQueue.length
+  return embeddingQueue.size
 }
 
 /**
