@@ -12,7 +12,7 @@ import {
 } from './database'
 import { queueBlocksForEmbedding } from './embedding-queue'
 
-const NOTES_DIR_NAME = '.chynotes'
+const NOTES_DIR_NAME = 'chynotes'
 const NOTES_SUBDIR = 'notes'
 const PAGES_SUBDIR = 'pages'
 

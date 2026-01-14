@@ -1,5 +1,4 @@
 import Database from 'better-sqlite3'
-import * as sqliteVec from 'sqlite-vec'
 import path from 'path'
 import { getChynotesDirectory } from './file-manager'
 import type { DocumentType, SnapshotRecord, BlockRecord } from './types'
@@ -14,6 +13,44 @@ export const EMBEDDING_DIMENSION = 1024
 
 let db: Database.Database | null = null
 let vecExtensionLoaded = false
+
+/**
+ * Get the path to the sqlite-vec native extension.
+ * In development, use the node_modules path directly.
+ * In production (packaged app), use the unpacked resources path.
+ *
+ * Note: sqlite-vec-darwin-arm64 is nested inside sqlite-vec/node_modules/
+ */
+function getSqliteVecPath(): string {
+  const platform = process.platform === 'win32' ? 'windows' : process.platform
+  const arch = process.arch
+  const ext = process.platform === 'win32' ? 'dll' : process.platform === 'darwin' ? 'dylib' : 'so'
+  const packageName = `sqlite-vec-${platform}-${arch}`
+  const filename = `vec0.${ext}`
+
+  // Check if we're running in a packaged Electron app
+  // In packaged apps, __dirname will be inside app.asar
+  const isPackaged = __dirname.includes('app.asar')
+
+  if (isPackaged) {
+    // In packaged app, use the unpacked path
+    // app.asar -> app.asar.unpacked
+    // The native package is nested: sqlite-vec/node_modules/sqlite-vec-darwin-arm64/
+    const unpackedPath = __dirname.replace('app.asar', 'app.asar.unpacked')
+    return path.join(unpackedPath, '..', '..', 'node_modules', 'sqlite-vec', 'node_modules', packageName, filename)
+  } else {
+    // In development, the package might be at top level or nested
+    const topLevel = path.join(__dirname, '..', '..', 'node_modules', packageName, filename)
+    const nested = path.join(__dirname, '..', '..', 'node_modules', 'sqlite-vec', 'node_modules', packageName, filename)
+    // Try nested first (more common with npm), then top level
+    try {
+      require('fs').accessSync(nested)
+      return nested
+    } catch {
+      return topLevel
+    }
+  }
+}
 
 /**
  * Get the database file path
@@ -36,7 +73,8 @@ export function initDatabase(): Database.Database {
 
   // Load sqlite-vec extension for vector search
   if (!vecExtensionLoaded) {
-    sqliteVec.load(db)
+    const vecPath = getSqliteVecPath()
+    db.loadExtension(vecPath)
     vecExtensionLoaded = true
   }
 

@@ -662,7 +662,7 @@ export function SettingsModal({ isOpen, onClose, theme, onThemeChange }: Setting
             <div className="space-y-2">
               <label className="block text-sm text-gray-600 dark:text-gray-400">Notes directory</label>
               <div className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-md font-mono">
-                ~/.chynotes/notes/
+                ~/chynotes/notes/
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 Your notes are stored as plain markdown files

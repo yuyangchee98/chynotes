@@ -77,7 +77,7 @@ const block_parser_1 = require("./block-parser");
 const tag_parser_1 = require("./tag-parser");
 const database_1 = require("./database");
 const embedding_queue_1 = require("./embedding-queue");
-const NOTES_DIR_NAME = '.chynotes';
+const NOTES_DIR_NAME = 'chynotes';
 const NOTES_SUBDIR = 'notes';
 const PAGES_SUBDIR = 'pages';
 /**
