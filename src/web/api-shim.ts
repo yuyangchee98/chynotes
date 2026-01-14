@@ -16,7 +16,7 @@ let backend: Backend | null = null
 export function initializeApi(serverUrl: string): void {
   backend = createRemoteBackend(serverUrl)
 
-  // Create window.api shim
+  // Create window.api shim (as any needed for initial assignment)
   ;(window as any).api = {
     // Note operations
     readNote: (dateISO: string) => backend!.readNote(dateISO),

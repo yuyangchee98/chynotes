@@ -555,10 +555,7 @@ function acceptMenuOption(view: EditorView, option: MenuOption) {
   // For retroactive option, also tag other notes
   if (option.type === 'retroactive' && option.notes && option.notes.length > 0) {
     // Call the API to retroactively tag other notes
-    const api = (window as unknown as {
-      api: { retroactiveTag: (term: string, tag: string, notes: string[]) => Promise<number> }
-    }).api
-    api.retroactiveTag(suggestion.term, suggestion.tag, option.notes)
+    window.api.retroactiveTag(suggestion.term, suggestion.tag, option.notes)
       .catch(() => {
         // Silently handle retroactive tag failure
       })
@@ -761,9 +758,7 @@ function createSuggestionFetcher() {
     }
 
     try {
-      const suggestions: TagSuggestion[] = await (window as unknown as {
-        api: { getTagSuggestions: (text: string, currentNoteDate?: string) => Promise<TagSuggestion[]> }
-      }).api.getTagSuggestions(lineText, currentNoteDate || undefined)
+      const suggestions: TagSuggestion[] = await window.api.getTagSuggestions(lineText, currentNoteDate || undefined)
 
       if (suggestions.length === 0) {
         hideCorrectionMenu()
@@ -777,7 +772,7 @@ function createSuggestionFetcher() {
       // 2. It's a frequency suggestion with otherNotes (for retroactive tagging)
       const resolved: ResolvedSuggestion[] = suggestions.map(s => {
         const termDiffersFromTag = s.term.toLowerCase() !== s.tag
-        const hasRetroactiveOption = s.reason === 'frequency' && s.otherNotes && s.otherNotes.length > 0
+        const hasRetroactiveOption = s.reason === 'frequency' && (s.otherNotes?.length ?? 0) > 0
         const isCorrection = termDiffersFromTag || hasRetroactiveOption
 
         const suggestion: ResolvedSuggestion = {
