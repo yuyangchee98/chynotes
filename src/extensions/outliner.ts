@@ -85,6 +85,52 @@ const bulletDecorator = ViewPlugin.fromClass(
   }
 )
 
+// Build line decorations for hanging indent based on indent level
+function buildHangingIndentDecorations(view: EditorView): DecorationSet {
+  const builder = new RangeSetBuilder<Decoration>()
+  const doc = view.state.doc
+
+  for (let i = 1; i <= doc.lines; i++) {
+    const line = doc.line(i)
+    const match = line.text.match(/^(\s*)- /)
+
+    if (match) {
+      const indentLength = match[1].length
+      const indentLevel = Math.floor(indentLength / INDENT_SIZE)
+      // Clamp to max level we have CSS for
+      const cssLevel = Math.min(indentLevel, 5)
+
+      const decoration = Decoration.line({
+        class: `cm-hanging-indent-${cssLevel}`,
+      })
+
+      builder.add(line.from, line.from, decoration)
+    }
+  }
+
+  return builder.finish()
+}
+
+// ViewPlugin to manage hanging indent line decorations
+const hangingIndentDecorator = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet
+
+    constructor(view: EditorView) {
+      this.decorations = buildHangingIndentDecorations(view)
+    }
+
+    update(update: ViewUpdate) {
+      if (update.docChanged || update.viewportChanged) {
+        this.decorations = buildHangingIndentDecorations(update.view)
+      }
+    }
+  },
+  {
+    decorations: (v) => v.decorations,
+  }
+)
+
 // Prevent cursor from being placed before bullet content
 const cursorGuard = EditorState.transactionFilter.of((tr) => {
   if (!tr.selection) return tr
@@ -398,6 +444,7 @@ const pasteHandler = EditorView.domEventHandlers({
 export function outliner() {
   return [
     bulletDecorator,
+    hangingIndentDecorator,
     cursorGuard,
     outlinerKeymap,
     ensureBullet,
