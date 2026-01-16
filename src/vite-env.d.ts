@@ -20,6 +20,7 @@ import type {
   ImportOptions,
   ImportResult,
   ServerStatus,
+  TagPrompt,
 } from './core/types'
 
 declare global {
@@ -105,6 +106,20 @@ declare global {
       startServer: (port?: number) => Promise<ServerStatus>
       stopServer: () => Promise<void>
       getServerStatus: () => Promise<ServerStatus>
+
+      // Tag prompt operations (custom AI prompts per tag)
+      getTagPrompts: (tagName: string) => Promise<TagPrompt[]>
+      createTagPrompt: (tagName: string, name: string, prompt: string) => Promise<TagPrompt>
+      updateTagPrompt: (id: number, name: string, prompt: string) => Promise<TagPrompt | null>
+      deleteTagPrompt: (id: number) => Promise<void>
+      runTagPromptStreaming: (
+        tagName: string,
+        promptId: number,
+        promptText: string,
+        onToken: (token: string) => void,
+        onComplete: (fullResponse: string) => void,
+        onError: (error: string) => void
+      ) => () => void
     }
   }
 }

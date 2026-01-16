@@ -11,6 +11,7 @@ import { useSnapshotViewer } from '../hooks/useSnapshotViewer'
 import { SnapshotSlider } from './SnapshotSlider'
 import { DiffView } from './DiffView'
 import { Backlinks } from './Backlinks'
+import { TagPrompts } from './TagPrompts'
 
 interface PageEditorProps {
   pageName: string
@@ -334,6 +335,11 @@ export function PageEditor({ pageName, onTagClick, onDateSelect, onBack }: PageE
             }}
             onTagClick={onTagClick}
           />
+        </div>
+
+        {/* AI Prompts section */}
+        <div className="max-w-3xl mx-auto mt-8 pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
+          <TagPrompts pageName={pageName} />
         </div>
       </div>
     </div>

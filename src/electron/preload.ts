@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 import type {
   TagWithCount,
   TagOccurrence,
@@ -19,6 +19,7 @@ import type {
   ImportOptions,
   ImportResult,
   ServerStatus,
+  TagPrompt,
 } from '../core/types'
 
 contextBridge.exposeInMainWorld('api', {
@@ -239,5 +240,64 @@ contextBridge.exposeInMainWorld('api', {
 
   getServerStatus: (): Promise<ServerStatus> => {
     return ipcRenderer.invoke('get-server-status')
+  },
+
+  // Tag prompt operations (custom AI prompts per tag)
+  getTagPrompts: (tagName: string): Promise<TagPrompt[]> => {
+    return ipcRenderer.invoke('get-tag-prompts', tagName)
+  },
+
+  createTagPrompt: (tagName: string, name: string, prompt: string): Promise<TagPrompt> => {
+    return ipcRenderer.invoke('create-tag-prompt', tagName, name, prompt)
+  },
+
+  updateTagPrompt: (id: number, name: string, prompt: string): Promise<TagPrompt | null> => {
+    return ipcRenderer.invoke('update-tag-prompt', id, name, prompt)
+  },
+
+  deleteTagPrompt: (id: number): Promise<void> => {
+    return ipcRenderer.invoke('delete-tag-prompt', id)
+  },
+
+  runTagPromptStreaming: (
+    tagName: string,
+    promptId: number,
+    promptText: string,
+    onToken: (token: string) => void,
+    onComplete: (fullResponse: string) => void,
+    onError: (error: string) => void
+  ): (() => void) => {
+    // Generate unique channel for this stream
+    const streamId = `tag-prompt-stream-${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+    const tokenHandler = (_event: IpcRendererEvent, token: string) => {
+      onToken(token)
+    }
+
+    const completeHandler = (_event: IpcRendererEvent, response: string) => {
+      cleanup()
+      onComplete(response)
+    }
+
+    const errorHandler = (_event: IpcRendererEvent, error: string) => {
+      cleanup()
+      onError(error)
+    }
+
+    const cleanup = () => {
+      ipcRenderer.removeListener(`${streamId}-token`, tokenHandler)
+      ipcRenderer.removeListener(`${streamId}-complete`, completeHandler)
+      ipcRenderer.removeListener(`${streamId}-error`, errorHandler)
+    }
+
+    ipcRenderer.on(`${streamId}-token`, tokenHandler)
+    ipcRenderer.on(`${streamId}-complete`, completeHandler)
+    ipcRenderer.on(`${streamId}-error`, errorHandler)
+
+    // Start the stream
+    ipcRenderer.invoke('run-tag-prompt-streaming', tagName, promptId, promptText, streamId)
+
+    // Return cleanup function
+    return cleanup
   },
 })

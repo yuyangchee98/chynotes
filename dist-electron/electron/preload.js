@@ -170,4 +170,44 @@ electron_1.contextBridge.exposeInMainWorld('api', {
     getServerStatus: () => {
         return electron_1.ipcRenderer.invoke('get-server-status');
     },
+    // Tag prompt operations (custom AI prompts per tag)
+    getTagPrompts: (tagName) => {
+        return electron_1.ipcRenderer.invoke('get-tag-prompts', tagName);
+    },
+    createTagPrompt: (tagName, name, prompt) => {
+        return electron_1.ipcRenderer.invoke('create-tag-prompt', tagName, name, prompt);
+    },
+    updateTagPrompt: (id, name, prompt) => {
+        return electron_1.ipcRenderer.invoke('update-tag-prompt', id, name, prompt);
+    },
+    deleteTagPrompt: (id) => {
+        return electron_1.ipcRenderer.invoke('delete-tag-prompt', id);
+    },
+    runTagPromptStreaming: (tagName, promptId, promptText, onToken, onComplete, onError) => {
+        // Generate unique channel for this stream
+        const streamId = `tag-prompt-stream-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const tokenHandler = (_event, token) => {
+            onToken(token);
+        };
+        const completeHandler = (_event, response) => {
+            cleanup();
+            onComplete(response);
+        };
+        const errorHandler = (_event, error) => {
+            cleanup();
+            onError(error);
+        };
+        const cleanup = () => {
+            electron_1.ipcRenderer.removeListener(`${streamId}-token`, tokenHandler);
+            electron_1.ipcRenderer.removeListener(`${streamId}-complete`, completeHandler);
+            electron_1.ipcRenderer.removeListener(`${streamId}-error`, errorHandler);
+        };
+        electron_1.ipcRenderer.on(`${streamId}-token`, tokenHandler);
+        electron_1.ipcRenderer.on(`${streamId}-complete`, completeHandler);
+        electron_1.ipcRenderer.on(`${streamId}-error`, errorHandler);
+        // Start the stream
+        electron_1.ipcRenderer.invoke('run-tag-prompt-streaming', tagName, promptId, promptText, streamId);
+        // Return cleanup function
+        return cleanup;
+    },
 });

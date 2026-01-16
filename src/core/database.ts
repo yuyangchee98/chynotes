@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import path from 'path'
 import { getChynotesDirectory } from './file-manager'
+import { runMigrations } from './migrations'
 import type { DocumentType, SnapshotRecord, BlockRecord } from './types'
 
 // Re-export types for backwards compatibility
@@ -83,6 +84,9 @@ export function initDatabase(): Database.Database {
 
   // Create vector tables (separate because virtual tables need extension loaded first)
   createVectorTables(db)
+
+  // Run any pending migrations
+  runMigrations(db)
 
   return db
 }
@@ -1121,4 +1125,92 @@ export function getTagCooccurrences(): TagCooccurrence[] {
     GROUP BY bt1.tag_name, bt2.tag_name
     ORDER BY weight DESC
   `).all() as TagCooccurrence[]
+}
+
+// ============================================================================
+// Tag Prompts Operations (Custom AI prompts per tag)
+// ============================================================================
+
+export interface TagPromptRecord {
+  id: number
+  tag_id: number
+  name: string
+  prompt: string
+  response: string | null
+  updated_at: number | null
+}
+
+/**
+ * Get all prompts for a tag
+ */
+export function getTagPrompts(tagName: string): TagPromptRecord[] {
+  const db = getDatabase()
+  return db.prepare(`
+    SELECT tp.* FROM tag_prompts tp
+    JOIN tags t ON tp.tag_id = t.id
+    WHERE t.name = ?
+    ORDER BY tp.id ASC
+  `).all(tagName.toLowerCase()) as TagPromptRecord[]
+}
+
+/**
+ * Get a single prompt by ID
+ */
+export function getTagPromptById(id: number): TagPromptRecord | null {
+  const db = getDatabase()
+  return db.prepare('SELECT * FROM tag_prompts WHERE id = ?').get(id) as TagPromptRecord | null
+}
+
+/**
+ * Create a new prompt for a tag
+ */
+export function createTagPrompt(tagName: string, name: string, prompt: string): TagPromptRecord {
+  const db = getDatabase()
+  const tag = getOrCreateTag(tagName.toLowerCase())
+  const now = Date.now()
+
+  const result = db.prepare(`
+    INSERT INTO tag_prompts (tag_id, name, prompt, updated_at)
+    VALUES (?, ?, ?, ?)
+    RETURNING *
+  `).get(tag.id, name, prompt, now) as TagPromptRecord
+
+  return result
+}
+
+/**
+ * Update an existing prompt
+ */
+export function updateTagPromptRecord(id: number, name: string, prompt: string): TagPromptRecord | null {
+  const db = getDatabase()
+  const now = Date.now()
+
+  return db.prepare(`
+    UPDATE tag_prompts
+    SET name = ?, prompt = ?, updated_at = ?
+    WHERE id = ?
+    RETURNING *
+  `).get(name, prompt, now, id) as TagPromptRecord | null
+}
+
+/**
+ * Save AI response for a prompt
+ */
+export function saveTagPromptResponse(id: number, response: string): void {
+  const db = getDatabase()
+  const now = Date.now()
+
+  db.prepare(`
+    UPDATE tag_prompts
+    SET response = ?, updated_at = ?
+    WHERE id = ?
+  `).run(response, now, id)
+}
+
+/**
+ * Delete a prompt
+ */
+export function deleteTagPrompt(id: number): void {
+  const db = getDatabase()
+  db.prepare('DELETE FROM tag_prompts WHERE id = ?').run(id)
 }

@@ -62,9 +62,16 @@ exports.upsertTermFrequency = upsertTermFrequency;
 exports.deleteTermFrequency = deleteTermFrequency;
 exports.clearTermFrequency = clearTermFrequency;
 exports.getTagCooccurrences = getTagCooccurrences;
+exports.getTagPrompts = getTagPrompts;
+exports.getTagPromptById = getTagPromptById;
+exports.createTagPrompt = createTagPrompt;
+exports.updateTagPromptRecord = updateTagPromptRecord;
+exports.saveTagPromptResponse = saveTagPromptResponse;
+exports.deleteTagPrompt = deleteTagPrompt;
 const better_sqlite3_1 = __importDefault(require("better-sqlite3"));
 const path_1 = __importDefault(require("path"));
 const file_manager_1 = require("./file-manager");
+const migrations_1 = require("./migrations");
 const DB_NAME = 'chynotes.db';
 // Default embedding dimension (mxbai-embed-large uses 1024)
 exports.EMBEDDING_DIMENSION = 1024;
@@ -133,6 +140,8 @@ function initDatabase() {
     createTables(db);
     // Create vector tables (separate because virtual tables need extension loaded first)
     createVectorTables(db);
+    // Run any pending migrations
+    (0, migrations_1.runMigrations)(db);
     return db;
 }
 /**
@@ -921,4 +930,69 @@ function getTagCooccurrences() {
     GROUP BY bt1.tag_name, bt2.tag_name
     ORDER BY weight DESC
   `).all();
+}
+/**
+ * Get all prompts for a tag
+ */
+function getTagPrompts(tagName) {
+    const db = getDatabase();
+    return db.prepare(`
+    SELECT tp.* FROM tag_prompts tp
+    JOIN tags t ON tp.tag_id = t.id
+    WHERE t.name = ?
+    ORDER BY tp.id ASC
+  `).all(tagName.toLowerCase());
+}
+/**
+ * Get a single prompt by ID
+ */
+function getTagPromptById(id) {
+    const db = getDatabase();
+    return db.prepare('SELECT * FROM tag_prompts WHERE id = ?').get(id);
+}
+/**
+ * Create a new prompt for a tag
+ */
+function createTagPrompt(tagName, name, prompt) {
+    const db = getDatabase();
+    const tag = getOrCreateTag(tagName.toLowerCase());
+    const now = Date.now();
+    const result = db.prepare(`
+    INSERT INTO tag_prompts (tag_id, name, prompt, updated_at)
+    VALUES (?, ?, ?, ?)
+    RETURNING *
+  `).get(tag.id, name, prompt, now);
+    return result;
+}
+/**
+ * Update an existing prompt
+ */
+function updateTagPromptRecord(id, name, prompt) {
+    const db = getDatabase();
+    const now = Date.now();
+    return db.prepare(`
+    UPDATE tag_prompts
+    SET name = ?, prompt = ?, updated_at = ?
+    WHERE id = ?
+    RETURNING *
+  `).get(name, prompt, now, id);
+}
+/**
+ * Save AI response for a prompt
+ */
+function saveTagPromptResponse(id, response) {
+    const db = getDatabase();
+    const now = Date.now();
+    db.prepare(`
+    UPDATE tag_prompts
+    SET response = ?, updated_at = ?
+    WHERE id = ?
+  `).run(response, now, id);
+}
+/**
+ * Delete a prompt
+ */
+function deleteTagPrompt(id) {
+    const db = getDatabase();
+    db.prepare('DELETE FROM tag_prompts WHERE id = ?').run(id);
 }

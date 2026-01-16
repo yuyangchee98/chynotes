@@ -31,6 +31,8 @@ const frequency_index_1 = require("../core/frequency-index");
 const system_status_1 = require("../core/system-status");
 const obsidian_importer_1 = require("../core/obsidian-importer");
 const controller_1 = require("../server/controller");
+const database_3 = require("../core/database");
+const tag_prompt_ai_1 = require("../core/tag-prompt-ai");
 // Ensure notes and pages directories exist on startup
 (0, file_manager_1.ensureNotesDirectorySync)();
 (0, file_manager_1.ensurePagesDirectorySync)();
@@ -295,6 +297,35 @@ electron_1.ipcMain.handle('stop-server', async () => {
 });
 electron_1.ipcMain.handle('get-server-status', () => {
     return (0, controller_1.getServerStatus)();
+});
+// Tag prompt IPC handlers
+electron_1.ipcMain.handle('get-tag-prompts', (_event, tagName) => {
+    return (0, database_3.getTagPrompts)(tagName);
+});
+electron_1.ipcMain.handle('create-tag-prompt', (_event, tagName, name, prompt) => {
+    return (0, database_3.createTagPrompt)(tagName, name, prompt);
+});
+electron_1.ipcMain.handle('update-tag-prompt', (_event, id, name, prompt) => {
+    return (0, database_3.updateTagPromptRecord)(id, name, prompt);
+});
+electron_1.ipcMain.handle('delete-tag-prompt', (_event, id) => {
+    (0, database_3.deleteTagPrompt)(id);
+});
+electron_1.ipcMain.handle('run-tag-prompt-streaming', async (event, tagName, promptId, promptText, streamId) => {
+    const webContents = event.sender;
+    await (0, tag_prompt_ai_1.runTagPromptStreaming)(tagName, promptText, {
+        onToken: (token) => {
+            webContents.send(`${streamId}-token`, token);
+        },
+        onComplete: (fullResponse) => {
+            // Save the response to database
+            (0, database_3.saveTagPromptResponse)(promptId, fullResponse);
+            webContents.send(`${streamId}-complete`, fullResponse);
+        },
+        onError: (error) => {
+            webContents.send(`${streamId}-error`, error.message);
+        },
+    });
 });
 electron_1.app.whenReady().then(async () => {
     // Initial index of all notes

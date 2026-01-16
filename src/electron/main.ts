@@ -99,6 +99,14 @@ import {
   getServerStatus,
   ServerStatus,
 } from '../server/controller'
+import {
+  getTagPrompts,
+  createTagPrompt,
+  updateTagPromptRecord,
+  deleteTagPrompt,
+  saveTagPromptResponse,
+} from '../core/database'
+import { runTagPromptStreaming } from '../core/tag-prompt-ai'
 
 // Ensure notes and pages directories exist on startup
 ensureNotesDirectorySync()
@@ -419,6 +427,41 @@ ipcMain.handle('stop-server', async (): Promise<void> => {
 
 ipcMain.handle('get-server-status', (): ServerStatus => {
   return getServerStatus()
+})
+
+// Tag prompt IPC handlers
+ipcMain.handle('get-tag-prompts', (_event, tagName: string) => {
+  return getTagPrompts(tagName)
+})
+
+ipcMain.handle('create-tag-prompt', (_event, tagName: string, name: string, prompt: string) => {
+  return createTagPrompt(tagName, name, prompt)
+})
+
+ipcMain.handle('update-tag-prompt', (_event, id: number, name: string, prompt: string) => {
+  return updateTagPromptRecord(id, name, prompt)
+})
+
+ipcMain.handle('delete-tag-prompt', (_event, id: number) => {
+  deleteTagPrompt(id)
+})
+
+ipcMain.handle('run-tag-prompt-streaming', async (event, tagName: string, promptId: number, promptText: string, streamId: string) => {
+  const webContents = event.sender
+
+  await runTagPromptStreaming(tagName, promptText, {
+    onToken: (token) => {
+      webContents.send(`${streamId}-token`, token)
+    },
+    onComplete: (fullResponse) => {
+      // Save the response to database
+      saveTagPromptResponse(promptId, fullResponse)
+      webContents.send(`${streamId}-complete`, fullResponse)
+    },
+    onError: (error) => {
+      webContents.send(`${streamId}-error`, error.message)
+    },
+  })
 })
 
 app.whenReady().then(async () => {

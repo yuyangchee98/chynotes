@@ -195,3 +195,16 @@ export interface ServerStatus {
   tailscaleUrl: string | null
   lanAddresses: string[]
 }
+
+// ============================================================================
+// Tag Prompt Types
+// ============================================================================
+
+export interface TagPrompt {
+  id: number
+  tag_id: number
+  name: string
+  prompt: string
+  response: string | null
+  updated_at: number | null
+}
