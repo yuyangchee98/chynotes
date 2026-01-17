@@ -10,34 +10,57 @@ The user has collected notes tagged with a specific topic. Your job is to analyz
 Be concise, insightful, and helpful. Format your response in markdown.`
 
 /**
+ * Remove block ID markers from content (e.g., §abc123§)
+ */
+function cleanContent(content: string): string {
+  return content.replace(/\s*§[a-z0-9]+§\s*$/g, '').trim()
+}
+
+/**
+ * Recursively format a block and its children as indented text
+ */
+function formatBlockWithChildren(block: BlockWithChildren, indent: number = 0): string {
+  const prefix = '  '.repeat(indent)
+  const cleanedContent = cleanContent(block.content)
+  let result = `${prefix}- ${cleanedContent}\n`
+
+  for (const child of block.children) {
+    result += formatBlockWithChildren(child, indent + 1)
+  }
+
+  return result
+}
+
+/**
  * Build the full prompt for the AI
  */
 function buildPrompt(
   tagName: string,
-  occurrences: TagOccurrenceWithDetails[],
+  blocks: BlockWithChildren[],
   userPrompt: string
 ): string {
-  const notesData = occurrences.map(occ => ({
-    date: occ.date,
-    content: occ.content,
-  }))
-
   // Group by date for cleaner presentation
-  const groupedNotes: Record<string, string[]> = {}
-  for (const note of notesData) {
-    if (!groupedNotes[note.date]) {
-      groupedNotes[note.date] = []
+  const groupedBlocks: Record<string, BlockWithChildren[]> = {}
+  for (const block of blocks) {
+    if (!groupedBlocks[block.note_date]) {
+      groupedBlocks[block.note_date] = []
     }
-    groupedNotes[note.date].push(note.content)
+    groupedBlocks[block.note_date].push(block)
   }
 
   let notesText = ''
-  for (const [date, contents] of Object.entries(groupedNotes).sort((a, b) => b[0].localeCompare(a[0]))) {
+  for (const [date, dateBlocks] of Object.entries(groupedBlocks).sort((a, b) => b[0].localeCompare(a[0]))) {
     notesText += `\n## ${date}\n`
-    for (const content of contents) {
-      notesText += `- ${content}\n`
+    for (const block of dateBlocks) {
+      notesText += formatBlockWithChildren(block, 0)
     }
   }
+
+  // Count total entries including children
+  const countBlocks = (b: BlockWithChildren): number => {
+    return 1 + b.children.reduce((sum, child) => sum + countBlocks(child), 0)
+  }
+  const totalEntries = blocks.reduce((sum, b) => sum + countBlocks(b), 0)
 
   return `${DEFAULT_SYSTEM_PROMPT}
 
@@ -50,7 +73,7 @@ ${userPrompt}
 
 ---
 
-NOTES (${occurrences.length} entries):
+NOTES (${totalEntries} entries):
 ${notesText}
 
 ---
@@ -75,20 +98,20 @@ export async function runTagPromptStreaming(
   const endpoint = getSetting('ollamaEndpoint') || DEFAULT_OLLAMA_ENDPOINT
   const model = getSetting('ollamaModel') || DEFAULT_MODEL
 
-  // Get all occurrences for this tag
-  const occurrences = getOccurrencesForTag(tagName.toLowerCase())
+  // Get all blocks with this tag, including their children
+  const blocks = getBlocksWithTagAndChildren(tagName.toLowerCase())
 
-  if (occurrences.length === 0) {
+  if (blocks.length === 0) {
     callbacks.onComplete('No notes found with this tag yet.')
     return
   }
 
-  const fullPrompt = buildPrompt(tagName, occurrences, promptText)
+  const fullPrompt = buildPrompt(tagName, blocks, promptText)
 
   // Log the full prompt for debugging
   console.log('\n========== TAG PROMPT AI REQUEST ==========')
   console.log('Tag:', tagName)
-  console.log('Occurrences count:', occurrences.length)
+  console.log('Blocks count:', blocks.length)
   console.log('Model:', model)
   console.log('Endpoint:', endpoint)
   console.log('\n--- FULL PROMPT ---')
