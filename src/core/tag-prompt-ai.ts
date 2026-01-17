@@ -1,4 +1,4 @@
-import { getOccurrencesForTag, TagOccurrenceWithDetails } from './database'
+import { getBlocksWithTagAndChildren, BlockWithChildren } from './database'
 import { getSetting } from './database'
 
 const DEFAULT_OLLAMA_ENDPOINT = 'http://localhost:11434'
