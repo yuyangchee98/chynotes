@@ -7,7 +7,7 @@ import {
   WidgetType,
   keymap,
 } from '@codemirror/view'
-import { RangeSetBuilder, Prec, EditorSelection, EditorState } from '@codemirror/state'
+import { RangeSetBuilder, Prec, EditorSelection, EditorState, ChangeSet } from '@codemirror/state'
 
 // Constants
 const BULLET_MARKER = '- '
@@ -65,6 +65,78 @@ function buildBulletDecorations(view: EditorView): DecorationSet {
   return builder.finish()
 }
 
+// Incrementally rebuild bullet decorations only for changed lines
+function rebuildChangedBullets(
+  view: EditorView,
+  changes: ChangeSet,
+  existing: DecorationSet
+): DecorationSet {
+  const doc = view.state.doc
+  const changedLines = new Set<number>()
+
+  // Find all lines that were affected by the changes
+  changes.iterChangedRanges((_fromA, _toA, fromB, toB) => {
+    // Get line range in the new document
+    const startLine = doc.lineAt(fromB).number
+    const endLine = doc.lineAt(Math.min(toB, doc.length)).number
+    for (let i = startLine; i <= endLine; i++) {
+      changedLines.add(i)
+    }
+  })
+
+  if (changedLines.size === 0) {
+    return existing
+  }
+
+  // Build new decorations only for changed lines
+  const newDecorations: { from: number; to: number; decoration: Decoration }[] = []
+
+  for (const lineNum of changedLines) {
+    const line = doc.line(lineNum)
+    const match = line.text.match(/^(\s*)- /)
+
+    if (match) {
+      const indentLength = match[1].length
+      const bulletStart = line.from + indentLength
+      const bulletEnd = bulletStart + BULLET_MARKER.length
+      const indentLevel = Math.floor(indentLength / INDENT_SIZE)
+
+      newDecorations.push({
+        from: bulletStart,
+        to: bulletEnd,
+        decoration: Decoration.replace({ widget: new BulletWidget(indentLevel) })
+      })
+    }
+  }
+
+  // Collect all decorations: keep old ones not on changed lines, add new ones
+  const allDecorations: { from: number; to: number; decoration: Decoration }[] = []
+
+  // Keep existing decorations that aren't on changed lines
+  const cursor = existing.iter()
+  while (cursor.value) {
+    const line = doc.lineAt(cursor.from)
+    if (!changedLines.has(line.number)) {
+      allDecorations.push({ from: cursor.from, to: cursor.to, decoration: cursor.value })
+    }
+    cursor.next()
+  }
+
+  // Add new decorations
+  allDecorations.push(...newDecorations)
+
+  // Sort by position (required by RangeSetBuilder)
+  allDecorations.sort((a, b) => a.from - b.from)
+
+  // Build the final decoration set
+  const builder = new RangeSetBuilder<Decoration>()
+  for (const dec of allDecorations) {
+    builder.add(dec.from, dec.to, dec.decoration)
+  }
+
+  return builder.finish()
+}
+
 // ViewPlugin to manage bullet decorations
 const bulletDecorator = ViewPlugin.fromClass(
   class {
@@ -75,7 +147,12 @@ const bulletDecorator = ViewPlugin.fromClass(
     }
 
     update(update: ViewUpdate) {
-      if (update.docChanged || update.viewportChanged) {
+      if (update.docChanged) {
+        // Map existing decorations through changes, then rebuild only affected lines
+        this.decorations = this.decorations.map(update.changes)
+        this.decorations = rebuildChangedBullets(update.view, update.changes, this.decorations)
+      } else if (update.viewportChanged) {
+        // Only rebuild if viewport changed without doc change
         this.decorations = buildBulletDecorations(update.view)
       }
     }
@@ -97,7 +174,6 @@ function buildHangingIndentDecorations(view: EditorView): DecorationSet {
     if (match) {
       const indentLength = match[1].length
       const indentLevel = Math.floor(indentLength / INDENT_SIZE)
-      // Clamp to max level we have CSS for
       const cssLevel = Math.min(indentLevel, 5)
 
       const decoration = Decoration.line({
@@ -106,6 +182,67 @@ function buildHangingIndentDecorations(view: EditorView): DecorationSet {
 
       builder.add(line.from, line.from, decoration)
     }
+  }
+
+  return builder.finish()
+}
+
+// Incrementally rebuild hanging indent decorations only for changed lines
+function rebuildChangedHangingIndents(
+  view: EditorView,
+  changes: ChangeSet,
+  existing: DecorationSet
+): DecorationSet {
+  const doc = view.state.doc
+  const changedLines = new Set<number>()
+
+  changes.iterChangedRanges((_fromA, _toA, fromB, toB) => {
+    const startLine = doc.lineAt(fromB).number
+    const endLine = doc.lineAt(Math.min(toB, doc.length)).number
+    for (let i = startLine; i <= endLine; i++) {
+      changedLines.add(i)
+    }
+  })
+
+  if (changedLines.size === 0) {
+    return existing
+  }
+
+  const newDecorations: { from: number; decoration: Decoration }[] = []
+
+  for (const lineNum of changedLines) {
+    const line = doc.line(lineNum)
+    const match = line.text.match(/^(\s*)- /)
+
+    if (match) {
+      const indentLength = match[1].length
+      const indentLevel = Math.floor(indentLength / INDENT_SIZE)
+      const cssLevel = Math.min(indentLevel, 5)
+
+      newDecorations.push({
+        from: line.from,
+        decoration: Decoration.line({ class: `cm-hanging-indent-${cssLevel}` })
+      })
+    }
+  }
+
+  const allDecorations: { from: number; decoration: Decoration }[] = []
+
+  const cursor = existing.iter()
+  while (cursor.value) {
+    const line = doc.lineAt(cursor.from)
+    if (!changedLines.has(line.number)) {
+      allDecorations.push({ from: cursor.from, decoration: cursor.value })
+    }
+    cursor.next()
+  }
+
+  allDecorations.push(...newDecorations)
+  allDecorations.sort((a, b) => a.from - b.from)
+
+  const builder = new RangeSetBuilder<Decoration>()
+  for (const dec of allDecorations) {
+    builder.add(dec.from, dec.from, dec.decoration)
   }
 
   return builder.finish()
@@ -121,7 +258,10 @@ const hangingIndentDecorator = ViewPlugin.fromClass(
     }
 
     update(update: ViewUpdate) {
-      if (update.docChanged || update.viewportChanged) {
+      if (update.docChanged) {
+        this.decorations = this.decorations.map(update.changes)
+        this.decorations = rebuildChangedHangingIndents(update.view, update.changes, this.decorations)
+      } else if (update.viewportChanged) {
         this.decorations = buildHangingIndentDecorations(update.view)
       }
     }
