@@ -298,52 +298,58 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
     setShowConfirmDialog(false)
   }, [noteDate])
 
+  // Track which block ref IDs we've already fetched
+  const fetchedBlockIds = useRef<Set<string>>(new Set())
+
   // Set current note date for tag suggestions
   useEffect(() => {
     setCurrentNoteDate(noteDate)
     clearPathCache() // Clear image path cache for new note
+    fetchedBlockIds.current.clear() // Clear fetched IDs for new note
     return () => setCurrentNoteDate(null)
   }, [noteDate])
 
   // Fetch block content for ((block-id)) references
+  // Only fetches NEW block IDs, not on every keystroke
   useEffect(() => {
-    const fetchBlockRefs = async () => {
+    const refIds = extractBlockRefIds(content)
+    if (refIds.length === 0) return
+
+    // Find IDs we haven't fetched yet
+    const newIds = refIds.filter(id => !fetchedBlockIds.current.has(id) && !blockCache.has(id))
+    if (newIds.length === 0) return
+
+    const fetchNewBlockRefs = async () => {
       if (!window.api) return
 
-      const refIds = extractBlockRefIds(content)
-      if (refIds.length === 0) return
-
-      // Only fetch blocks we don't have cached
       const newCache = new Map(blockCache)
-      let needsUpdate = false
 
-      for (const id of refIds) {
-        if (!newCache.has(id)) {
-          // Fetch parent block with all its children
-          const blocks = await window.api.getBlockWithChildren(id)
-          newCache.set(id, blocks)
-          needsUpdate = true
+      for (const id of newIds) {
+        // Mark as fetched immediately to prevent duplicate requests
+        fetchedBlockIds.current.add(id)
 
-          // If any block has nested refs, fetch those too (up to 3 levels)
-          for (const block of blocks) {
-            const nestedIds = extractBlockRefIds(block.content)
-            for (const nestedId of nestedIds) {
-              if (!newCache.has(nestedId)) {
-                const nestedBlocks = await window.api.getBlockWithChildren(nestedId)
-                newCache.set(nestedId, nestedBlocks)
-              }
+        // Fetch parent block with all its children
+        const blocks = await window.api.getBlockWithChildren(id)
+        newCache.set(id, blocks)
+
+        // If any block has nested refs, fetch those too (up to 3 levels)
+        for (const block of blocks) {
+          const nestedIds = extractBlockRefIds(block.content)
+          for (const nestedId of nestedIds) {
+            if (!newCache.has(nestedId) && !fetchedBlockIds.current.has(nestedId)) {
+              fetchedBlockIds.current.add(nestedId)
+              const nestedBlocks = await window.api.getBlockWithChildren(nestedId)
+              newCache.set(nestedId, nestedBlocks)
             }
           }
         }
       }
 
-      if (needsUpdate) {
-        setBlockCache(newCache)
-      }
+      setBlockCache(newCache)
     }
 
-    fetchBlockRefs()
-  }, [content]) // Re-run when content changes
+    fetchNewBlockRefs()
+  }, [content, blockCache]) // Still triggered by content, but exits early if no new IDs
 
   // Debounced save
   useEffect(() => {
