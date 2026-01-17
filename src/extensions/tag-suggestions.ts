@@ -382,7 +382,19 @@ function showCorrectionMenu(
 
   // Get position of the first correction in the editor
   const firstCorrection = corrections[0]
-  const coords = view.coordsAtPos(firstCorrection.docStart)
+
+  // Validate position is still within document bounds (document may have changed)
+  if (firstCorrection.docStart >= view.state.doc.length) {
+    return
+  }
+
+  let coords
+  try {
+    coords = view.coordsAtPos(firstCorrection.docStart)
+  } catch {
+    // Position no longer valid (document changed)
+    return
+  }
 
   if (!coords) return
 
