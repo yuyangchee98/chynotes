@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState, useRef, useMemo } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import { EditorView } from '@codemirror/view'
@@ -507,6 +507,28 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
     ? snapshotContent  // Viewing a snapshot: compare snapshot vs live
     : sortedSnapshots[0]?.content ?? content  // At live: compare first snapshot vs live
 
+  // Memoize extensions to prevent recreation on every render
+  const extensions = useMemo(() => [
+    markdown(),
+    editorTheme,
+    syntaxHighlighting(highlightStyle),
+    formattingKeymap,
+    tagHighlighter(onTagClick),
+    outliner(),
+    blockIdHider(),
+    blockReference({ blockCache, onClick: handleBlockRefClick }),
+    blockContextMenu(),
+    imageAttachment({
+      noteDate,
+      resolveAssetPath: (path: string) => window.api.resolveAssetPath(path),
+      saveAsset: (buffer: Uint8Array, name: string, date: string) => window.api.saveAsset(buffer, name, date),
+      generateImageDescription: (base64: string) => window.api.generateImageDescription(base64),
+    }),
+    EditorView.lineWrapping,
+    // Tag suggestions only when editor is editable
+    ...((isViewingHistory || isLocked) ? [EditorView.editable.of(false)] : [tagSuggestions()]),
+  ], [onTagClick, blockCache, handleBlockRefClick, noteDate, isViewingHistory, isLocked])
+
   return (
     <div className="flex-1 flex flex-col h-full">
       {/* Header - draggable region, padded for traffic lights */}
@@ -596,26 +618,7 @@ export function DailyEditor({ date, onTagClick, scrollToLine, onScrollComplete, 
                 ref={editorRef}
                 value={displayContent}
                 onChange={handleChange}
-                extensions={[
-                  markdown(),
-                  editorTheme,
-                  syntaxHighlighting(highlightStyle),
-                  formattingKeymap,
-                  tagHighlighter(onTagClick),
-                  outliner(),
-                  blockIdHider(),
-                  blockReference({ blockCache, onClick: handleBlockRefClick }),
-                  blockContextMenu(),
-                  imageAttachment({
-                    noteDate,
-                    resolveAssetPath: (path) => window.api.resolveAssetPath(path),
-                    saveAsset: (buffer, name, date) => window.api.saveAsset(buffer, name, date),
-                    generateImageDescription: (base64) => window.api.generateImageDescription(base64),
-                  }),
-                  EditorView.lineWrapping,
-                  // Tag suggestions only when editor is editable
-                  ...((isViewingHistory || isLocked) ? [EditorView.editable.of(false)] : [tagSuggestions()]),
-                ]}
+                extensions={extensions}
                 basicSetup={{
                   lineNumbers: false,
                   foldGutter: false,
