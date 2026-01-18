@@ -153,10 +153,16 @@ ipcMain.handle('read-note', async (_event, dateStr: string) => {
 ipcMain.handle('write-note', async (_event, dateStr: string, content: string) => {
   const date = parseLocalDate(dateStr)
   await writeNote(date, content)
-  // Re-index this note after writing
-  await indexNote(date)
-  // Update frequency index (Phase 2 tag suggestions)
-  updateFrequencyIndexForNote(formatDateForFileName(date), content)
+
+  // Re-index in background (don't block IPC response)
+  setImmediate(async () => {
+    try {
+      await indexNote(date)
+      updateFrequencyIndexForNote(formatDateForFileName(date), content)
+    } catch (err) {
+      console.error('Background indexing failed:', err)
+    }
+  })
 })
 
 ipcMain.handle('list-notes', async () => {
