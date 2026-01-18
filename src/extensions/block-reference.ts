@@ -13,7 +13,7 @@ import {
   DecorationSet,
   WidgetType,
 } from '@codemirror/view'
-import { RangeSetBuilder, Facet } from '@codemirror/state'
+import { RangeSetBuilder, Facet, ChangeSet } from '@codemirror/state'
 import type { BlockRecord } from '../core/types'
 
 // Re-export for consumers
@@ -159,6 +159,95 @@ function buildDecorations(view: EditorView): DecorationSet {
 }
 
 /**
+ * Find block references only within specific line ranges
+ */
+function findBlockRefsInRange(
+  view: EditorView,
+  fromLine: number,
+  toLine: number
+): Array<{ from: number; to: number; blockId: string }> {
+  const refs: Array<{ from: number; to: number; blockId: string }> = []
+  const doc = view.state.doc
+
+  for (let i = fromLine; i <= toLine && i <= doc.lines; i++) {
+    const line = doc.line(i)
+    const regex = new RegExp(BLOCK_REF_PATTERN.source, 'g')
+    let match: RegExpExecArray | null
+
+    while ((match = regex.exec(line.text)) !== null) {
+      refs.push({
+        from: line.from + match.index,
+        to: line.from + match.index + match[0].length,
+        blockId: match[1]
+      })
+    }
+  }
+
+  return refs
+}
+
+/**
+ * Incrementally rebuild decorations only for changed lines
+ */
+function rebuildChangedBlockRefs(
+  view: EditorView,
+  changes: ChangeSet,
+  existing: DecorationSet
+): DecorationSet {
+  const doc = view.state.doc
+  const config = view.state.facet(blockRefConfig)
+  const changedLines = new Set<number>()
+
+  // Find all lines affected by changes
+  changes.iterChangedRanges((_fromA, _toA, fromB, toB) => {
+    const startLine = doc.lineAt(fromB).number
+    const endLine = doc.lineAt(Math.min(toB, doc.length)).number
+    for (let i = startLine; i <= endLine; i++) {
+      changedLines.add(i)
+    }
+  })
+
+  if (changedLines.size === 0) {
+    return existing
+  }
+
+  // Find new refs for changed lines
+  const newRefs: Array<{ from: number; to: number; blockId: string }> = []
+  for (const lineNum of changedLines) {
+    const lineRefs = findBlockRefsInRange(view, lineNum, lineNum)
+    newRefs.push(...lineRefs)
+  }
+
+  // Collect all decorations: existing (not on changed lines) + new
+  const allDecorations: Array<{ from: number; to: number; blockId: string }> = []
+
+  const cursor = existing.iter()
+  while (cursor.value) {
+    const line = doc.lineAt(cursor.from)
+    if (!changedLines.has(line.number)) {
+      // Extract blockId from the widget
+      const widget = cursor.value.spec.widget as BlockRefWidget
+      if (widget) {
+        allDecorations.push({ from: cursor.from, to: cursor.to, blockId: widget.blockId })
+      }
+    }
+    cursor.next()
+  }
+
+  allDecorations.push(...newRefs)
+  allDecorations.sort((a, b) => a.from - b.from)
+
+  const builder = new RangeSetBuilder<Decoration>()
+  for (const ref of allDecorations) {
+    const blocks = config.blockCache.get(ref.blockId) ?? []
+    const widget = new BlockRefWidget(ref.blockId, blocks, config)
+    builder.add(ref.from, ref.to, Decoration.replace({ widget }))
+  }
+
+  return builder.finish()
+}
+
+/**
  * Extract all block IDs referenced in content
  */
 export function extractBlockRefIds(content: string): string[] {
@@ -186,10 +275,14 @@ export function blockReference(config: BlockRefConfig) {
       }
 
       update(update: ViewUpdate) {
-        // Rebuild on doc change, viewport change, or when facet config changes
-        if (update.docChanged || update.viewportChanged ||
-            update.state.facet(blockRefConfig) !== update.startState.facet(blockRefConfig)) {
+        // Full rebuild when config changes (new block data available) or viewport changes
+        if (update.state.facet(blockRefConfig) !== update.startState.facet(blockRefConfig) ||
+            update.viewportChanged) {
           this.decorations = buildDecorations(update.view)
+        } else if (update.docChanged) {
+          // Incremental update for document changes
+          this.decorations = this.decorations.map(update.changes)
+          this.decorations = rebuildChangedBlockRefs(update.view, update.changes, this.decorations)
         }
       }
     },
