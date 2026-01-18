@@ -72,10 +72,16 @@ electron_1.ipcMain.handle('read-note', async (_event, dateStr) => {
 electron_1.ipcMain.handle('write-note', async (_event, dateStr, content) => {
     const date = parseLocalDate(dateStr);
     await (0, file_manager_1.writeNote)(date, content);
-    // Re-index this note after writing
-    await (0, index_manager_1.indexNote)(date);
-    // Update frequency index (Phase 2 tag suggestions)
-    (0, frequency_index_1.updateFrequencyIndexForNote)((0, file_manager_1.formatDateForFileName)(date), content);
+    // Re-index in background (don't block IPC response)
+    setImmediate(async () => {
+        try {
+            await (0, index_manager_1.indexNote)(date);
+            (0, frequency_index_1.updateFrequencyIndexForNote)((0, file_manager_1.formatDateForFileName)(date), content);
+        }
+        catch (err) {
+            console.error('Background indexing failed:', err);
+        }
+    });
 });
 electron_1.ipcMain.handle('list-notes', async () => {
     const dates = await (0, file_manager_1.listAllNotes)();
