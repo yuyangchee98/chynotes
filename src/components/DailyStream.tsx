@@ -7,7 +7,6 @@ import { tags as t } from '@lezer/highlight'
 import { tagHighlighter } from '../extensions/tag-highlighter'
 import { outliner } from '../extensions/outliner'
 import { blockIdHider } from '../extensions/block-id-hider'
-import { unsavedHighlighter } from '../extensions/unsaved-highlighter'
 import { blockReference, extractBlockRefIds, BlockRecord } from '../extensions/block-reference'
 import { blockContextMenu } from '../extensions/block-context-menu'
 import { formattingKeymap } from '../extensions/formatting-keymap'
@@ -741,7 +740,6 @@ export function DailyStream({ onTagClick, onCopyToToday, onDateSelect }: DailySt
                             blockIdHider(),
                             blockReference({ blockCache, onClick: handleBlockRefClick }),
                             blockContextMenu(),
-                            unsavedHighlighter(lastSnapshotContent),
                             EditorView.lineWrapping,
                             // Tag suggestions only when editable
                             ...(showingSnapshot ? [EditorView.editable.of(false)] : [tagSuggestions()]),

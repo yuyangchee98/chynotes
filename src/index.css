@@ -80,20 +80,6 @@ body {
   color: var(--text-muted) !important;
 }
 
-/* Unsaved line styling - lines not yet in snapshot pulse lighter */
-.cm-line-unsaved {
-  animation: unsaved-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-@keyframes unsaved-pulse {
-  0%, 100% {
-    opacity: 0.55;
-  }
-  50% {
-    opacity: 0.4;
-  }
-}
-
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;
