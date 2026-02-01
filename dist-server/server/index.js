@@ -438,8 +438,12 @@ process.on('SIGTERM', () => {
     (0, database_1.closeDatabase)();
     process.exit(0);
 });
-// Run if this is the main module
-main().catch((err) => {
-    console.error('Failed to start server:', err);
-    process.exit(1);
-});
+// Only run if this is the main module (executed directly, not imported)
+// Check if this file is being run directly via node
+const isMainModule = require.main === module;
+if (isMainModule) {
+    main().catch((err) => {
+        console.error('Failed to start server:', err);
+        process.exit(1);
+    });
+}

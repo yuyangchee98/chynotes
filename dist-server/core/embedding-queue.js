@@ -14,9 +14,10 @@ const database_1 = require("./database");
 const embeddings_1 = require("./embeddings");
 const system_status_1 = require("./system-status");
 /**
- * Queue of block IDs waiting to be embedded
+ * Queue of block IDs waiting to be embedded.
+ * Using Set for O(1) lookup and automatic duplicate prevention.
  */
-const embeddingQueue = [];
+const embeddingQueue = new Set();
 /**
  * Whether the queue processor is currently running
  */
@@ -33,7 +34,7 @@ let processedCount = 0;
  */
 function getQueueStatus() {
     return {
-        queueLength: embeddingQueue.length,
+        queueLength: embeddingQueue.size,
         isProcessing,
         lastError,
         processedCount,
@@ -53,18 +54,19 @@ function notifyStatus() {
         statusCallback(getQueueStatus());
     }
     // Also update unified system status
-    const msg = embeddingQueue.length > 0 ? `Embedding ${embeddingQueue.length} blocks...` : null;
-    (0, system_status_1.setEmbeddingsStatus)(isProcessing, embeddingQueue.length, msg);
+    const msg = embeddingQueue.size > 0 ? `Embedding ${embeddingQueue.size} blocks...` : null;
+    (0, system_status_1.setEmbeddingsStatus)(isProcessing, embeddingQueue.size, msg);
 }
 /**
  * Add a block ID to the embedding queue
- * Duplicates are ignored
+ * Duplicates are automatically ignored by Set
  */
 function queueBlockForEmbedding(blockId) {
     if (!embeddingEnabled)
         return;
-    if (!embeddingQueue.includes(blockId)) {
-        embeddingQueue.push(blockId);
+    const sizeBefore = embeddingQueue.size;
+    embeddingQueue.add(blockId);
+    if (embeddingQueue.size > sizeBefore) {
         notifyStatus();
     }
     // Start processing if not already running
@@ -77,9 +79,7 @@ function queueBlocksForEmbedding(blockIds) {
     if (!embeddingEnabled)
         return;
     for (const blockId of blockIds) {
-        if (!embeddingQueue.includes(blockId)) {
-            embeddingQueue.push(blockId);
-        }
+        embeddingQueue.add(blockId);
     }
     notifyStatus();
     processQueue();
@@ -89,13 +89,15 @@ function queueBlocksForEmbedding(blockIds) {
  * Runs asynchronously, one block at a time
  */
 async function processQueue() {
-    if (isProcessing || embeddingQueue.length === 0 || !embeddingEnabled) {
+    if (isProcessing || embeddingQueue.size === 0 || !embeddingEnabled) {
         return;
     }
     isProcessing = true;
     notifyStatus();
-    while (embeddingQueue.length > 0 && embeddingEnabled) {
-        const blockId = embeddingQueue.shift();
+    while (embeddingQueue.size > 0 && embeddingEnabled) {
+        // Get first item from Set and remove it
+        const blockId = embeddingQueue.values().next().value;
+        embeddingQueue.delete(blockId);
         notifyStatus();
         try {
             await embedSingleBlock(blockId);
@@ -155,14 +157,14 @@ function isEmbeddingEnabled() {
  * Clear the queue
  */
 function clearQueue() {
-    embeddingQueue.length = 0;
+    embeddingQueue.clear();
     notifyStatus();
 }
 /**
  * Get queue length
  */
 function getQueueLength() {
-    return embeddingQueue.length;
+    return embeddingQueue.size;
 }
 /**
  * Rebuild all embeddings

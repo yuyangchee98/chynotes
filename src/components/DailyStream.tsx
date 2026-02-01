@@ -118,44 +118,21 @@ const editorTheme = EditorView.theme({
     height: '0.25em',
     opacity: '0.5',
   },
-  // Hanging indent for wrapped lines - text aligns with content start (after bullet)
-  // Uses padding-left on line + negative margin on bullet to pull first line back
-  // Bullet widget is 1.5ch, each indent level is 4ch (4 spaces)
-  '.cm-hanging-indent-0': {
-    paddingLeft: '1.5ch',
+  // Simple indentation - bullet widget handles indent, just need padding for wrapped lines
+  '.cm-indent-1': {
+    paddingLeft: '4ch',
   },
-  '.cm-hanging-indent-0 .cm-bullet-widget': {
-    marginLeft: '-1.5ch',
+  '.cm-indent-2': {
+    paddingLeft: '8ch',
   },
-  '.cm-hanging-indent-1': {
-    paddingLeft: '5.5ch',  // 4ch + 1.5ch
+  '.cm-indent-3': {
+    paddingLeft: '12ch',
   },
-  '.cm-hanging-indent-1 .cm-bullet-widget': {
-    marginLeft: '-5.5ch',
+  '.cm-indent-4': {
+    paddingLeft: '16ch',
   },
-  '.cm-hanging-indent-2': {
-    paddingLeft: '9.5ch',  // 8ch + 1.5ch
-  },
-  '.cm-hanging-indent-2 .cm-bullet-widget': {
-    marginLeft: '-9.5ch',
-  },
-  '.cm-hanging-indent-3': {
-    paddingLeft: '13.5ch', // 12ch + 1.5ch
-  },
-  '.cm-hanging-indent-3 .cm-bullet-widget': {
-    marginLeft: '-13.5ch',
-  },
-  '.cm-hanging-indent-4': {
-    paddingLeft: '17.5ch', // 16ch + 1.5ch
-  },
-  '.cm-hanging-indent-4 .cm-bullet-widget': {
-    marginLeft: '-17.5ch',
-  },
-  '.cm-hanging-indent-5': {
-    paddingLeft: '21.5ch', // 20ch + 1.5ch
-  },
-  '.cm-hanging-indent-5 .cm-bullet-widget': {
-    marginLeft: '-21.5ch',
+  '.cm-indent-5': {
+    paddingLeft: '20ch',
   },
   // Block reference styling - minimal background only
   '.cm-block-reference': {

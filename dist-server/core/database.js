@@ -1,37 +1,4 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -95,15 +62,58 @@ exports.upsertTermFrequency = upsertTermFrequency;
 exports.deleteTermFrequency = deleteTermFrequency;
 exports.clearTermFrequency = clearTermFrequency;
 exports.getTagCooccurrences = getTagCooccurrences;
+exports.getTagPrompts = getTagPrompts;
+exports.getTagPromptById = getTagPromptById;
+exports.createTagPrompt = createTagPrompt;
+exports.updateTagPromptRecord = updateTagPromptRecord;
+exports.saveTagPromptResponse = saveTagPromptResponse;
+exports.deleteTagPrompt = deleteTagPrompt;
 const better_sqlite3_1 = __importDefault(require("better-sqlite3"));
-const sqliteVec = __importStar(require("sqlite-vec"));
 const path_1 = __importDefault(require("path"));
 const file_manager_1 = require("./file-manager");
+const migrations_1 = require("./migrations");
 const DB_NAME = 'chynotes.db';
 // Default embedding dimension (mxbai-embed-large uses 1024)
 exports.EMBEDDING_DIMENSION = 1024;
 let db = null;
 let vecExtensionLoaded = false;
+/**
+ * Get the path to the sqlite-vec native extension.
+ * In development, use the node_modules path directly.
+ * In production (packaged app), use the unpacked resources path.
+ *
+ * Note: sqlite-vec-darwin-arm64 is nested inside sqlite-vec/node_modules/
+ */
+function getSqliteVecPath() {
+    const platform = process.platform === 'win32' ? 'windows' : process.platform;
+    const arch = process.arch;
+    const ext = process.platform === 'win32' ? 'dll' : process.platform === 'darwin' ? 'dylib' : 'so';
+    const packageName = `sqlite-vec-${platform}-${arch}`;
+    const filename = `vec0.${ext}`;
+    // Check if we're running in a packaged Electron app
+    // In packaged apps, __dirname will be inside app.asar
+    const isPackaged = __dirname.includes('app.asar');
+    if (isPackaged) {
+        // In packaged app, use the unpacked path
+        // app.asar -> app.asar.unpacked
+        // The native package is nested: sqlite-vec/node_modules/sqlite-vec-darwin-arm64/
+        const unpackedPath = __dirname.replace('app.asar', 'app.asar.unpacked');
+        return path_1.default.join(unpackedPath, '..', '..', 'node_modules', 'sqlite-vec', 'node_modules', packageName, filename);
+    }
+    else {
+        // In development, the package might be at top level or nested
+        const topLevel = path_1.default.join(__dirname, '..', '..', 'node_modules', packageName, filename);
+        const nested = path_1.default.join(__dirname, '..', '..', 'node_modules', 'sqlite-vec', 'node_modules', packageName, filename);
+        // Try nested first (more common with npm), then top level
+        try {
+            require('fs').accessSync(nested);
+            return nested;
+        }
+        catch {
+            return topLevel;
+        }
+    }
+}
 /**
  * Get the database file path
  */
@@ -122,13 +132,16 @@ function initDatabase() {
     db.pragma('journal_mode = WAL');
     // Load sqlite-vec extension for vector search
     if (!vecExtensionLoaded) {
-        sqliteVec.load(db);
+        const vecPath = getSqliteVecPath();
+        db.loadExtension(vecPath);
         vecExtensionLoaded = true;
     }
     // Create tables
     createTables(db);
     // Create vector tables (separate because virtual tables need extension loaded first)
     createVectorTables(db);
+    // Run any pending migrations
+    (0, migrations_1.runMigrations)(db);
     return db;
 }
 /**
@@ -319,18 +332,15 @@ function deleteNote(date) {
 function getOrCreateTag(name) {
     const db = getDatabase();
     const now = Date.now();
-    // Try to get existing tag
-    let tag = db.prepare('SELECT * FROM tags WHERE name = ?').get(name);
-    if (!tag) {
-        // Create new tag
-        const stmt = db.prepare(`
-      INSERT INTO tags (name, created_at)
-      VALUES (?, ?)
-      RETURNING *
-    `);
-        tag = stmt.get(name, now);
-    }
-    return tag;
+    // Use INSERT OR IGNORE to atomically handle concurrent creates.
+    // This avoids the race where two threads both see the tag doesn't exist
+    // and both try to insert, causing a UNIQUE constraint violation.
+    db.prepare(`
+    INSERT OR IGNORE INTO tags (name, created_at)
+    VALUES (?, ?)
+  `).run(name, now);
+    // Tag is guaranteed to exist now - fetch it
+    return db.prepare('SELECT * FROM tags WHERE name = ?').get(name);
 }
 function getTagByName(name) {
     const db = getDatabase();
@@ -445,6 +455,9 @@ function deleteSetting(key) {
     const stmt = db.prepare('DELETE FROM settings WHERE key = ?');
     stmt.run(key);
 }
+// ============================================================================
+// Snapshots Table Operations
+// ============================================================================
 /**
  * Simple hash function for content comparison
  */
@@ -465,24 +478,21 @@ function saveSnapshot(noteDate, content, documentType = 'note') {
     const db = getDatabase();
     const contentHash = hashContent(content);
     const now = Date.now();
-    // Check if last snapshot has same content (for same document type)
-    const lastSnapshot = db.prepare(`
-    SELECT content_hash FROM snapshots
-    WHERE note_date = ? AND document_type = ?
-    ORDER BY created_at DESC
-    LIMIT 1
-  `).get(noteDate, documentType);
-    if (lastSnapshot?.content_hash === contentHash) {
-        // Content unchanged, skip
-        return null;
-    }
-    // Insert new snapshot
+    // Atomic insert-if-changed: only inserts if the hash differs from the most recent snapshot.
+    // This avoids the race where two concurrent calls both see "changed" and both insert.
     const stmt = db.prepare(`
     INSERT INTO snapshots (note_date, content, created_at, content_hash, document_type)
-    VALUES (?, ?, ?, ?, ?)
+    SELECT ?, ?, ?, ?, ?
+    WHERE NOT EXISTS (
+      SELECT 1 FROM snapshots
+      WHERE note_date = ? AND document_type = ? AND content_hash = ?
+      ORDER BY created_at DESC
+      LIMIT 1
+    )
     RETURNING *
   `);
-    return stmt.get(noteDate, content, now, contentHash, documentType);
+    const result = stmt.get(noteDate, content, now, contentHash, documentType, noteDate, documentType, contentHash);
+    return result ?? null;
 }
 /**
  * Get all snapshots for a document, ordered by creation time (newest first)
@@ -607,6 +617,9 @@ function pageExists(name) {
     const stmt = db.prepare('SELECT 1 FROM pages WHERE name = ?');
     return stmt.get(name) !== undefined;
 }
+// ============================================================================
+// Blocks Table Operations
+// ============================================================================
 /**
  * Upsert a block (insert or update)
  */
@@ -637,7 +650,6 @@ function getBlockById(id) {
  * Get a block with all its children (based on indent level)
  */
 function getBlockWithChildren(id) {
-    const db = getDatabase();
     const parent = getBlockById(id);
     if (!parent)
         return [];
@@ -918,4 +930,69 @@ function getTagCooccurrences() {
     GROUP BY bt1.tag_name, bt2.tag_name
     ORDER BY weight DESC
   `).all();
+}
+/**
+ * Get all prompts for a tag
+ */
+function getTagPrompts(tagName) {
+    const db = getDatabase();
+    return db.prepare(`
+    SELECT tp.* FROM tag_prompts tp
+    JOIN tags t ON tp.tag_id = t.id
+    WHERE t.name = ?
+    ORDER BY tp.id ASC
+  `).all(tagName.toLowerCase());
+}
+/**
+ * Get a single prompt by ID
+ */
+function getTagPromptById(id) {
+    const db = getDatabase();
+    return db.prepare('SELECT * FROM tag_prompts WHERE id = ?').get(id);
+}
+/**
+ * Create a new prompt for a tag
+ */
+function createTagPrompt(tagName, name, prompt) {
+    const db = getDatabase();
+    const tag = getOrCreateTag(tagName.toLowerCase());
+    const now = Date.now();
+    const result = db.prepare(`
+    INSERT INTO tag_prompts (tag_id, name, prompt, updated_at)
+    VALUES (?, ?, ?, ?)
+    RETURNING *
+  `).get(tag.id, name, prompt, now);
+    return result;
+}
+/**
+ * Update an existing prompt
+ */
+function updateTagPromptRecord(id, name, prompt) {
+    const db = getDatabase();
+    const now = Date.now();
+    return db.prepare(`
+    UPDATE tag_prompts
+    SET name = ?, prompt = ?, updated_at = ?
+    WHERE id = ?
+    RETURNING *
+  `).get(name, prompt, now, id);
+}
+/**
+ * Save AI response for a prompt
+ */
+function saveTagPromptResponse(id, response) {
+    const db = getDatabase();
+    const now = Date.now();
+    db.prepare(`
+    UPDATE tag_prompts
+    SET response = ?, updated_at = ?
+    WHERE id = ?
+  `).run(response, now, id);
+}
+/**
+ * Delete a prompt
+ */
+function deleteTagPrompt(id) {
+    const db = getDatabase();
+    db.prepare('DELETE FROM tag_prompts WHERE id = ?').run(id);
 }

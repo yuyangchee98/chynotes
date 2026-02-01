@@ -49,8 +49,9 @@ function buildBulletDecorations(view: EditorView): DecorationSet {
 
     if (match) {
       const indentLength = match[1].length
-      const bulletStart = line.from + indentLength
-      const bulletEnd = bulletStart + BULLET_MARKER.length
+      // Replace entire indent + "- " to avoid CSS complexity
+      const bulletStart = line.from
+      const bulletEnd = line.from + indentLength + BULLET_MARKER.length
 
       const indentLevel = Math.floor(indentLength / INDENT_SIZE)
 
@@ -97,8 +98,9 @@ function rebuildChangedBullets(
 
     if (match) {
       const indentLength = match[1].length
-      const bulletStart = line.from + indentLength
-      const bulletEnd = bulletStart + BULLET_MARKER.length
+      // Replace entire indent + "- " to avoid CSS complexity
+      const bulletStart = line.from
+      const bulletEnd = line.from + indentLength + BULLET_MARKER.length
       const indentLevel = Math.floor(indentLength / INDENT_SIZE)
 
       newDecorations.push({
@@ -162,8 +164,8 @@ const bulletDecorator = ViewPlugin.fromClass(
   }
 )
 
-// Build line decorations for hanging indent based on indent level
-function buildHangingIndentDecorations(view: EditorView): DecorationSet {
+// Simple indent decorator - wrapped lines align with bullet, not content
+function buildSimpleIndentDecorations(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>()
   const doc = view.state.doc
 
@@ -174,21 +176,21 @@ function buildHangingIndentDecorations(view: EditorView): DecorationSet {
     if (match) {
       const indentLength = match[1].length
       const indentLevel = Math.floor(indentLength / INDENT_SIZE)
-      const cssLevel = Math.min(indentLevel, 5)
 
-      const decoration = Decoration.line({
-        class: `cm-hanging-indent-${cssLevel}`,
-      })
-
-      builder.add(line.from, line.from, decoration)
+      if (indentLevel > 0) {
+        const cssLevel = Math.min(indentLevel, 5)
+        const decoration = Decoration.line({
+          class: `cm-indent-${cssLevel}`,
+        })
+        builder.add(line.from, line.from, decoration)
+      }
     }
   }
 
   return builder.finish()
 }
 
-// Incrementally rebuild hanging indent decorations only for changed lines
-function rebuildChangedHangingIndents(
+function rebuildChangedIndents(
   view: EditorView,
   changes: ChangeSet,
   existing: DecorationSet
@@ -217,12 +219,14 @@ function rebuildChangedHangingIndents(
     if (match) {
       const indentLength = match[1].length
       const indentLevel = Math.floor(indentLength / INDENT_SIZE)
-      const cssLevel = Math.min(indentLevel, 5)
 
-      newDecorations.push({
-        from: line.from,
-        decoration: Decoration.line({ class: `cm-hanging-indent-${cssLevel}` })
-      })
+      if (indentLevel > 0) {
+        const cssLevel = Math.min(indentLevel, 5)
+        newDecorations.push({
+          from: line.from,
+          decoration: Decoration.line({ class: `cm-indent-${cssLevel}` })
+        })
+      }
     }
   }
 
@@ -248,21 +252,20 @@ function rebuildChangedHangingIndents(
   return builder.finish()
 }
 
-// ViewPlugin to manage hanging indent line decorations
-const hangingIndentDecorator = ViewPlugin.fromClass(
+const simpleIndentDecorator = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet
 
     constructor(view: EditorView) {
-      this.decorations = buildHangingIndentDecorations(view)
+      this.decorations = buildSimpleIndentDecorations(view)
     }
 
     update(update: ViewUpdate) {
       if (update.docChanged) {
         this.decorations = this.decorations.map(update.changes)
-        this.decorations = rebuildChangedHangingIndents(update.view, update.changes, this.decorations)
+        this.decorations = rebuildChangedIndents(update.view, update.changes, this.decorations)
       } else if (update.viewportChanged) {
-        this.decorations = buildHangingIndentDecorations(update.view)
+        this.decorations = buildSimpleIndentDecorations(update.view)
       }
     }
   },
@@ -584,7 +587,7 @@ const pasteHandler = EditorView.domEventHandlers({
 export function outliner() {
   return [
     bulletDecorator,
-    hangingIndentDecorator,
+    simpleIndentDecorator,
     cursorGuard,
     outlinerKeymap,
     ensureBullet,
