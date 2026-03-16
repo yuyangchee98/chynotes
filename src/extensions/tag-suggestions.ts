@@ -59,84 +59,62 @@ export function setCurrentNoteDate(date: string | null): void {
 }
 
 // ============================================================================
-// Dismissed Terms Tracking (one-shot suggestions per line)
+// Dismissed Terms Tracking (persistent session-level)
 // ============================================================================
 
 /**
- * A term that was dismissed by the user on a specific line
+ * Dismissed suggestions keyed by "tag|term" (both lowercased).
+ * Persists across line changes — dismissals survive cursor movement.
+ * Only naturally expires when the term text itself changes (different key).
  */
-interface DismissedTerm {
-  tag: string       // lowercase tag name that was dismissed
-  start: number     // start position within the line (not doc position)
-  end: number       // end position within the line
+let dismissedTerms = new Set<string>()
+
+/**
+ * Count how many distinct times each tag has been dismissed (across different terms).
+ * Used to build the session blacklist.
+ */
+let sessionDismissCount = new Map<string, Set<string>>()
+
+/**
+ * Tags dismissed 3+ times on different terms — suppressed for the entire session.
+ */
+let sessionBlacklist = new Set<string>()
+
+function dismissKey(tag: string, term: string): string {
+  return `${tag.toLowerCase()}|${term.toLowerCase()}`
 }
 
 /**
- * Track dismissed terms per line number
- * Key: line number, Value: array of dismissed terms
- * Terms are dismissed via Escape or by moving to another line without accepting
- */
-let dismissedTerms = new Map<number, DismissedTerm[]>()
-
-/**
- * Mark suggestions as dismissed for their line
+ * Mark suggestions as dismissed
  */
 function markAsDismissed(suggestions: ResolvedSuggestion[]): void {
-  if (suggestions.length === 0) return
-
-  const lineNumber = suggestions[0].lineNumber
-  const existing = dismissedTerms.get(lineNumber) || []
-
   for (const s of suggestions) {
-    // Don't add duplicates
-    if (!existing.some(d => d.tag === s.tag.toLowerCase() && d.start === s.startIndex)) {
-      existing.push({
-        tag: s.tag.toLowerCase(),
-        start: s.startIndex,
-        end: s.endIndex
-      })
+    const key = dismissKey(s.tag, s.term)
+    if (dismissedTerms.has(key)) continue
+
+    dismissedTerms.add(key)
+
+    // Track per-tag dismiss count for session blacklist
+    const tagLower = s.tag.toLowerCase()
+    let terms = sessionDismissCount.get(tagLower)
+    if (!terms) {
+      terms = new Set()
+      sessionDismissCount.set(tagLower, terms)
+    }
+    terms.add(s.term.toLowerCase())
+
+    if (terms.size >= 3) {
+      sessionBlacklist.add(tagLower)
     }
   }
-
-  dismissedTerms.set(lineNumber, existing)
 }
 
 /**
  * Check if a suggestion should be filtered out because it was dismissed
  */
-function isDismissed(lineNumber: number, tag: string, startIndex: number): boolean {
-  const dismissed = dismissedTerms.get(lineNumber)
-  if (!dismissed) return false
-  return dismissed.some(d => d.tag === tag.toLowerCase() && d.start === startIndex)
-}
-
-/**
- * Clear dismissed terms for a line
- */
-function clearDismissedForLine(lineNumber: number): void {
-  dismissedTerms.delete(lineNumber)
-}
-
-/**
- * Remove dismissed terms that overlap with an edited range
- * Called when the document changes to allow re-suggesting edited words
- */
-function clearDismissedInRange(lineNumber: number, editStart: number, editEnd: number): void {
-  const dismissed = dismissedTerms.get(lineNumber)
-  if (!dismissed) return
-
-  // Keep only terms that don't overlap with the edit range
-  const remaining = dismissed.filter(d => {
-    // Check if the dismissed term overlaps with the edit
-    const overlaps = d.start < editEnd && d.end > editStart
-    return !overlaps
-  })
-
-  if (remaining.length === 0) {
-    dismissedTerms.delete(lineNumber)
-  } else {
-    dismissedTerms.set(lineNumber, remaining)
-  }
+function isDismissed(tag: string, term: string): boolean {
+  if (sessionBlacklist.has(tag.toLowerCase())) return true
+  return dismissedTerms.has(dismissKey(tag, term))
 }
 
 // State field to track current suggestions
@@ -708,6 +686,17 @@ function handleTab(view: EditorView): boolean {
     return false // Let Tab do default behavior
   }
 
+  // Don't steal Tab when cursor is in leading whitespace (user wants to indent)
+  const cursor = view.state.selection.main.from
+  const line = view.state.doc.lineAt(cursor)
+  const cursorOffsetInLine = cursor - line.from
+  const textBeforeCursor = line.text.substring(0, cursorOffsetInLine)
+  const earliestSuggestionStart = Math.min(...suggestions.map(s => s.startIndex))
+
+  if (textBeforeCursor.trim() === '' && cursorOffsetInLine < earliestSuggestionStart) {
+    return false // Let Tab do default indentation
+  }
+
   // If correction menu is open, accept selected option
   if (menuState.isOpen && currentMenuOptions.length > 0) {
     const selected = currentMenuOptions[menuState.selectedIndex]
@@ -836,6 +825,8 @@ function debounce<T extends (...args: Parameters<T>) => void>(
 
 function createSuggestionFetcher() {
   let lastCursorLine = -1
+  let lastFetchedText = ''
+  let lastFetchedLine = -1
 
   const fetchSuggestions = debounce(async (view: EditorView, lineNumber: number) => {
     if (!view.dom.isConnected) return
@@ -844,6 +835,10 @@ function createSuggestionFetcher() {
     const { main } = state.selection
     const line = state.doc.lineAt(main.from)
     const lineText = line.text
+
+    // Update fetch cache
+    lastFetchedText = lineText
+    lastFetchedLine = lineNumber
 
     if (lineText.trim().length < 3) {
       hideCorrectionMenu()
@@ -860,9 +855,9 @@ function createSuggestionFetcher() {
         return
       }
 
-      // Filter out dismissed suggestions (one-shot per line)
+      // Filter out dismissed suggestions
       const nonDismissed = suggestions.filter(s =>
-        !isDismissed(lineNumber, s.tag, s.startIndex)
+        !isDismissed(s.tag, s.term)
       )
 
       if (nonDismissed.length === 0) {
@@ -934,32 +929,16 @@ function createSuggestionFetcher() {
         markAsDismissed(currentSuggestions)
       }
 
-      // Clear dismissed terms for the old line (we only track current line)
-      clearDismissedForLine(lastCursorLine)
-
       lastCursorLine = lineNumber
+      lastFetchedText = ''
+      lastFetchedLine = -1
       hideCorrectionMenu()
       update.view.dispatch({ effects: clearSuggestions.of(undefined) })
     }
 
-    // Handle document changes - check if edits affect dismissed terms
-    if (update.docChanged) {
-      update.changes.iterChanges((_fromA, _toA, fromB, toB) => {
-        // Get the line this change is on
-        try {
-          const changeLine = update.state.doc.lineAt(fromB)
-          const changeLineNumber = changeLine.number
-          // Convert document positions to line-relative positions
-          const lineStart = changeLine.from
-          const editStartInLine = fromB - lineStart
-          const editEndInLine = toB - lineStart
-
-          // Clear any dismissed terms that overlap with this edit
-          clearDismissedInRange(changeLineNumber, editStartInLine, editEndInLine)
-        } catch {
-          // Line might not exist after deletion
-        }
-      })
+    // Skip re-fetch if line text hasn't changed (cursor movement only)
+    if (!update.docChanged && line.text === lastFetchedText && lineNumber === lastFetchedLine) {
+      return
     }
 
     fetchSuggestions(update.view, lineNumber)

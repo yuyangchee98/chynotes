@@ -5,6 +5,54 @@ import { queryTermFrequency } from './frequency-index'
 import { generateEmbedding } from './embeddings'
 
 /**
+ * Closed-class (function) words that should never be auto-suggested as tags.
+ * Users can still manually create these as tags — this only suppresses suggestions.
+ */
+const STOPWORDS = new Set([
+  // Articles & Determiners
+  'a', 'an', 'the', 'this', 'that', 'these', 'those', 'some', 'any', 'every',
+  'each', 'all', 'both', 'few', 'many', 'much', 'several', 'enough', 'no',
+  'none', 'another', 'other', 'such',
+  // Pronouns
+  'i', 'me', 'my', 'mine', 'myself', 'you', 'your', 'yours', 'yourself',
+  'yourselves', 'he', 'him', 'his', 'himself', 'she', 'her', 'hers', 'herself',
+  'it', 'its', 'itself', 'we', 'us', 'our', 'ours', 'ourselves', 'they', 'them',
+  'their', 'theirs', 'themselves', 'who', 'whom', 'whose', 'what', 'which',
+  'whoever', 'whatever', 'whichever', 'someone', 'something', 'somebody',
+  'anyone', 'anything', 'anybody', 'everyone', 'everything', 'everybody',
+  'nothing', 'nobody', 'nowhere', 'one', 'ones', 'either', 'neither',
+  // Conjunctions
+  'and', 'but', 'or', 'nor', 'for', 'yet', 'so', 'because', 'since',
+  'although', 'though', 'while', 'whereas', 'whether', 'unless', 'until',
+  'once', 'lest', 'if', 'then', 'than',
+  // Prepositions
+  'about', 'above', 'across', 'after', 'against', 'along', 'amid', 'among',
+  'around', 'at', 'before', 'behind', 'below', 'beneath', 'beside', 'besides',
+  'between', 'beyond', 'by', 'concerning', 'despite', 'down', 'during',
+  'except', 'from', 'in', 'inside', 'into', 'like', 'near', 'of', 'off', 'on',
+  'onto', 'opposite', 'out', 'outside', 'over', 'past', 'per', 'plus',
+  'regarding', 'round', 'through', 'throughout', 'till', 'to', 'toward',
+  'towards', 'under', 'underneath', 'unlike', 'until', 'up', 'upon', 'versus',
+  'via', 'with', 'within', 'without',
+  // Auxiliary & Modal Verbs
+  'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has',
+  'had', 'having', 'do', 'does', 'did', 'doing', 'can', 'could', 'will',
+  'would', 'shall', 'should', 'may', 'might', 'must', 'ought', 'dare', 'need',
+  // Function Adverbs
+  'not', 'never', 'always', 'often', 'sometimes', 'usually', 'rarely',
+  'seldom', 'hardly', 'barely', 'scarcely', 'very', 'really', 'quite',
+  'rather', 'fairly', 'pretty', 'somewhat', 'too', 'also', 'almost', 'already',
+  'just', 'still', 'even', 'only', 'merely', 'ever', 'here', 'there',
+  'everywhere', 'somewhere', 'anywhere', 'now', 'soon', 'later', 'yet',
+  'hence', 'thus', 'therefore', 'however', 'moreover', 'furthermore',
+  'nevertheless', 'nonetheless', 'meanwhile', 'otherwise', 'instead',
+  'thereby', 'ago', 'else', 'elsewhere',
+  // Interjections & Discourse Particles
+  'oh', 'ah', 'hey', 'hmm', 'wow', 'yes', 'no', 'yeah', 'ok', 'okay', 'well',
+  'please', 'thanks',
+])
+
+/**
  * A suggestion for wrapping a term with [[tag]] brackets
  */
 export interface TagSuggestion {
@@ -130,6 +178,9 @@ export function getSuggestionsForBlock(text: string, currentNoteDate?: string): 
     if (isInsideExistingTag(text, token.start, token.end)) continue
 
     const lowerWord = token.word.toLowerCase()
+
+    // Skip closed-class function words (articles, pronouns, prepositions, etc.)
+    if (STOPWORDS.has(lowerWord)) continue
 
     // Check for exact match first
     const exactMatch = tags.find(t => t.name === lowerWord)
